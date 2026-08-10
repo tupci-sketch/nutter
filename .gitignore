@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
+*.jar
+*.war
+*.class
+target/
+
+# Gradle
+.gradle/
+apps/emulator/.gradle/
+apps/emulator/build/
+
+# Go
+apps/launcher/habnutctl
+apps/launcher/habnutctl.exe
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Turbo cache
+.turbo/
+
+# SWF asset packs (never committed — operator-supplied)
+infra/swf/source/
+infra/swf/rebranded/
+infra/swf/previous/
+/var/lib/habnut/
+
+# Playwright
+test-results/
+playwright-report/
+
+# PHPUnit
+apps/cms/.phpunit.result.cache
+
+# Laravel cache
+apps/cms/bootstrap/cache/*.php
+apps/cms/storage/
+
+# Misc
+*.tmp
+*.bak
+*.swp
