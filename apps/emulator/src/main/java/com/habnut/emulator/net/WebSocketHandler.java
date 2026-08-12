@@ -19,14 +19,22 @@ public final class WebSocketHandler extends SimpleChannelInboundHandler<TextWebS
     private final PacketRouter router;
     private final RateLimiter rateLimiter;
     private final MetricsRegistry metrics;
+    private final java.util.function.Consumer<Long> disconnectCallback;
 
     public WebSocketHandler(SessionRegistry sessions, PacketRouter router,
                              RateLimiter rateLimiter, MetricsRegistry metrics) {
+        this(sessions, router, rateLimiter, metrics, uid -> {});
+    }
+
+    public WebSocketHandler(SessionRegistry sessions, PacketRouter router,
+                             RateLimiter rateLimiter, MetricsRegistry metrics,
+                             java.util.function.Consumer<Long> disconnectCallback) {
         super(true);
-        this.sessions    = sessions;
-        this.router      = router;
-        this.rateLimiter = rateLimiter;
-        this.metrics     = metrics;
+        this.sessions            = sessions;
+        this.router              = router;
+        this.rateLimiter         = rateLimiter;
+        this.metrics             = metrics;
+        this.disconnectCallback  = disconnectCallback;
     }
 
     @Override
@@ -40,9 +48,11 @@ public final class WebSocketHandler extends SimpleChannelInboundHandler<TextWebS
     public void channelInactive(ChannelHandlerContext ctx) {
         WebSocketSession session = SessionRegistry.fromChannel(ctx.channel());
         if (session != null) {
+            Long userId = session.getUserId();
             sessions.remove(session);
             rateLimiter.remove(session.sessionId);
             metrics.setConnectedPlayers(sessions.connectedCount());
+            if (userId != null) disconnectCallback.accept(userId);
             log.debug("Client disconnected: session={}", session.sessionId);
         }
     }

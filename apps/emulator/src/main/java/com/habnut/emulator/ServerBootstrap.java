@@ -9,6 +9,7 @@ import com.habnut.emulator.db.FlywayRunner;
 import com.habnut.emulator.metrics.MetricsRegistry;
 import com.habnut.emulator.net.*;
 import com.habnut.emulator.redis.RedisManager;
+import com.habnut.emulator.room.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +32,8 @@ public final class ServerBootstrap {
     private HealthServer healthServer;
     private NettyServer nettyServer;
     private ScheduledExecutorService metricsPoller;
+    private RoomManager roomManager;
+    private RoomHandler roomHandler;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final CountDownLatch shutdownLatch = new CountDownLatch(1);
@@ -68,10 +71,11 @@ public final class ServerBootstrap {
         ObjectMapper mapper = new ObjectMapper()
             .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
 
-        PacketRouter router = buildRouter(mapper);
-        RateLimiter rateLimiter = new RateLimiter();
+        RateLimiter networkLimiter = new RateLimiter();
+        PacketRouter router = buildRouter(mapper, networkLimiter);
 
-        WebSocketHandler handler = new WebSocketHandler(sessions, router, rateLimiter, metrics);
+        WebSocketHandler handler = new WebSocketHandler(sessions, router, networkLimiter, metrics,
+            uid -> { if (roomHandler != null) roomHandler.onSessionDisconnect(uid); });
 
         nettyServer = new NettyServer(config, () -> handler);
         nettyServer.start();
@@ -88,7 +92,7 @@ public final class ServerBootstrap {
         log.info("=== Habnut Emulator ready ===");
     }
 
-    private PacketRouter buildRouter(ObjectMapper mapper) {
+    private PacketRouter buildRouter(ObjectMapper mapper, RateLimiter networkLimiter) {
         PacketRouter router = new PacketRouter(mapper);
 
         // System ping for basic connectivity checks
@@ -104,6 +108,15 @@ public final class ServerBootstrap {
 
         new AuthHandler(ticketService, userRepo, banService, machineIdService,
             sessions, router, metrics, redis).register(router);
+
+        // Room domain (Phase 5/6)
+        RoomRepository roomRepo     = new RoomRepository(db);
+        RoomModelRepository modelRepo = new RoomModelRepository(db);
+        modelRepo.preloadAll();
+        roomManager = new RoomManager(roomRepo, modelRepo, router, sessions, metrics);
+        roomHandler = new RoomHandler(roomManager, roomRepo, modelRepo, userRepo,
+            router, metrics, networkLimiter);
+        roomHandler.register(router);
 
         return router;
     }
@@ -135,6 +148,7 @@ public final class ServerBootstrap {
             sessions.all().forEach(WebSocketSession::close);
         }
 
+        if (roomManager != null) roomManager.close();
         if (redis != null) redis.close();
         if (db != null) db.close();
 

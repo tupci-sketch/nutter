@@ -60,6 +60,7 @@ public final class PacketType {
     public static final String ROOM_NAV_POPULAR_RESULT = "room.nav.popular.result";
     public static final String ROOM_NAV_MY_ROOMS_RESULT = "room.nav.my_rooms.result";
     public static final String ROOM_NAV_FAVORITES_RESULT = "room.nav.favorites.result";
+    public static final String ROOM_CREATED = "room.created";
 
     // Furniture
     public static final String FURNI_PLACE = "furni.place";
