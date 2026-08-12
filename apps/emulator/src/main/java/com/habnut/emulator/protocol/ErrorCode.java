@@ -7,6 +7,8 @@ public final class ErrorCode {
     public static final String AUTH_TICKET_EXPIRED = "auth.ticket_expired";
     public static final String AUTH_BANNED = "auth.banned";
     public static final String AUTH_ALREADY_CONNECTED = "auth.already_connected";
+    public static final String AUTH_ALREADY_LOGGED_IN = "auth.already_logged_in";
+    public static final String AUTH_NOT_AUTHENTICATED = "auth.not_authenticated";
     public static final String AUTH_INVALID_CREDENTIALS = "auth.invalid_credentials";
     public static final String AUTH_EMAIL_NOT_VERIFIED = "auth.email_not_verified";
     public static final String AUTH_2FA_REQUIRED = "auth.2fa_required";

@@ -2,6 +2,7 @@ package com.habnut.emulator;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.habnut.emulator.auth.*;
 import com.habnut.emulator.config.ServerConfig;
 import com.habnut.emulator.db.DatabaseManager;
 import com.habnut.emulator.db.FlywayRunner;
@@ -89,11 +90,21 @@ public final class ServerBootstrap {
 
     private PacketRouter buildRouter(ObjectMapper mapper) {
         PacketRouter router = new PacketRouter(mapper);
-        // Domain handlers are registered in Phase 4+ as each subsystem is added.
-        // System ping for basic connectivity checks.
-        router.register("system.ping", (session, payload) -> {
-            session.send(router.buildPacket("system.pong", java.util.Map.of("ts", System.currentTimeMillis())));
-        });
+
+        // System ping for basic connectivity checks
+        router.register("system.ping", (session, payload) ->
+            session.send(router.buildPacket("system.pong",
+                java.util.Map.of("ts", System.currentTimeMillis()))));
+
+        // Auth domain (Phase 4)
+        SessionTicketService ticketService = new SessionTicketService(redis, config);
+        UserRepository userRepo = new UserRepository(db);
+        BanService banService = new BanService(db);
+        MachineIdService machineIdService = new MachineIdService(db);
+
+        new AuthHandler(ticketService, userRepo, banService, machineIdService,
+            sessions, router, metrics, redis).register(router);
+
         return router;
     }
 
