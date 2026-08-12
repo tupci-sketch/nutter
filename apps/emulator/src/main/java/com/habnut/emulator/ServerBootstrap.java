@@ -9,6 +9,7 @@ import com.habnut.emulator.db.FlywayRunner;
 import com.habnut.emulator.metrics.MetricsRegistry;
 import com.habnut.emulator.net.*;
 import com.habnut.emulator.redis.RedisManager;
+import com.habnut.emulator.furni.*;
 import com.habnut.emulator.room.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,6 +118,12 @@ public final class ServerBootstrap {
         roomHandler = new RoomHandler(roomManager, roomRepo, modelRepo, userRepo,
             router, metrics, networkLimiter);
         roomHandler.register(router);
+
+        // Furniture domain (Phase 7)
+        FurniBaseRepository furniBaseRepo = new FurniBaseRepository(db);
+        furniBaseRepo.preloadAll();
+        FurniHandler furniHandler = new FurniHandler(roomManager, furniBaseRepo, db, router, networkLimiter);
+        furniHandler.register(router);
 
         return router;
     }
