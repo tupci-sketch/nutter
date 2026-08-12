@@ -27,6 +27,7 @@ public final class ErrorCode {
     public static final String FURNI_NOT_IN_INVENTORY = "furni.not_in_inventory";
     public static final String FURNI_STACK_LIMIT = "furni.stack_limit";
 
+    public static final String ECO_INSUFFICIENT_BALANCE = "eco.insufficient_balance";
     public static final String ECO_INSUFFICIENT_CREDITS = "eco.insufficient_credits";
     public static final String ECO_INSUFFICIENT_DIAMONDS = "eco.insufficient_diamonds";
     public static final String ECO_IDEMPOTENCY_CONFLICT = "eco.idempotency_conflict";
