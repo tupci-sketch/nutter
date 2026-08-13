@@ -13,6 +13,7 @@ import com.habnut.emulator.redis.RedisManager;
 import com.habnut.emulator.economy.*;
 import com.habnut.emulator.furni.*;
 import com.habnut.emulator.room.*;
+import com.habnut.emulator.social.*;
 import com.habnut.emulator.trade.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -142,6 +143,13 @@ public final class ServerBootstrap {
         // Marketplace domain (Phase 9)
         MarketplaceService marketplaceService = new MarketplaceService(db, txService);
         new MarketplaceHandler(marketplaceService, router, networkLimiter).register(router);
+
+        // Social domain (Phase 10)
+        FriendService  friendService  = new FriendService(db);
+        MessageService messageService = new MessageService(db);
+        GroupService   groupService   = new GroupService(db);
+        new SocialHandler(friendService, messageService, groupService, sessions, router)
+            .register(router);
 
         return router;
     }
