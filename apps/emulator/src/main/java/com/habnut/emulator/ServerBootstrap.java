@@ -13,6 +13,7 @@ import com.habnut.emulator.redis.RedisManager;
 import com.habnut.emulator.economy.*;
 import com.habnut.emulator.furni.*;
 import com.habnut.emulator.room.*;
+import com.habnut.emulator.progression.*;
 import com.habnut.emulator.social.*;
 import com.habnut.emulator.trade.*;
 import org.slf4j.Logger;
@@ -149,6 +150,14 @@ public final class ServerBootstrap {
         MessageService messageService = new MessageService(db);
         GroupService   groupService   = new GroupService(db);
         new SocialHandler(friendService, messageService, groupService, sessions, router)
+            .register(router);
+
+        // Progression domain (Phase 11)
+        BadgeService       badgeService   = new BadgeService(db);
+        AchievementService achService     = new AchievementService(db, badgeService);
+        QuestService       questService   = new QuestService(db);
+        ProfileService     profileService = new ProfileService(db);
+        new ProgressionHandler(achService, questService, badgeService, profileService, router)
             .register(router);
 
         return router;
