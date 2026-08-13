@@ -146,7 +146,7 @@ public final class AuthHandler {
         }
         String targetWorld = payload.path("worldId").asText(null);
         if (targetWorld == null || targetWorld.isBlank()) {
-            sendError(session, ErrorCode.GENERIC_INVALID_PACKET, "Missing worldId");
+            sendError(session, ErrorCode.GENERIC_INVALID_PAYLOAD, "Missing worldId");
             return;
         }
 

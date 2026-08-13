@@ -17,6 +17,7 @@ import com.habnut.emulator.progression.*;
 import com.habnut.emulator.social.*;
 import com.habnut.emulator.trade.*;
 import com.habnut.emulator.wired.*;
+import com.habnut.emulator.game.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +42,7 @@ public final class ServerBootstrap {
     private ScheduledExecutorService metricsPoller;
     private RoomManager roomManager;
     private RoomHandler roomHandler;
+    private GameEngine  gameEngine;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final CountDownLatch shutdownLatch = new CountDownLatch(1);
@@ -165,6 +167,14 @@ public final class ServerBootstrap {
         WiredEngine wiredEngine = new WiredEngine(db, sessions, router);
         new WiredHandler(wiredEngine, roomManager, router).register(router);
 
+        // Game engine domain (Phase 13)
+        gameEngine = new GameEngine(db, sessions, router);
+        gameEngine.start();
+        TournamentService tournamentService = new TournamentService(db);
+        MatchmakingQueue matchmakingQueue   = new MatchmakingQueue(gameEngine, sessions, router);
+        new GameHandler(gameEngine, tournamentService, matchmakingQueue, sessions, router)
+            .register(router);
+
         return router;
     }
 
@@ -195,6 +205,7 @@ public final class ServerBootstrap {
             sessions.all().forEach(WebSocketSession::close);
         }
 
+        if (gameEngine  != null) gameEngine.stop();
         if (roomManager != null) roomManager.close();
         if (redis != null) redis.close();
         if (db != null) db.close();

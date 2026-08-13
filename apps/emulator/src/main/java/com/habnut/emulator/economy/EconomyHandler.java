@@ -107,7 +107,7 @@ public final class EconomyHandler {
 
         long userId = session.getUserId();
         long itemId = payload.path("itemId").asLong(-1);
-        if (itemId < 1) { sendError(session, ErrorCode.GENERIC_INVALID_PACKET, "Invalid itemId"); return; }
+        if (itemId < 1) { sendError(session, ErrorCode.GENERIC_INVALID_PAYLOAD, "Invalid itemId"); return; }
 
         int rank = rankForSession(session);
         CatalogueService.PurchaseResult result = catalogue.purchase(userId, itemId, rank);

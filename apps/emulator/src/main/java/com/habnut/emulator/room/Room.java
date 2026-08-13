@@ -117,14 +117,14 @@ public final class Room {
     public List<Map<String, Object>> getEntityState() {
         return entities.values().stream().map(e -> {
             Position p = e.getPosition();
-            return (Map<String, Object>) Map.of(
-                "instanceId",   e.instanceId,
-                "type",         e.type.name().toLowerCase(),
-                "sourceId",     e.sourceId,
-                "name",         e.name,
-                "figureString", e.figureString,
-                "x", p.x(), "y", p.y(), "z", p.z(), "rotation", p.rotation()
-            );
+            Map<String, Object> m = new java.util.HashMap<>();
+            m.put("instanceId",   e.instanceId);
+            m.put("type",         e.type.name().toLowerCase());
+            m.put("sourceId",     e.sourceId);
+            m.put("name",         e.name);
+            m.put("figureString", e.figureString);
+            m.put("x", p.x()); m.put("y", p.y()); m.put("z", p.z()); m.put("rotation", p.rotation());
+            return m;
         }).collect(Collectors.toList());
     }
 

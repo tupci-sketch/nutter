@@ -36,7 +36,7 @@ public final class PacketRouter {
         try {
             root = mapper.readTree(raw);
         } catch (Exception e) {
-            sendError(session, null, ErrorCode.GENERIC_INVALID_PACKET, "Malformed JSON");
+            sendError(session, null, ErrorCode.GENERIC_INVALID_PAYLOAD, "Malformed JSON");
             return;
         }
 
@@ -45,14 +45,14 @@ public final class PacketRouter {
         JsonNode payload = root.path("payload");
 
         if (type == null || type.isBlank()) {
-            sendError(session, id, ErrorCode.GENERIC_INVALID_PACKET, "Missing packet type");
+            sendError(session, id, ErrorCode.GENERIC_INVALID_PAYLOAD, "Missing packet type");
             return;
         }
 
         Handler handler = handlers.get(type);
         if (handler == null) {
             log.warn("No handler for packet type '{}' from session {}", type, session.sessionId);
-            sendError(session, id, ErrorCode.GENERIC_INVALID_PACKET, "Unknown packet type: " + type);
+            sendError(session, id, ErrorCode.GENERIC_INVALID_PAYLOAD, "Unknown packet type: " + type);
             return;
         }
 
@@ -60,7 +60,7 @@ public final class PacketRouter {
             handler.handle(session, payload);
         } catch (Exception e) {
             log.error("Error handling packet type '{}' from session {}", type, session.sessionId, e);
-            sendError(session, id, ErrorCode.GENERIC_SERVER_ERROR, "Internal server error");
+            sendError(session, id, ErrorCode.GENERIC_INTERNAL_ERROR, "Internal server error");
         }
     }
 

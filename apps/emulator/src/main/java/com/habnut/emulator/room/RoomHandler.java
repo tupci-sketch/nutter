@@ -93,7 +93,7 @@ public final class RoomHandler {
         }
 
         UserRepository.UserRow user = userRepo.findById(userId);
-        if (user == null) { sendError(session, ErrorCode.GENERIC_SERVER_ERROR, "User not found"); return; }
+        if (user == null) { sendError(session, ErrorCode.GENERIC_INTERNAL_ERROR, "User not found"); return; }
 
         RoomModel model = room.getModel();
         Position spawn  = new Position(model.doorX(), model.doorY(),
@@ -239,12 +239,12 @@ public final class RoomHandler {
         int maxV      = Math.min(50, Math.max(1, payload.path("maxVisitors").asInt(25)));
 
         if (name.isBlank() || name.length() > 64) {
-            sendError(session, ErrorCode.GENERIC_INVALID_PACKET, "Invalid room name");
+            sendError(session, ErrorCode.GENERIC_INVALID_PAYLOAD, "Invalid room name");
             return;
         }
 
         if (modelRepo.find(model).isEmpty()) {
-            sendError(session, ErrorCode.GENERIC_INVALID_PACKET, "Invalid model");
+            sendError(session, ErrorCode.GENERIC_INVALID_PAYLOAD, "Invalid model");
             return;
         }
 
@@ -254,7 +254,7 @@ public final class RoomHandler {
                 Map.of("roomId", roomId, "name", name)));
         } catch (Exception e) {
             log.error("Room create failed for user {}", userId, e);
-            sendError(session, ErrorCode.GENERIC_SERVER_ERROR, "Could not create room");
+            sendError(session, ErrorCode.GENERIC_INTERNAL_ERROR, "Could not create room");
         }
     }
 

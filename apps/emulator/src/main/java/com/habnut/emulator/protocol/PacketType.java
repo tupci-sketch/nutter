@@ -204,7 +204,13 @@ public final class PacketType {
     public static final String GAME_BATTLEBALL_TILE_CLAIMED = "game.battleball.tile.claimed";
     public static final String GAME_FREEZE_STATE = "game.freeze.state";
     public static final String GAME_FREEZE_PLAYER_FROZEN = "game.freeze.player.frozen";
-    public static final String GAME_LEADERBOARD = "game.leaderboard";
+    public static final String GAME_LEADERBOARD    = "game.leaderboard";
+    public static final String GAME_STATE_CHANGE   = "game.state.change";
+    public static final String GAME_EVENT          = "game.event";
+    public static final String GAME_END            = "game.end";
+    public static final String GAME_MATCHMAKING_QUEUED  = "game.matchmaking.queued";
+    public static final String GAME_MATCHMAKING_MATCHED = "game.matchmaking.matched";
+    public static final String GAME_MATCHMAKING_CANCEL  = "game.matchmaking.cancel";
 
     // Tournament
     public static final String TRN_LIST = "tournament.list";

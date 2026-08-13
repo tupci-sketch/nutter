@@ -85,7 +85,7 @@ public final class FurniHandler {
             room.broadcast(PacketType.FURNI_PLACED, floorItemMap(item, newId));
         } catch (Exception e) {
             log.warn("Place floor furni failed: userId={} roomId={}", userId, roomId, e);
-            sendError(session, ErrorCode.GENERIC_SERVER_ERROR, "Placement failed");
+            sendError(session, ErrorCode.GENERIC_INTERNAL_ERROR, "Placement failed");
         }
     }
 
@@ -111,7 +111,7 @@ public final class FurniHandler {
             room.broadcast(PacketType.FURNI_MOVED, Map.of("itemId", itemId, "x", x, "y", y, "z", z, "rotation", rot));
         } catch (Exception e) {
             log.warn("Move furni failed itemId={}", itemId, e);
-            sendError(session, ErrorCode.GENERIC_SERVER_ERROR, "Move failed");
+            sendError(session, ErrorCode.GENERIC_INTERNAL_ERROR, "Move failed");
         }
     }
 
@@ -163,7 +163,7 @@ public final class FurniHandler {
                     Map.of("itemId", itemId, "inventoryId", invId)));
             } catch (Exception e) {
                 log.warn("Pickup furni failed itemId={}", itemId, e);
-                sendError(session, ErrorCode.GENERIC_SERVER_ERROR, "Pickup failed");
+                sendError(session, ErrorCode.GENERIC_INTERNAL_ERROR, "Pickup failed");
             }
         });
     }
@@ -207,7 +207,7 @@ public final class FurniHandler {
                 Map.of("baseId", baseId, "wallPosition", pos, "ownerId", userId));
         } catch (Exception e) {
             log.warn("Wall place failed userId={}", userId, e);
-            sendError(session, ErrorCode.GENERIC_SERVER_ERROR, "Placement failed");
+            sendError(session, ErrorCode.GENERIC_INTERNAL_ERROR, "Placement failed");
         }
     }
 
