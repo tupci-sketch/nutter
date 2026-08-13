@@ -345,6 +345,25 @@ public final class PacketType {
     public static final String MOD_USER_INFO_RESULT = "mod.user.info.result";
     public static final String MOD_CHAT_LOGS_RESULT = "mod.chat.logs.result";
 
+    // Camera / Photos
+    public static final String CAM_TAKE     = "camera.take";
+    public static final String CAM_PURCHASE = "camera.purchase";
+    public static final String CAM_PREVIEW  = "camera.preview";
+    public static final String CAM_LIST     = "camera.list";
+    public static final String CAM_RESULT   = "camera.result";
+    public static final String CAM_PHOTO_LIST_RESULT = "camera.photo.list.result";
+    public static final String CAM_PHOTO_DELETED     = "camera.photo.deleted";
+    public static final String CAM_DELETE   = "camera.delete";
+
+    // Sound
+    public static final String SND_PLAYLIST_GET    = "sound.playlist.get";
+    public static final String SND_PLAYLIST_SET    = "sound.playlist.set";
+    public static final String SND_TRACK_ADD       = "sound.track.add";
+    public static final String SND_TRACK_REMOVE    = "sound.track.remove";
+    public static final String SND_TRACK_REORDER   = "sound.track.reorder";
+    public static final String SND_PLAYLIST_RESULT = "sound.playlist.result";
+    public static final String SND_NOW_PLAYING     = "sound.now_playing";
+
     // Staff
     public static final String STAFF_COMMAND = "staff.command";
     public static final String STAFF_OVERLAY_REQUEST = "staff.overlay.request";

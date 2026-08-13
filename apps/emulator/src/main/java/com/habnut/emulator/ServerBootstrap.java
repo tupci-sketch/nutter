@@ -18,6 +18,10 @@ import com.habnut.emulator.social.*;
 import com.habnut.emulator.trade.*;
 import com.habnut.emulator.wired.*;
 import com.habnut.emulator.game.*;
+import com.habnut.emulator.pet.*;
+import com.habnut.emulator.bot.*;
+import com.habnut.emulator.camera.*;
+import com.habnut.emulator.sound.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -174,6 +178,20 @@ public final class ServerBootstrap {
         MatchmakingQueue matchmakingQueue   = new MatchmakingQueue(gameEngine, sessions, router);
         new GameHandler(gameEngine, tournamentService, matchmakingQueue, sessions, router)
             .register(router);
+
+        // Pets, Bots, Camera, Sound (Phase 14)
+        PetService  petService  = new PetService(db);
+        PetAI       petAI       = new PetAI(sessions, router);
+        new PetHandler(petService, petAI, roomManager, sessions, router).register(router);
+
+        BotService  botService  = new BotService(db);
+        new BotHandler(botService, roomManager, sessions, router).register(router);
+
+        CameraService cameraService  = new CameraService(db);
+        new CameraHandler(cameraService, txService, router).register(router);
+
+        SoundService  soundService = new SoundService(db);
+        new SoundHandler(soundService, roomManager, sessions, router).register(router);
 
         return router;
     }
