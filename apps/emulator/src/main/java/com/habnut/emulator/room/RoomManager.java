@@ -74,6 +74,17 @@ public final class RoomManager implements AutoCloseable {
         return loaded.size();
     }
 
+    // Map userId → roomId for fast reverse lookup
+    private final ConcurrentHashMap<Long, Long> userToRoom = new ConcurrentHashMap<>();
+
+    public void trackUserEnter(long userId, long roomId) { userToRoom.put(userId, roomId); }
+    public void trackUserLeave(long userId)              { userToRoom.remove(userId); }
+
+    public Optional<Room> getRoomForUser(long userId) {
+        Long roomId = userToRoom.get(userId);
+        return roomId == null ? Optional.empty() : get(roomId);
+    }
+
     @Override
     public void close() {
         scheduler.shutdownNow();

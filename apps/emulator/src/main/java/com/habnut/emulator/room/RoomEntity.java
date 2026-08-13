@@ -1,6 +1,7 @@
 package com.habnut.emulator.room;
 
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -23,6 +24,8 @@ public final class RoomEntity {
     private volatile boolean sitting = false;
     private volatile boolean laying  = false;
     private volatile String status   = "";
+    private volatile String team     = null;
+    private final Map<String, String> statusMap = new ConcurrentHashMap<>();
 
     public RoomEntity(Type type, long sourceId, String name,
                       String figureString, Position spawn) {
@@ -55,8 +58,18 @@ public final class RoomEntity {
     public boolean isLaying() { return laying; }
 
     public String getStatus() { return status; }
-
     public void setStatus(String s) { this.status = s; }
+
+    public void setStatus(String key, String value) { statusMap.put(key, value); }
+    public void clearStatus(String key) { statusMap.remove(key); }
+    public Map<String, String> getStatusMap() { return Collections.unmodifiableMap(statusMap); }
+
+    public String getTeam() { return team; }
+    public void setTeam(String team) { this.team = team; }
+
+    public long getUserId() { return sourceId; }
+
+    public void clearPath() { walkPath = List.of(); walkIndex = 0; walking = false; }
 
     public int[] nextWalkStep() {
         if (!walking || walkIndex >= walkPath.size()) {

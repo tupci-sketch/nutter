@@ -16,6 +16,7 @@ import com.habnut.emulator.room.*;
 import com.habnut.emulator.progression.*;
 import com.habnut.emulator.social.*;
 import com.habnut.emulator.trade.*;
+import com.habnut.emulator.wired.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -159,6 +160,10 @@ public final class ServerBootstrap {
         ProfileService     profileService = new ProfileService(db);
         new ProgressionHandler(achService, questService, badgeService, profileService, router)
             .register(router);
+
+        // Wired 2.0 domain (Phase 12)
+        WiredEngine wiredEngine = new WiredEngine(db, sessions, router);
+        new WiredHandler(wiredEngine, roomManager, router).register(router);
 
         return router;
     }
