@@ -22,6 +22,7 @@ import com.habnut.emulator.pet.*;
 import com.habnut.emulator.bot.*;
 import com.habnut.emulator.camera.*;
 import com.habnut.emulator.sound.*;
+import com.habnut.emulator.moderation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -192,6 +193,18 @@ public final class ServerBootstrap {
 
         SoundService  soundService = new SoundService(db);
         new SoundHandler(soundService, roomManager, sessions, router).register(router);
+
+        // Moderation and Staff (Phase 15)
+        AuditService        auditService  = new AuditService(db);
+        ChatLogService      chatLogService = new ChatLogService(db);
+        ModerationService   modService    = new ModerationService(db, userRepo);
+        WordFilter          wordFilter    = new WordFilter(db);
+        StaffCommandDispatcher commandDisp = new StaffCommandDispatcher(
+            modService, userRepo, roomManager, sessions, auditService, router);
+        new ModerationHandler(modService, chatLogService, userRepo, roomManager,
+            sessions, auditService, router).register(router);
+        new StaffHandler(commandDisp, modService, userRepo, roomManager,
+            sessions, auditService, router).register(router);
 
         return router;
     }

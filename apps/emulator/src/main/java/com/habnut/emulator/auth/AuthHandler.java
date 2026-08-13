@@ -99,7 +99,7 @@ public final class AuthHandler {
         });
 
         session.authenticate(user.id(), claim.worldId());
-        sessions.onAuthenticated(session, user.id());
+        sessions.onAuthenticated(session, user.id(), user.rank());
 
         redis.sadd(RedisManager.KEY_ONLINE, String.valueOf(user.id()));
         users.updateLastLogin(user.id(), ip);

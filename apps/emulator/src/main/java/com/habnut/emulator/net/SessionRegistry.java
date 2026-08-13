@@ -6,8 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public final class SessionRegistry {
 
@@ -18,6 +20,7 @@ public final class SessionRegistry {
 
     private final ConcurrentHashMap<Long, WebSocketSession> bySessionId = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, WebSocketSession> byUserId    = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Integer>          userRanks   = new ConcurrentHashMap<>();
 
     public WebSocketSession register(Channel channel) {
         WebSocketSession session = new WebSocketSession(channel);
@@ -31,10 +34,18 @@ public final class SessionRegistry {
         byUserId.put(userId, session);
     }
 
+    public void onAuthenticated(WebSocketSession session, long userId, int rank) {
+        byUserId.put(userId, session);
+        userRanks.put(userId, rank);
+    }
+
     public void remove(WebSocketSession session) {
         bySessionId.remove(session.sessionId);
         Long uid = session.getUserId();
-        if (uid != null) byUserId.remove(uid, session);
+        if (uid != null) {
+            byUserId.remove(uid, session);
+            userRanks.remove(uid);
+        }
         log.debug("Session removed: id={}", session.sessionId);
     }
 
@@ -56,6 +67,14 @@ public final class SessionRegistry {
 
     public int authenticatedCount() {
         return byUserId.size();
+    }
+
+    public List<WebSocketSession> allStaff(int minRank) {
+        return userRanks.entrySet().stream()
+            .filter(e -> e.getValue() >= minRank)
+            .map(e -> byUserId.get(e.getKey()))
+            .filter(s -> s != null)
+            .collect(Collectors.toList());
     }
 
     public static WebSocketSession fromChannel(Channel channel) {
