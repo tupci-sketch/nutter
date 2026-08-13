@@ -44,7 +44,7 @@ public final class SoundHandler {
             SoundService.Playlist playlist = soundService.getPlaylist(roomId);
             session.send(router.buildPacket(PacketType.SND_PLAYLIST_RESULT, Map.of(
                 "roomId", roomId,
-                "currentTrack", playlist.currentTrackIndex(),
+                "currentTrack", playlist.currentTrackIdx(),
                 "tracks", playlist.tracks().stream().map(this::buildTrackPayload)
                     .collect(Collectors.toList())
             )));
@@ -117,7 +117,7 @@ public final class SoundHandler {
         SoundService.Playlist playlist = soundService.getPlaylist(roomId);
         String json = router.buildPacket(PacketType.SND_PLAYLIST_RESULT, Map.of(
             "roomId", roomId,
-            "currentTrack", playlist.currentTrackIndex(),
+            "currentTrack", playlist.currentTrackIdx(),
             "tracks", playlist.tracks().stream().map(this::buildTrackPayload)
                 .collect(Collectors.toList())
         ));
@@ -126,8 +126,8 @@ public final class SoundHandler {
     }
 
     private Map<String, Object> buildTrackPayload(SoundService.Track track) {
-        return Map.of("id", track.id(), "title", track.title(), "artist", track.artist(),
-            "duration", track.durationSeconds(), "sourceKey", track.sourceKey());
+        return Map.of("id", track.id(), "name", track.name(), "artist", track.artist(),
+            "durationMs", track.durationMs(), "fileUrl", track.fileUrl());
     }
 
     private void sendError(WebSocketSession session, String reason) {

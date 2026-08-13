@@ -23,6 +23,7 @@ import com.habnut.emulator.bot.*;
 import com.habnut.emulator.camera.*;
 import com.habnut.emulator.sound.*;
 import com.habnut.emulator.moderation.*;
+import com.habnut.emulator.events.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -205,6 +206,13 @@ public final class ServerBootstrap {
             sessions, auditService, router).register(router);
         new StaffHandler(commandDisp, modService, userRepo, roomManager,
             sessions, auditService, router).register(router);
+
+        // Events, Competitions, Seasons (Phase 16)
+        EventService       eventService   = new EventService(db);
+        CompetitionService compService    = new CompetitionService(db);
+        SeasonService      seasonService  = new SeasonService(db);
+        new EventHandler(eventService, compService, seasonService, userRepo,
+            sessions, router).register(router);
 
         return router;
     }

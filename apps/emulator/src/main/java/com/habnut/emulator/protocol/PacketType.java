@@ -390,4 +390,38 @@ public final class PacketType {
     public static final String SYSTEM_SERVER_RESTART = "system.server.restart";
     public static final String SYSTEM_CURRENCY_UPDATE = "system.currency.update";
     public static final String SYSTEM_FEATURE_FLAGS_RESULT = "system.feature_flags.result";
+
+    // Events (Phase 16)
+    public static final String EVT_LIST              = "event.list";
+    public static final String EVT_LIST_RESULT       = "event.list.result";
+    public static final String EVT_INFO              = "event.info";
+    public static final String EVT_INFO_RESULT       = "event.info.result";
+    public static final String EVT_CREATE            = "event.create";
+    public static final String EVT_CREATED           = "event.created";
+    public static final String EVT_JOIN              = "event.join";
+    public static final String EVT_LEAVE             = "event.leave";
+    public static final String EVT_STARTED           = "event.started";
+    public static final String EVT_ENDED             = "event.ended";
+
+    // Competitions (Phase 16)
+    public static final String CMP_LIST              = "competition.list";
+    public static final String CMP_LIST_RESULT       = "competition.list.result";
+    public static final String CMP_INFO              = "competition.info";
+    public static final String CMP_INFO_RESULT       = "competition.info.result";
+    public static final String CMP_REGISTER          = "competition.register";
+    public static final String CMP_SCORE_SUBMIT      = "competition.score.submit";
+    public static final String CMP_LEADERBOARD       = "competition.leaderboard";
+    public static final String CMP_LEADERBOARD_RESULT= "competition.leaderboard.result";
+    public static final String CMP_FINALISED         = "competition.finalised";
+
+    // Seasons (Phase 16)
+    public static final String SEA_CURRENT           = "season.current";
+    public static final String SEA_CURRENT_RESULT    = "season.current.result";
+    public static final String SEA_PROGRESS          = "season.progress";
+    public static final String SEA_PROGRESS_RESULT   = "season.progress.result";
+    public static final String SEA_LEADERBOARD       = "season.leaderboard";
+    public static final String SEA_LEADERBOARD_RESULT= "season.leaderboard.result";
+    public static final String SEA_CLAIM_REWARDS     = "season.claim.rewards";
+    public static final String SEA_REWARDS_CLAIMED   = "season.rewards.claimed";
+    public static final String SEA_CHANGED           = "season.changed";
 }
