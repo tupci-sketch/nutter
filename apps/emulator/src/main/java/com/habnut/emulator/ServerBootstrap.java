@@ -24,6 +24,7 @@ import com.habnut.emulator.camera.*;
 import com.habnut.emulator.sound.*;
 import com.habnut.emulator.moderation.*;
 import com.habnut.emulator.events.*;
+import com.habnut.emulator.garden.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -213,6 +214,10 @@ public final class ServerBootstrap {
         SeasonService      seasonService  = new SeasonService(db);
         new EventHandler(eventService, compService, seasonService, userRepo,
             sessions, router).register(router);
+
+        // Community Garden (Phase 17)
+        GardenService gardenService = new GardenService(db);
+        new GardenHandler(gardenService, sessions, router).register(router);
 
         return router;
     }
