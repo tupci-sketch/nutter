@@ -39,6 +39,9 @@ public final class ErrorCode {
     public static final String CAT_PURCHASE_LIMIT_REACHED = "cat.purchase_limit_reached";
 
     public static final String TRADE_NOT_FOUND = "trade.not_found";
+    public static final String TRADE_INVALID_PARTNER = "trade.invalid_partner";
+    public static final String TRADE_ALREADY_IN_PROGRESS = "trade.already_in_progress";
+    public static final String TRADE_NOT_IN_PROGRESS = "trade.not_in_progress";
     public static final String TRADE_ALREADY_ACCEPTED = "trade.already_accepted";
     public static final String TRADE_ITEM_NOT_OWNED = "trade.item_not_owned";
     public static final String TRADE_PARTNER_OFFLINE = "trade.partner_offline";

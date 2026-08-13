@@ -138,6 +138,7 @@ public final class PacketType {
     public static final String MKT_LISTING_BUY = "marketplace.listing.buy";
     public static final String MKT_MY_LISTINGS = "marketplace.listings.mine";
     public static final String MKT_SEARCH_RESULT = "marketplace.search.result";
+    public static final String MKT_MY_LISTINGS_RESULT = "marketplace.listings.mine.result";
     public static final String MKT_LISTING_CREATED = "marketplace.listing.created";
     public static final String MKT_LISTING_SOLD = "marketplace.listing.sold";
     public static final String MKT_LISTING_BOUGHT = "marketplace.listing.bought";

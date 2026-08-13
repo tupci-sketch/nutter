@@ -6,12 +6,14 @@ import com.habnut.emulator.auth.*;
 import com.habnut.emulator.config.ServerConfig;
 import com.habnut.emulator.db.DatabaseManager;
 import com.habnut.emulator.db.FlywayRunner;
+import com.habnut.emulator.marketplace.*;
 import com.habnut.emulator.metrics.MetricsRegistry;
 import com.habnut.emulator.net.*;
 import com.habnut.emulator.redis.RedisManager;
 import com.habnut.emulator.economy.*;
 import com.habnut.emulator.furni.*;
 import com.habnut.emulator.room.*;
+import com.habnut.emulator.trade.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -132,6 +134,14 @@ public final class ServerBootstrap {
         furniBaseRepo.preloadAll();
         FurniHandler furniHandler = new FurniHandler(roomManager, furniBaseRepo, db, router, networkLimiter);
         furniHandler.register(router);
+
+        // Trade domain (Phase 9)
+        TradeService tradeService = new TradeService(db);
+        new TradeHandler(tradeService, sessions, router).register(router);
+
+        // Marketplace domain (Phase 9)
+        MarketplaceService marketplaceService = new MarketplaceService(db, txService);
+        new MarketplaceHandler(marketplaceService, router, networkLimiter).register(router);
 
         return router;
     }
