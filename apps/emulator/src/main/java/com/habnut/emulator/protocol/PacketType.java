@@ -302,26 +302,90 @@ public final class PacketType {
     public static final String GARDEN_GOAL_COMPLETED = "garden.goal.completed";
     public static final String GARDEN_SEASON_CHANGED = "garden.season.changed";
 
-    // Roleplay
-    public static final String RP_CHARACTER_CREATE = "rp.character.create";
-    public static final String RP_CHARACTER_INFO = "rp.character.info";
-    public static final String RP_FACTION_LIST = "rp.faction.list";
-    public static final String RP_JOB_LIST = "rp.job.list";
-    public static final String RP_BANK_BALANCE = "rp.bank.balance";
-    public static final String RP_BANK_DEPOSIT = "rp.bank.deposit";
-    public static final String RP_BANK_WITHDRAW = "rp.bank.withdraw";
-    public static final String RP_BANK_TRANSFER = "rp.bank.transfer";
-    public static final String RP_ARREST = "rp.arrest";
-    public static final String RP_CHARACTER_CREATED = "rp.character.created";
-    public static final String RP_CHARACTER_INFO_RESULT = "rp.character.info.result";
-    public static final String RP_BANK_BALANCE_RESULT = "rp.bank.balance.result";
-    public static final String RP_BANK_TRANSACTION = "rp.bank.transaction";
-    public static final String RP_ARRESTED = "rp.arrested";
-    public static final String RP_SENTENCED = "rp.sentenced";
-    public static final String RP_RELEASED = "rp.released";
-    public static final String RP_PAYROLL_PAID = "rp.payroll.paid";
-    public static final String RP_DISPATCH_CALL_RECEIVED = "rp.dispatch.call.received";
-    public static final String RP_ELECTION_RESULT = "rp.election.result";
+    // Roleplay — characters
+    public static final String RP_CHARACTER_CREATE        = "rp.character.create";
+    public static final String RP_CHARACTER_CREATED       = "rp.character.created";
+    public static final String RP_CHARACTER_INFO          = "rp.character.info";
+    public static final String RP_CHARACTER_INFO_RESULT   = "rp.character.info.result";
+    public static final String RP_CHARACTER_UPDATE        = "rp.character.update";
+    public static final String RP_CHARACTER_UPDATED       = "rp.character.updated";
+    // Roleplay — factions
+    public static final String RP_FACTION_LIST            = "rp.faction.list";
+    public static final String RP_FACTION_LIST_RESULT     = "rp.faction.list.result";
+    public static final String RP_FACTION_JOIN            = "rp.faction.join";
+    public static final String RP_FACTION_JOINED          = "rp.faction.joined";
+    public static final String RP_FACTION_LEAVE           = "rp.faction.leave";
+    public static final String RP_FACTION_LEFT            = "rp.faction.left";
+    // Roleplay — jobs
+    public static final String RP_JOB_LIST                = "rp.job.list";
+    public static final String RP_JOB_LIST_RESULT         = "rp.job.list.result";
+    public static final String RP_JOB_APPLY               = "rp.job.apply";
+    public static final String RP_JOB_APPLIED             = "rp.job.applied";
+    public static final String RP_JOB_CLOCKIN             = "rp.job.clockin";
+    public static final String RP_JOB_CLOCKOUT            = "rp.job.clockout";
+    public static final String RP_JOB_SHIFT_RESULT        = "rp.job.shift.result";
+    public static final String RP_PAYROLL_PAID            = "rp.payroll.paid";
+    // Roleplay — bank (RP-isolated)
+    public static final String RP_BANK_BALANCE            = "rp.bank.balance";
+    public static final String RP_BANK_BALANCE_RESULT     = "rp.bank.balance.result";
+    public static final String RP_BANK_DEPOSIT            = "rp.bank.deposit";
+    public static final String RP_BANK_WITHDRAW           = "rp.bank.withdraw";
+    public static final String RP_BANK_TRANSFER           = "rp.bank.transfer";
+    public static final String RP_BANK_TRANSACTION        = "rp.bank.transaction";
+    // Roleplay — crimes / arrests
+    public static final String RP_CRIME_LIST              = "rp.crime.list";
+    public static final String RP_CRIME_LIST_RESULT       = "rp.crime.list.result";
+    public static final String RP_ARREST                  = "rp.arrest";
+    public static final String RP_ARRESTED                = "rp.arrested";
+    // Roleplay — court / prison
+    public static final String RP_COURT_CASE_LIST         = "rp.court.case.list";
+    public static final String RP_COURT_CASE_LIST_RESULT  = "rp.court.case.list.result";
+    public static final String RP_COURT_VERDICT           = "rp.court.verdict";
+    public static final String RP_SENTENCED               = "rp.sentenced";
+    public static final String RP_PRISON_STATUS           = "rp.prison.status";
+    public static final String RP_PRISON_STATUS_RESULT    = "rp.prison.status.result";
+    public static final String RP_RELEASED                = "rp.released";
+    // Roleplay — dispatch
+    public static final String RP_DISPATCH_CREATE         = "rp.dispatch.create";
+    public static final String RP_DISPATCH_CALL_RECEIVED  = "rp.dispatch.call.received";
+    public static final String RP_DISPATCH_LIST           = "rp.dispatch.list";
+    public static final String RP_DISPATCH_LIST_RESULT    = "rp.dispatch.list.result";
+    public static final String RP_DISPATCH_ACCEPT         = "rp.dispatch.accept";
+    public static final String RP_DISPATCH_RESOLVE        = "rp.dispatch.resolve";
+    // Roleplay — medical
+    public static final String RP_MEDICAL_RECORDS         = "rp.medical.records";
+    public static final String RP_MEDICAL_RECORDS_RESULT  = "rp.medical.records.result";
+    public static final String RP_MEDICAL_ADMIT           = "rp.medical.admit";
+    public static final String RP_MEDICAL_TREAT           = "rp.medical.treat";
+    public static final String RP_MEDICAL_DISCHARGE       = "rp.medical.discharge";
+    // Roleplay — properties
+    public static final String RP_PROPERTY_LIST           = "rp.property.list";
+    public static final String RP_PROPERTY_LIST_RESULT    = "rp.property.list.result";
+    public static final String RP_PROPERTY_BUY            = "rp.property.buy";
+    public static final String RP_PROPERTY_BOUGHT         = "rp.property.bought";
+    // Roleplay — government / elections
+    public static final String RP_ELECTION_LIST           = "rp.election.list";
+    public static final String RP_ELECTION_LIST_RESULT    = "rp.election.list.result";
+    public static final String RP_ELECTION_NOMINATE       = "rp.election.nominate";
+    public static final String RP_ELECTION_VOTE           = "rp.election.vote";
+    public static final String RP_ELECTION_VOTED          = "rp.election.voted";
+    public static final String RP_ELECTION_RESULT         = "rp.election.result";
+    public static final String RP_GOVT_OFFICES            = "rp.govt.offices";
+    public static final String RP_GOVT_OFFICES_RESULT     = "rp.govt.offices.result";
+    public static final String RP_GOVT_DECREE             = "rp.govt.decree";
+    public static final String RP_GOVT_DECREED            = "rp.govt.decreed";
+    public static final String RP_LAW_LIST                = "rp.law.list";
+    public static final String RP_LAW_LIST_RESULT         = "rp.law.list.result";
+    // Roleplay — scenes
+    public static final String RP_SCENE_START             = "rp.scene.start";
+    public static final String RP_SCENE_STARTED           = "rp.scene.started";
+    public static final String RP_SCENE_END               = "rp.scene.end";
+    public static final String RP_SCENE_ENDED             = "rp.scene.ended";
+    // Roleplay — crafting
+    public static final String RP_CRAFT                   = "rp.craft";
+    public static final String RP_CRAFTED                 = "rp.crafted";
+    public static final String RP_RECIPE_LIST             = "rp.recipe.list";
+    public static final String RP_RECIPE_LIST_RESULT      = "rp.recipe.list.result";
 
     // Moderation
     public static final String MOD_REPORT_CREATE = "mod.report.create";

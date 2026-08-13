@@ -25,6 +25,7 @@ import com.habnut.emulator.sound.*;
 import com.habnut.emulator.moderation.*;
 import com.habnut.emulator.events.*;
 import com.habnut.emulator.garden.*;
+import com.habnut.emulator.rp.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -218,6 +219,23 @@ public final class ServerBootstrap {
         // Community Garden (Phase 17)
         GardenService gardenService = new GardenService(db);
         new GardenHandler(gardenService, sessions, router).register(router);
+
+        // Nutropolis RP World (Phase 18)
+        RpCharacterService  rpCharService  = new RpCharacterService(db);
+        RpFactionService    rpFactionSvc   = new RpFactionService(db);
+        RpJobService        rpJobSvc       = new RpJobService(db);
+        RpBankService       rpBankSvc      = new RpBankService(db, rpCharService);
+        RpCrimeService      rpCrimeSvc     = new RpCrimeService(db);
+        RpCourtService      rpCourtSvc     = new RpCourtService(db, rpCharService);
+        RpDispatchService   rpDispatchSvc  = new RpDispatchService(db);
+        RpMedicalService    rpMedicalSvc   = new RpMedicalService(db, rpCharService);
+        RpPropertyService   rpPropertySvc  = new RpPropertyService(db, rpCharService);
+        RpGovernmentService rpGovtSvc      = new RpGovernmentService(db);
+        RpSceneService      rpSceneSvc     = new RpSceneService(db);
+        RpCraftingService   rpCraftingSvc  = new RpCraftingService(db);
+        new RpHandler(rpCharService, rpFactionSvc, rpJobSvc, rpBankSvc,
+            rpCrimeSvc, rpCourtSvc, rpDispatchSvc, rpMedicalSvc, rpPropertySvc,
+            rpGovtSvc, rpSceneSvc, rpCraftingSvc, sessions, router).register(router);
 
         return router;
     }
