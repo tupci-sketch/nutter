@@ -1,0 +1,66 @@
+{
+  "uid": "habnut-jvm",
+  "title": "JVM (Emulator)",
+  "tags": ["habnut", "jvm", "emulator"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "JVM Heap Used",
+      "type": "gauge",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "jvm_memory_used_bytes{area=\"heap\"} / jvm_memory_max_bytes{area=\"heap\"} * 100", "legendFormat": "Heap %"}],
+      "fieldConfig": {"defaults": {"min": 0, "max": 100, "unit": "percent", "thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 70}, {"color": "red", "value": 90}]}}}
+    },
+    {
+      "id": 2,
+      "title": "GC Pause Rate",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "rate(jvm_gc_pause_seconds_sum[5m])", "legendFormat": "GC Pause/s"}],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 3,
+      "title": "Thread Count",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "jvm_threads_live", "legendFormat": "Live Threads"}]
+    },
+    {
+      "id": 4,
+      "title": "JVM Memory Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "targets": [
+        {"expr": "jvm_memory_used_bytes{area=\"heap\"}", "legendFormat": "Heap Used"},
+        {"expr": "jvm_memory_max_bytes{area=\"heap\"}", "legendFormat": "Heap Max"},
+        {"expr": "jvm_memory_used_bytes{area=\"nonheap\"}", "legendFormat": "Non-heap Used"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes"}}
+    },
+    {
+      "id": 5,
+      "title": "GC Activity",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "targets": [
+        {"expr": "rate(jvm_gc_pause_seconds_count[5m])", "legendFormat": "GC Count/s"},
+        {"expr": "rate(jvm_gc_pause_seconds_sum[5m])", "legendFormat": "GC Time/s"}
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Class Loading",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "targets": [
+        {"expr": "jvm_classes_loaded", "legendFormat": "Loaded"},
+        {"expr": "rate(jvm_classes_unloaded_total[5m])", "legendFormat": "Unloaded/s"}
+      ]
+    }
+  ]
+}

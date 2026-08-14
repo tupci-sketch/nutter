@@ -1,0 +1,257 @@
+groups:
+  - name: habnut.emulator
+    interval: 30s
+    rules:
+      # ALT-001: Emulator down
+      - alert: EmulatorDown
+        expr: up{job="habnut_emulator"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Habnut emulator is down"
+          description: "The emulator has been unreachable for more than 1 minute."
+
+      # ALT-002: High session count
+      - alert: HighSessionCount
+        expr: habnut_sessions_active > 5000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unusually high session count: {{ $value }}"
+
+      # ALT-003: Packet queue backlog
+      - alert: PacketQueueBacklog
+        expr: habnut_packet_queue_depth > 10000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Packet queue backlog: {{ $value }} messages"
+
+      # ALT-004: Economy transaction failure rate
+      - alert: EconomyTransactionFailureRate
+        expr: rate(habnut_economy_transaction_errors_total[5m]) > 0.01
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Economy transaction error rate elevated"
+          description: "Error rate: {{ $value | humanizePercentage }}"
+
+      # ALT-005: Wired execution timeout rate
+      - alert: WiredExecutionTimeouts
+        expr: rate(habnut_wired_execution_timeout_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Wired execution timeouts elevated"
+
+      # ALT-006: Room memory pressure
+      - alert: RoomMemoryPressure
+        expr: habnut_room_memory_bytes > 2e9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Room memory usage above 2GB: {{ $value | humanize1024 }}B"
+
+      # ALT-007: Game tick lag
+      - alert: GameTickLag
+        expr: habnut_game_tick_duration_ms > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Game tick duration high: {{ $value }}ms"
+
+      # ALT-008: Authentication failure spike
+      - alert: AuthFailureSpike
+        expr: rate(habnut_auth_failure_total[5m]) > 50
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Auth failure spike — possible brute-force: {{ $value }}/s"
+
+      # ALT-009: WebSocket disconnect storm
+      - alert: WebSocketDisconnectStorm
+        expr: rate(habnut_ws_disconnects_total[5m]) > 100
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket disconnect storm: {{ $value }}/s"
+
+      # ALT-010: Rate limiter rejections
+      - alert: RateLimiterRejections
+        expr: rate(habnut_rate_limit_rejected_total[5m]) > 200
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiter rejections elevated: {{ $value }}/s"
+
+  - name: habnut.database
+    interval: 30s
+    rules:
+      # ALT-011: MariaDB connections near limit
+      - alert: MariaDBConnectionsNearLimit
+        expr: mysql_global_status_threads_connected / mysql_global_variables_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MariaDB connections at {{ $value | humanizePercentage }} of limit"
+
+      # ALT-012: MariaDB replication lag
+      - alert: MariaDBReplicationLag
+        expr: mysql_slave_status_seconds_behind_master > 30
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MariaDB replication lag: {{ $value }}s"
+
+      # ALT-013: Slow query rate
+      - alert: SlowQueryRate
+        expr: rate(mysql_global_status_slow_queries[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow query rate elevated: {{ $value }}/s"
+
+  - name: habnut.redis
+    interval: 30s
+    rules:
+      # ALT-014: Redis memory high
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory at {{ $value | humanizePercentage }}"
+
+      # ALT-015: Redis evictions
+      - alert: RedisEvictions
+        expr: rate(redis_evicted_keys_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis is evicting keys"
+
+      # ALT-016: Redis connection refused
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+
+  - name: habnut.system
+    interval: 60s
+    rules:
+      # ALT-017: High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU usage above 90% on {{ $labels.instance }}"
+
+      # ALT-018: Disk space low
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space below 10% on {{ $labels.instance }}"
+
+      # ALT-019: High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory usage above 90% on {{ $labels.instance }}"
+
+      # ALT-020: Nginx 5xx rate
+      - alert: Nginx5xxRate
+        expr: rate(nginx_http_requests_total{status=~"5.."}[5m]) > 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Nginx 5xx error rate: {{ $value }}/s"
+
+      # ALT-021: SSL certificate expiry
+      - alert: SSLCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 14
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "SSL certificate expiring in less than 14 days"
+
+      # ALT-022: Economy idempotency violation
+      - alert: EconomyIdempotencyViolation
+        expr: rate(habnut_economy_duplicate_idempotency_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Economy idempotency key collision detected"
+
+      # ALT-023: Wired variable scope leak
+      - alert: WiredGlobalVarCount
+        expr: habnut_wired_global_variables_total > 10000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Wired global variable count high: {{ $value }}"
+
+      # ALT-024: RP bank transaction failure
+      - alert: RPBankTransactionFailure
+        expr: rate(habnut_rp_bank_transaction_errors_total[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RP bank transaction failure rate elevated"
+
+      # ALT-025: Audit log write failures
+      - alert: AuditLogWriteFailure
+        expr: rate(habnut_audit_log_write_errors_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Audit log write failures — compliance risk"
+
+      # ALT-026: Active ban count spike
+      - alert: ActiveBanSpike
+        expr: delta(habnut_active_bans_total[10m]) > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unusual spike in bans: {{ $value }} in 10 minutes"
+
+      # ALT-027: Packet processing latency
+      - alert: PacketProcessingLatencyHigh
+        expr: histogram_quantile(0.99, rate(habnut_packet_processing_duration_ms_bucket[5m])) > 500
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p99 packet processing latency high: {{ $value }}ms"
