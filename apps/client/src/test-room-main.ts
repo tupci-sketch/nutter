@@ -338,9 +338,13 @@ function drawAvatar(x: number, y: number, av: Avatar) {
     g.beginFill(0x1e1040);
     g.drawRect(-11, -26, 22, 24);
     g.endFill();
-    // Badge (gold star)
+    // Badge (gold star — drawn as small diamond)
     g.beginFill(GOLD);
-    g.drawStar(4, -18, 5, 4, 2);
+    g.moveTo(4,  -21);
+    g.lineTo(7,  -18);
+    g.lineTo(4,  -15);
+    g.lineTo(1,  -18);
+    g.closePath();
     g.endFill();
     // Legs
     g.beginFill(0x2a2040);

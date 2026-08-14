@@ -26,7 +26,7 @@ interface UiStore {
   setChatInputFocused: (v: boolean) => void;
 }
 
-export const useUiStore = create<UiStore>((set, get) => ({
+export const useUiStore = create<UiStore>((set) => ({
   activePanel: null,
   chatInputFocused: false,
 

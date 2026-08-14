@@ -15,6 +15,7 @@ export interface RoomUser {
 export interface RoomFurni {
   id: number;
   baseId: number;
+  baseItem: string;
   x: number;
   y: number;
   z: number;
@@ -41,10 +42,10 @@ export interface RoomStore {
   joinRoom: (roomId: number) => void;
   leaveRoom: () => void;
   move: (x: number, y: number) => void;
-  chat: (message: string) => void;
+  sendChat: (message: string) => void;
 }
 
-export const useRoomStore = create<RoomStore>((set, get) => ({
+export const useRoomStore = create<RoomStore>((set) => ({
   currentRoom: null,
   users: new Map(),
   furni: new Map(),
@@ -63,7 +64,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     getWsClient().send(Packet.ROOM_MOVE, { x, y });
   },
 
-  chat(message: string) {
+  sendChat(message: string) {
     getWsClient().send(Packet.ROOM_CHAT, { message });
   },
 }));

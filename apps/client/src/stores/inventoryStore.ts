@@ -17,7 +17,7 @@ interface InventoryStore {
   load: () => void;
 }
 
-export const useInventoryStore = create<InventoryStore>((set) => ({
+export const useInventoryStore = create<InventoryStore>((_set) => ({
   items: [],
   loaded: false,
 

@@ -21,7 +21,7 @@ class MockWebSocket {
 
 beforeEach(() => {
   MockWebSocket.instances = [];
-  (global as unknown as Record<string, unknown>)['WebSocket'] = MockWebSocket;
+  (globalThis as unknown as Record<string, unknown>)['WebSocket'] = MockWebSocket;
 });
 
 describe('WsClient', () => {

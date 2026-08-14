@@ -5,7 +5,7 @@ import { useUiStore } from '@/stores/uiStore';
 export function ChatBox() {
   const [input, setInput] = useState('');
   const chatLog = useRoomStore((s) => s.chat);
-  const { chat } = useRoomStore();
+  const { sendChat } = useRoomStore();
   const { setChatInputFocused } = useUiStore();
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -17,7 +17,7 @@ export function ChatBox() {
     e.preventDefault();
     const msg = input.trim();
     if (!msg) return;
-    chat(msg);
+    sendChat(msg);
     setInput('');
   }
 

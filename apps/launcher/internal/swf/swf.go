@@ -3,13 +3,24 @@ package swf
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/habnut/launcher/internal/swfextract"
 )
 
-const packManifestPath = "/var/lib/habnut/swf/PACK_MANIFEST.json"
+const (
+	packManifestPath = "/var/lib/habnut/swf/PACK_MANIFEST.json"
+	assetsBase       = "/var/lib/habnut/assets"
+	furniAssetsDir   = assetsBase + "/furniture"
+	figureAssetsDir  = assetsBase + "/figure"
+	roomAssetsDir    = assetsBase + "/room"
+	effectAssetsDir  = assetsBase + "/effect"
+)
 
 // PackManifest describes an installed SWF asset pack.
 type PackManifest struct {
@@ -35,15 +46,39 @@ func Status() error {
 	return nil
 }
 
-// Install unpacks a SWF archive from packPath into the swf directory.
+// Install unpacks a SWF archive from packPath, extracts all sprites to the
+// assets directory, and copies the XML data files the client needs.
 func Install(packPath string) error {
 	swfDir := filepath.Dir(packManifestPath)
 	if err := os.MkdirAll(swfDir, 0755); err != nil {
 		return err
 	}
+
+	fmt.Println("→ Unpacking SWF archive…")
 	if err := run("unzip", "-o", packPath, "-d", swfDir); err != nil {
 		return fmt.Errorf("unpack failed: %w", err)
 	}
+
+	// Create asset output directories.
+	for _, dir := range []string{furniAssetsDir, figureAssetsDir, roomAssetsDir, effectAssetsDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+
+	// Copy XML data files consumed by the client.
+	if err := copyAssetXMLs(swfDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warn: copy XML data files: %v\n", err)
+	}
+
+	// Extract sprites from SWF files, routing by filename prefix.
+	fmt.Println("→ Extracting sprites from SWF files…")
+	spriteCount, err := extractByCategory(swfDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warn: sprite extraction: %v\n", err)
+	}
+	fmt.Printf("→ Extracted %d sprites\n", spriteCount)
+
 	count, _ := countFiles(swfDir)
 	m := &PackManifest{
 		PackVersion: "1.0.0",
@@ -53,6 +88,115 @@ func Install(packPath string) error {
 		BrandedAs:   "Habnut",
 	}
 	return saveManifest(m)
+}
+
+// extractByCategory walks swfDir, extracts each SWF into the appropriate
+// assets subdirectory based on naming conventions, and returns total sprite count.
+func extractByCategory(swfDir string) (int, error) {
+	total := 0
+	err := filepath.WalkDir(swfDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if strings.ToLower(filepath.Ext(path)) != ".swf" {
+			return nil
+		}
+
+		base := strings.TrimSuffix(strings.ToLower(filepath.Base(path)), ".swf")
+		outDir := categoriseAsset(base)
+
+		m, err := swfextract.Extract(path, outDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warn: %s: %v\n", base, err)
+			return nil
+		}
+		total += len(m.Sprites)
+		return nil
+	})
+	if err != nil {
+		return total, err
+	}
+
+	// Build a unified manifest.json in assetsBase combining all categories.
+	if err := mergeManifests(); err != nil {
+		fmt.Fprintf(os.Stderr, "warn: merge manifests: %v\n", err)
+	}
+	return total, nil
+}
+
+// categoriseAsset maps a SWF base name to the appropriate output directory.
+func categoriseAsset(base string) string {
+	switch {
+	case strings.HasPrefix(base, "hh_human"):
+		return figureAssetsDir
+	case strings.HasPrefix(base, "hh_avatar_effects"):
+		return effectAssetsDir
+	case strings.HasPrefix(base, "room_") || strings.HasPrefix(base, "model_"):
+		return roomAssetsDir
+	default:
+		return furniAssetsDir
+	}
+}
+
+// mergeManifests reads manifest.json from each asset subdirectory and writes
+// a combined manifest to assetsBase/manifest.json for the client to consume.
+func mergeManifests() error {
+	combined := &swfextract.Manifest{Sprites: make(map[string]swfextract.SpriteEntry)}
+
+	for _, sub := range []struct{ dir, prefix string }{
+		{furniAssetsDir, "furniture/"},
+		{figureAssetsDir, "figure/"},
+		{roomAssetsDir, "room/"},
+		{effectAssetsDir, "effect/"},
+	} {
+		mPath := filepath.Join(sub.dir, "manifest.json")
+		data, err := os.ReadFile(mPath)
+		if err != nil {
+			continue
+		}
+		var m swfextract.Manifest
+		if err := json.Unmarshal(data, &m); err != nil {
+			continue
+		}
+		for name, entry := range m.Sprites {
+			entry.File = sub.prefix + entry.File
+			combined.Sprites[name] = entry
+		}
+	}
+
+	data, err := json.MarshalIndent(combined, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(assetsBase, "manifest.json"), data, 0644)
+}
+
+// copyAssetXMLs finds and copies furnidata.xml, figuremap.xml, figuredata.xml
+// from the unpacked SWF tree to assetsBase so the client can fetch them.
+func copyAssetXMLs(swfDir string) error {
+	targets := map[string]bool{
+		"furnidata.xml":  false,
+		"figuremap.xml":  false,
+		"figuredata.xml": false,
+		"effectmap.xml":  false,
+		"productdata.xml": false,
+	}
+	return filepath.WalkDir(swfDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		name := strings.ToLower(filepath.Base(path))
+		if !targets[name] {
+			return nil
+		}
+		targets[name] = true // mark found (don't copy duplicates)
+		dest := filepath.Join(assetsBase, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(dest, data, 0644)
+	})
 }
 
 // Update replaces the current pack with a new one, keeping config.

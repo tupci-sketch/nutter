@@ -30,7 +30,7 @@ interface SocialStore {
   sendMessage: (toUserId: number, body: string) => void;
 }
 
-export const useSocialStore = create<SocialStore>((set) => ({
+export const useSocialStore = create<SocialStore>((_set) => ({
   friends: [],
   inbox: [],
   unreadCount: 0,

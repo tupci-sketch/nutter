@@ -18,7 +18,7 @@ interface ProfileData {
 }
 
 export function ProfilePanel() {
-  const { userId, username } = useAuthStore();
+  const { userId } = useAuthStore();
   const [profile, setProfile] = useState<ProfileData | null>(null);
 
   useEffect(() => {
