@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Ban extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'user_id',
-        'staff_id',
         'reason',
-        'type',
+        'banned_by_username',
         'active',
         'expires_at',
     ];
@@ -21,15 +23,5 @@ class Ban extends Model
             'active'     => 'boolean',
             'expires_at' => 'datetime',
         ];
-    }
-
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    public function staff(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(User::class, 'staff_id');
     }
 }

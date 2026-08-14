@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Habnut — White House Room Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #0d0d1a; font-family: monospace; }
+    #canvas-wrap { position: absolute; inset: 0; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #hud {
+      position: absolute; top: 12px; left: 12px;
+      background: rgba(10,8,20,0.92); border: 1px solid #2a2050;
+      border-radius: 6px; padding: 12px 16px; color: #c8b8f0;
+      font-size: 12px; line-height: 1.7; min-width: 200px;
+      backdrop-filter: blur(4px);
+    }
+    #hud .room-name { color: #fff; font-size: 14px; font-weight: bold; margin-bottom: 4px; }
+    #hud .owner { color: #9580c8; margin-bottom: 8px; }
+    #hud .section { color: #6a5890; font-size: 10px; text-transform: uppercase;
+      letter-spacing: 1px; margin: 8px 0 2px; }
+    #hud .users { color: #d0c0ff; }
+    #chat {
+      position: absolute; bottom: 56px; left: 12px; width: 340px;
+      background: rgba(10,8,20,0.88); border: 1px solid #2a2050;
+      border-radius: 6px; padding: 10px 12px;
+      backdrop-filter: blur(4px);
+    }
+    .chat-line { font-size: 11px; line-height: 1.6; margin-bottom: 1px; }
+    .chat-line .u { color: #b08aff; margin-right: 4px; }
+    .chat-line .m { color: #e8e0ff; }
+    #toolbar {
+      position: absolute; bottom: 12px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 8px;
+      background: rgba(10,8,20,0.92); border: 1px solid #2a2050;
+      border-radius: 8px; padding: 8px 12px;
+      backdrop-filter: blur(4px);
+    }
+    .tb-btn {
+      background: #1e1640; color: #b08aff; border: 1px solid #3a2870;
+      border-radius: 4px; padding: 6px 10px; font-size: 11px;
+      font-family: monospace; cursor: pointer;
+    }
+    .tb-btn:hover { background: #2a1e5c; }
+    #badge {
+      position: absolute; top: 12px; right: 12px;
+      background: rgba(10,8,20,0.92); border: 1px solid #2a2050;
+      border-radius: 6px; padding: 10px 14px; text-align: center;
+      backdrop-filter: blur(4px);
+    }
+    #badge .label { color: #6a5890; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; }
+    #badge .val { color: #d0c0ff; font-size: 20px; margin: 2px 0; }
+    #badge .sub { color: #9580c8; font-size: 10px; }
+  </style>
+</head>
+<body>
+<div id="canvas-wrap"><canvas id="c"></canvas></div>
+
+<div id="hud">
+  <div class="room-name">🌰 The White House</div>
+  <div class="owner">Owner: tupci</div>
+  <div class="section">Users in room</div>
+  <div class="users">
+    ● tupci (7 ★ Admin)<br>
+    ● habbot [BOT]
+  </div>
+  <div class="section">Room Info</div>
+  <div>Model: wh_grand_hall</div>
+  <div>Visitors: 14,882</div>
+  <div>Rating: ★★★★★</div>
+</div>
+
+<div id="chat">
+  <div class="chat-line"><span class="u">habbot:</span><span class="m">Welcome to the White House, tupci!</span></div>
+  <div class="chat-line"><span class="u">tupci:</span><span class="m">Thanks. Let's run a room state check.</span></div>
+  <div class="chat-line"><span class="u">habbot:</span><span class="m">Room loaded. 26 furni items active.</span></div>
+  <div class="chat-line"><span class="u">tupci:</span><span class="m">Wired trigger ON_ENTER active?</span></div>
+  <div class="chat-line"><span class="u">habbot:</span><span class="m">Yes — welcome message trigger is live.</span></div>
+</div>
+
+<div id="toolbar">
+  <button class="tb-btn">🗺 Navigator</button>
+  <button class="tb-btn">🛋 Catalogue</button>
+  <button class="tb-btn">🎒 Inventory</button>
+  <button class="tb-btn">👥 Friends</button>
+  <button class="tb-btn">👤 tupci</button>
+  <button class="tb-btn">🏅 Badges</button>
+</div>
+
+<div id="badge">
+  <div class="label">Credits</div>
+  <div class="val">9,999</div>
+  <div class="sub">💎 999 diamonds</div>
+</div>
+
+<script type="module" src="/src/test-room-main.ts"></script>
+</body>
+</html>
