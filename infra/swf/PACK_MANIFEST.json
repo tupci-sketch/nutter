@@ -1,0 +1,50 @@
+{
+  "$schema": "https://habnut.local/schemas/pack-manifest/v1",
+  "version": "1.0.0",
+  "pack_name": "",
+  "brand_name": "Habnut",
+  "required_xml": [
+    "furnidata.xml",
+    "figuremap.xml",
+    "figuredata.xml",
+    "effectmap.xml",
+    "productdata.xml",
+    "badgedata.xml"
+  ],
+  "required_swf": [
+    "habboclient.swf"
+  ],
+  "required_json": [
+    "habbo_imaging.json"
+  ],
+  "asset_directories": [
+    "gordon",
+    "dcr",
+    "badges",
+    "avatarparts",
+    "furni",
+    "effects"
+  ],
+  "branding": {
+    "replace_strings": [
+      {"from": "Habbo Hotel", "to": "Habnut"},
+      {"from": "Habbo", "to": "Habnut"},
+      {"from": "habbo", "to": "habnut"},
+      {"from": "Sulake", "to": "Habnut Team"},
+      {"from": "sulake.com", "to": "habnut.local"},
+      {"from": "habboo.com", "to": "habnut.local"}
+    ],
+    "xml_files": [
+      "furnidata.xml",
+      "figuredata.xml",
+      "effectmap.xml",
+      "productdata.xml"
+    ]
+  },
+  "validation": {
+    "min_furni_count": 100,
+    "min_figure_parts": 50,
+    "min_badges": 20,
+    "require_branding_applied": true
+  }
+}
