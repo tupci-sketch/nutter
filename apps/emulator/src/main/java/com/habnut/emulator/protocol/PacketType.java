@@ -317,6 +317,24 @@ public final class PacketType {
     public static final String GARDEN_SEASON_CHANGED = "garden.season.changed";
 
     // Roleplay — characters
+    // Combat: the server resolves every exchange and reports the outcome.
+    public static final String RP_COMBAT_WEAPONS          = "rp.combat.weapons";
+    public static final String RP_COMBAT_WEAPONS_RESULT   = "rp.combat.weapons.result";
+    public static final String RP_COMBAT_EQUIP            = "rp.combat.equip";
+    public static final String RP_COMBAT_EQUIPPED         = "rp.combat.equipped";
+    public static final String RP_COMBAT_ATTACK           = "rp.combat.attack";
+    public static final String RP_COMBAT_ATTACK_RESULT    = "rp.combat.attack.result";
+    public static final String RP_COMBAT_DOWNED           = "rp.combat.downed";
+    public static final String RP_COMBAT_REVIVE           = "rp.combat.revive";
+    public static final String RP_COMBAT_REVIVED          = "rp.combat.revived";
+    // Territory held and contested by factions.
+    public static final String RP_TURF_LIST               = "rp.turf.list";
+    public static final String RP_TURF_LIST_RESULT        = "rp.turf.list.result";
+    public static final String RP_TURF_CAPTURE_BEGIN      = "rp.turf.capture.begin";
+    public static final String RP_TURF_CAPTURE_STARTED    = "rp.turf.capture.started";
+    public static final String RP_TURF_CAPTURE_ABANDON    = "rp.turf.capture.abandon";
+    public static final String RP_TURF_CAPTURED           = "rp.turf.captured";
+
     public static final String RP_CHARACTER_CREATE        = "rp.character.create";
     public static final String RP_CHARACTER_CREATED       = "rp.character.created";
     public static final String RP_CHARACTER_INFO          = "rp.character.info";

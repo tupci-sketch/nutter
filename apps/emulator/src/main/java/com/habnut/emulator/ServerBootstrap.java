@@ -48,6 +48,7 @@ public final class ServerBootstrap {
     private HealthServer healthServer;
     private NettyServer nettyServer;
     private ScheduledExecutorService metricsPoller;
+    private ScheduledExecutorService turfScheduler;
     private RoomManager roomManager;
     private RoomHandler roomHandler;
     private GameEngine  gameEngine;
@@ -233,9 +234,28 @@ public final class ServerBootstrap {
         RpGovernmentService rpGovtSvc      = new RpGovernmentService(db);
         RpSceneService      rpSceneSvc     = new RpSceneService(db);
         RpCraftingService   rpCraftingSvc  = new RpCraftingService(db);
+        RpCombatService     rpCombatSvc    = new RpCombatService(db);
+        RpTurfService       rpTurfSvc      = new RpTurfService(db);
         new RpHandler(rpCharService, rpFactionSvc, rpJobSvc, rpBankSvc,
             rpCrimeSvc, rpCourtSvc, rpDispatchSvc, rpMedicalSvc, rpPropertySvc,
-            rpGovtSvc, rpSceneSvc, rpCraftingSvc, sessions, router).register(router);
+            rpGovtSvc, rpSceneSvc, rpCraftingSvc, rpCombatSvc, rpTurfSvc,
+            sessions, router).register(router);
+
+        // Territory contests resolve on a timer so a capture completes even if
+        // every character involved has disconnected.
+        turfScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "habnut-turf");
+            t.setDaemon(true);
+            return t;
+        });
+        turfScheduler.scheduleAtFixedRate(() -> {
+            try {
+                int transferred = rpTurfSvc.resolveElapsedCaptures();
+                if (transferred > 0) log.info("Territory changed hands: {}", transferred);
+            } catch (Exception e) {
+                log.error("Turf capture resolution failed", e);
+            }
+        }, 30, 30, java.util.concurrent.TimeUnit.SECONDS);
 
         return router;
     }
@@ -258,6 +278,7 @@ public final class ServerBootstrap {
         log.info("Graceful shutdown initiated");
 
         if (metricsPoller != null) metricsPoller.shutdownNow();
+        if (turfScheduler != null) turfScheduler.shutdownNow();
         if (nettyServer != null) nettyServer.close();
         if (healthServer != null) healthServer.close();
         if (metricsServer != null) metricsServer.close();

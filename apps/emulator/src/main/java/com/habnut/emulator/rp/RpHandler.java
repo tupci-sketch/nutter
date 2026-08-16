@@ -28,6 +28,8 @@ public final class RpHandler {
     private final RpGovernmentService govtService;
     private final RpSceneService      sceneService;
     private final RpCraftingService   craftingService;
+    private final RpCombatService     combatService;
+    private final RpTurfService       turfService;
     private final SessionRegistry     sessions;
     private final PacketRouter        router;
 
@@ -37,6 +39,7 @@ public final class RpHandler {
                      RpDispatchService dispatchService, RpMedicalService medicalService,
                      RpPropertyService propertyService, RpGovernmentService govtService,
                      RpSceneService sceneService, RpCraftingService craftingService,
+                     RpCombatService combatService, RpTurfService turfService,
                      SessionRegistry sessions, PacketRouter router) {
         this.charService     = charService;
         this.factionService  = factionService;
@@ -50,6 +53,8 @@ public final class RpHandler {
         this.govtService     = govtService;
         this.sceneService    = sceneService;
         this.craftingService = craftingService;
+        this.combatService   = combatService;
+        this.turfService     = turfService;
         this.sessions        = sessions;
         this.router          = router;
     }
@@ -59,6 +64,15 @@ public final class RpHandler {
         router.register(PacketType.RP_CHARACTER_CREATE,   this::handleCharCreate);
         router.register(PacketType.RP_CHARACTER_INFO,     this::handleCharInfo);
         router.register(PacketType.RP_CHARACTER_UPDATE,   this::handleCharUpdate);
+        // Combat
+        router.register(PacketType.RP_COMBAT_WEAPONS,     this::handleWeaponList);
+        router.register(PacketType.RP_COMBAT_EQUIP,       this::handleWeaponEquip);
+        router.register(PacketType.RP_COMBAT_ATTACK,      this::handleAttack);
+        router.register(PacketType.RP_COMBAT_REVIVE,      this::handleRevive);
+        // Territory
+        router.register(PacketType.RP_TURF_LIST,          this::handleTurfList);
+        router.register(PacketType.RP_TURF_CAPTURE_BEGIN, this::handleTurfCaptureBegin);
+        router.register(PacketType.RP_TURF_CAPTURE_ABANDON, this::handleTurfCaptureAbandon);
         // Factions
         router.register(PacketType.RP_FACTION_LIST,       this::handleFactionList);
         router.register(PacketType.RP_FACTION_JOIN,       this::handleFactionJoin);
@@ -869,6 +883,152 @@ public final class RpHandler {
         return Map.of("id", r.id(), "name", r.name(),
             "levelRequired", r.levelRequired(),
             "factionRequired", r.factionRequired() != null ? r.factionRequired() : "");
+    }
+
+
+    // ─── combat ─────────────────────────────────────────────────────────────
+
+    private void handleWeaponList(WebSocketSession session, JsonNode p) {
+        try {
+            RpCharacterService.Character ch = charService.findByUser(session.getUserId()).orElse(null);
+            if (ch == null) { sendError(session, "no_character"); return; }
+            session.send(router.buildPacket(PacketType.RP_COMBAT_WEAPONS_RESULT, Map.of(
+                "carried",   combatService.inventory(ch.id()).stream()
+                                 .map(this::weaponToMap).collect(Collectors.toList()),
+                "catalogue", combatService.catalogue().stream()
+                                 .map(this::weaponToMap).collect(Collectors.toList()))));
+        } catch (SQLException e) {
+            log.error("RP weapon list error", e);
+            sendError(session, "server_error");
+        }
+    }
+
+    private void handleWeaponEquip(WebSocketSession session, JsonNode p) {
+        try {
+            RpCharacterService.Character ch = charService.findByUser(session.getUserId()).orElse(null);
+            if (ch == null) { sendError(session, "no_character"); return; }
+            int weaponId = p.path("weaponId").asInt(-1);
+            if (!combatService.equip(ch.id(), weaponId)) { sendError(session, "not_carried"); return; }
+            session.send(router.buildPacket(PacketType.RP_COMBAT_EQUIPPED,
+                Map.of("weaponId", weaponId)));
+        } catch (SQLException e) {
+            log.error("RP weapon equip error", e);
+            sendError(session, "server_error");
+        }
+    }
+
+    private void handleAttack(WebSocketSession session, JsonNode p) {
+        try {
+            RpCharacterService.Character attacker =
+                charService.findByUser(session.getUserId()).orElse(null);
+            if (attacker == null) { sendError(session, "no_character"); return; }
+
+            long victimId = p.path("targetCharacterId").asLong(-1);
+            if (victimId < 1) { sendError(session, "no_target"); return; }
+
+            // Distance and room come from the client only as a hint; the
+            // service re-checks range against the weapon it finds equipped.
+            int distance = Math.max(0, p.path("distance").asInt(1));
+            Long roomId  = p.has("roomId") ? p.path("roomId").asLong() : null;
+
+            RpCombatService.AttackResult result =
+                combatService.attack(attacker.id(), victimId, distance, roomId);
+
+            if (!result.landed()) { sendError(session, result.rejection()); return; }
+
+            Map<String, Object> outcome = Map.of(
+                "targetCharacterId", victimId,
+                "damage",            result.damage(),
+                "targetHealth",      result.victimHealthAfter(),
+                "fatal",             result.fatal());
+            session.send(router.buildPacket(PacketType.RP_COMBAT_ATTACK_RESULT, outcome));
+
+            // The victim learns of it wherever they are.
+            charService.findById(victimId).ifPresent(victim ->
+                sessions.byUserId(victim.userId()).ifPresent(s -> s.send(
+                    router.buildPacket(result.fatal()
+                        ? PacketType.RP_COMBAT_DOWNED
+                        : PacketType.RP_COMBAT_ATTACK_RESULT, outcome))));
+
+        } catch (SQLException e) {
+            log.error("RP attack error", e);
+            sendError(session, "server_error");
+        }
+    }
+
+    private void handleRevive(WebSocketSession session, JsonNode p) {
+        try {
+            RpCharacterService.Character ch = charService.findByUser(session.getUserId()).orElse(null);
+            if (ch == null) { sendError(session, "no_character"); return; }
+
+            long targetId = p.path("targetCharacterId").asLong(ch.id());
+            // Reviving yourself is only allowed once the down timer has run out;
+            // medics may revive someone else at any point.
+            if (targetId == ch.id() && !combatService.canSelfRevive(ch.id())) {
+                sendError(session, "still_down");
+                return;
+            }
+            if (!combatService.revive(targetId, 25)) { sendError(session, "not_downed"); return; }
+
+            session.send(router.buildPacket(PacketType.RP_COMBAT_REVIVED,
+                Map.of("characterId", targetId, "health", 25)));
+        } catch (SQLException e) {
+            log.error("RP revive error", e);
+            sendError(session, "server_error");
+        }
+    }
+
+    // ─── territory ──────────────────────────────────────────────────────────
+
+    private void handleTurfList(WebSocketSession session, JsonNode p) {
+        session.send(router.buildPacket(PacketType.RP_TURF_LIST_RESULT, Map.of(
+            "turfs", turfService.list().stream().map(this::turfToMap).collect(Collectors.toList()))));
+    }
+
+    private void handleTurfCaptureBegin(WebSocketSession session, JsonNode p) {
+        try {
+            RpCharacterService.Character ch = charService.findByUser(session.getUserId()).orElse(null);
+            if (ch == null) { sendError(session, "no_character"); return; }
+            if (ch.factionId() == null) { sendError(session, "no_faction"); return; }
+
+            int turfId = p.path("turfId").asInt(-1);
+            String rejection = turfService.beginCapture(turfId, ch.factionId().intValue(), ch.id());
+            if (rejection != null) { sendError(session, rejection); return; }
+
+            session.send(router.buildPacket(PacketType.RP_TURF_CAPTURE_STARTED,
+                Map.of("turfId", turfId, "factionId", ch.factionId())));
+        } catch (SQLException e) {
+            log.error("RP turf capture error", e);
+            sendError(session, "server_error");
+        }
+    }
+
+    private void handleTurfCaptureAbandon(WebSocketSession session, JsonNode p) {
+        try {
+            RpCharacterService.Character ch = charService.findByUser(session.getUserId()).orElse(null);
+            if (ch == null || ch.factionId() == null) { sendError(session, "no_character"); return; }
+            int turfId = p.path("turfId").asInt(-1);
+            turfService.abandonCapture(turfId, ch.factionId().intValue());
+        } catch (SQLException e) {
+            log.error("RP turf abandon error", e);
+            sendError(session, "server_error");
+        }
+    }
+
+    private Map<String, Object> weaponToMap(RpCombatService.Weapon w) {
+        return Map.of("id", w.id(), "code", w.code(), "name", w.name(),
+            "category", w.category(), "damage", w.damage(),
+            "range", w.rangeTiles(), "cooldownMs", w.cooldownMs(),
+            "licenceRequired", w.licenceRequired(), "price", w.price());
+    }
+
+    private Map<String, Object> turfToMap(RpTurfService.Turf t) {
+        return Map.of("id", t.id(), "code", t.code(), "name", t.name(),
+            "description", t.description(),
+            "incomePerHour", t.incomePerHour(),
+            "captureSeconds", t.captureSeconds(),
+            "ownerFactionId", t.ownerFactionId() != null ? t.ownerFactionId() : 0,
+            "ownerFactionName", t.ownerFactionName() != null ? t.ownerFactionName() : "");
     }
 
     private void sendError(WebSocketSession session, String reason) {
