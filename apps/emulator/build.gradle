@@ -64,15 +64,27 @@ test {
 }
 
 jar {
+    archiveBaseName = 'habnut-emulator'
+    archiveVersion  = ''
     manifest {
-        attributes 'Main-Class': 'com.habnut.emulator.Main'
+        attributes(
+            'Main-Class'            : 'com.habnut.emulator.Main',
+            'Implementation-Title'  : 'Habnut Emulator',
+            'Implementation-Version': project.version,
+            'Multi-Release'         : 'true'
+        )
     }
     from {
         configurations.runtimeClasspath.collect {
             it.isDirectory() ? it : zipTree(it)
         }
     }
+    // Dependency JARs are signed; their signatures do not survive being merged
+    // into a single archive and cause SecurityException at startup if kept.
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/SIG-*'
+    exclude 'module-info.class', 'META-INF/versions/*/module-info.class'
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    zip64 = true
 }
 
 tasks.named('build') {

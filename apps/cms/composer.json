@@ -3,14 +3,13 @@
     "type": "project",
     "require": {
         "php": "^8.3",
-        "laravel/framework": "^11.0",
-        "laravel/horizon": "^5.20",
+        "laravel/framework": "^12.60",
+        "laravel/horizon": "^5.30",
         "laravel/sanctum": "^4.0",
-        "spatie/laravel-permission": "^6.0",
+        "spatie/laravel-permission": "^6.9",
         "pragmarx/google2fa-laravel": "^2.2",
         "bacon/bacon-qr-code": "^2.0",
         "predis/predis": "^2.3",
-        "league/flysystem-aws-s3-v3": "^3.0",
         "guzzlehttp/guzzle": "^7.8"
     },
     "require-dev": {
