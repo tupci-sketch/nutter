@@ -8,6 +8,7 @@ return [
     'ticket_ttl_minutes'  => 5,
     'brand_name'     => 'Habnut',
     'brand_acorn'    => '🌰',
+    'imager_url'     => env('IMAGER_URL'),
     'hotel_name'     => 'Hotel Habnut',
     'nutropolis_name'=> 'Nutropolis',
 ];
