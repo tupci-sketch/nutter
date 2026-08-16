@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public final class RoomRepository {
@@ -104,6 +105,44 @@ public final class RoomRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             log.warn("updateScore failed for room {}", roomId, e);
+        }
+    }
+
+    /**
+     * Writes a room's decoration.
+     *
+     * Only keys present in {@code allowedFields} are written, and each is
+     * mapped to its column through that map rather than taken from the payload,
+     * so a crafted packet cannot name an arbitrary column.
+     *
+     * @return true if the row was updated
+     */
+    public boolean updateDecoration(long roomId, Map<String, Object> values,
+                                    Map<String, String> allowedFields) {
+        List<String> assignments = new ArrayList<>();
+        List<Object> bindings = new ArrayList<>();
+
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            String column = allowedFields.get(entry.getKey());
+            if (column == null) continue;
+            assignments.add(column + " = ?");
+            bindings.add(entry.getValue());
+        }
+        if (assignments.isEmpty()) return false;
+
+        String sql = "UPDATE habnut_rooms SET " + String.join(", ", assignments) + " WHERE id = ?";
+        try (Connection conn = db.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            int i = 1;
+            for (Object binding : bindings) {
+                if (binding instanceof Boolean b) ps.setBoolean(i++, b);
+                else ps.setString(i++, String.valueOf(binding));
+            }
+            ps.setLong(i, roomId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            log.error("updateDecoration failed for room {}", roomId, e);
+            return false;
         }
     }
 

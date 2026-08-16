@@ -53,6 +53,83 @@ public final class RoomHandler {
         router.register(PacketType.ROOM_NAV_SEARCH,     this::handleNavSearch);
         router.register(PacketType.ROOM_NAV_MY_ROOMS,   this::handleNavMyRooms);
         router.register(PacketType.ROOM_NAV_POPULAR,    this::handleNavPopular);
+        router.register(PacketType.ROOM_DECORATION_UPDATE, this::handleDecorationUpdate);
+        router.register(PacketType.ROOM_USER_DANCE,     this::handleDance);
+        router.register(PacketType.ROOM_USER_EFFECT,    this::handleEffect);
+        router.register(PacketType.ROOM_USER_SIGN,      this::handleSign);
+    }
+
+    // ─── decoration and expression ──────────────────────────────────────────
+
+    /** Decoration keys an owner may change, and the column each maps to. */
+    private static final Map<String, String> DECORATION_FIELDS = Map.of(
+        "wallpaper",       "wallpaper",
+        "floorPattern",    "floor_pattern",
+        "landscape",       "landscape_colour",
+        "hideWalls",       "hide_walls",
+        "wallThickness",   "wall_thickness",
+        "floorThickness",  "floor_thickness");
+
+    private void handleDecorationUpdate(WebSocketSession session, JsonNode payload) {
+        if (!session.isAuthenticated()) return;
+
+        long userId = session.getUserId();
+        Long roomId = userCurrentRoom.get(userId);
+        if (roomId == null) return;
+
+        rooms.get(roomId).ifPresent(room -> {
+            // Redecorating is an owner-level change, not a rights-level one.
+            if (room.getOwnerId() != userId) {
+                sendError(session, ErrorCode.ROOM_ACCESS_DENIED, "Only the room owner can redecorate");
+                return;
+            }
+
+            Map<String, Object> applied = new java.util.HashMap<>();
+            for (Map.Entry<String, String> field : DECORATION_FIELDS.entrySet()) {
+                JsonNode value = payload.get(field.getKey());
+                if (value == null || value.isNull()) continue;
+                applied.put(field.getKey(), value.isBoolean() ? value.asBoolean() : value.asText());
+            }
+            if (applied.isEmpty()) return;
+
+            if (!roomRepo.updateDecoration(roomId, applied, DECORATION_FIELDS)) {
+                sendError(session, ErrorCode.ROOM_ACCESS_DENIED, "Could not save decoration");
+                return;
+            }
+            room.broadcastDecoration(applied);
+        });
+    }
+
+    private void handleDance(WebSocketSession session, JsonNode payload) {
+        withCurrentRoom(session, (room, userId) ->
+            room.danceUser(userId, payload.path("danceId").asInt(0)));
+    }
+
+    private void handleEffect(WebSocketSession session, JsonNode payload) {
+        int effectId = payload.path("effectId").asInt(0);
+        long userId = session.getUserId();
+
+        // A user may only wear an effect they own; 0 always clears.
+        if (effectId != 0 && !userRepo.ownsEffect(userId, effectId)) {
+            sendError(session, ErrorCode.ROOM_ACCESS_DENIED, "You do not own that effect");
+            return;
+        }
+        userRepo.setCurrentEffect(userId, effectId);
+        withCurrentRoom(session, (room, uid) -> room.setUserEffect(uid, effectId));
+    }
+
+    private void handleSign(WebSocketSession session, JsonNode payload) {
+        withCurrentRoom(session, (room, userId) ->
+            room.setUserSign(userId, payload.path("signId").asInt(-1)));
+    }
+
+    /** Runs an action against the room the session is currently in, if any. */
+    private void withCurrentRoom(WebSocketSession session, java.util.function.BiConsumer<Room, Long> action) {
+        if (!session.isAuthenticated()) return;
+        long userId = session.getUserId();
+        Long roomId = userCurrentRoom.get(userId);
+        if (roomId == null) return;
+        rooms.get(roomId).ifPresent(room -> action.accept(room, userId));
     }
 
     private void handleEnter(WebSocketSession session, JsonNode payload) {

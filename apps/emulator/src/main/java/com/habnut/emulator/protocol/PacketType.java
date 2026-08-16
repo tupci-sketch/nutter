@@ -40,6 +40,20 @@ public final class PacketType {
     public static final String ROOM_GRANT_RIGHTS = "room.rights.grant";
     public static final String ROOM_REVOKE_RIGHTS = "room.rights.revoke";
     public static final String ROOM_RATE = "room.rate";
+    // Room decoration: the three surfaces an owner can change, plus the wall
+    // and floor thickness settings that accompany them.
+    public static final String ROOM_DECORATION_UPDATE = "room.decoration.update";
+    public static final String ROOM_DECORATION_UPDATED = "room.decoration.updated";
+    // Avatar expression, visible to every occupant of the room.
+    public static final String ROOM_USER_DANCE = "room.user.dance";
+    public static final String ROOM_USER_DANCED = "room.user.danced";
+    public static final String ROOM_USER_EFFECT = "room.user.effect";
+    public static final String ROOM_USER_EFFECT_SET = "room.user.effect.set";
+    public static final String ROOM_USER_EFFECT_LIST = "room.user.effect.list";
+    public static final String ROOM_USER_EFFECT_LIST_RESULT = "room.user.effect.list.result";
+    public static final String ROOM_USER_SIGN = "room.user.sign";
+    public static final String ROOM_USER_SIGNED = "room.user.signed";
+    public static final String ROOM_USER_HAND_ITEM = "room.user.hand_item";
     public static final String ROOM_FAVORITE_ADD = "room.favorite.add";
     public static final String ROOM_FAVORITE_REMOVE = "room.favorite.remove";
     public static final String ROOM_ENTER_SUCCESS = "room.enter.success";

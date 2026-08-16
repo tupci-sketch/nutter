@@ -4,6 +4,8 @@ import com.habnut.emulator.db.DatabaseManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.sql.*;
 import java.time.Instant;
 
@@ -91,5 +93,57 @@ public final class UserRepository {
                 rs.getString("last_ip")
             );
         }
+    }
+
+    // ─── avatar effects ─────────────────────────────────────────────────────
+
+    /** True if the user owns the effect and it has not expired. */
+    public boolean ownsEffect(long userId, int effectId) {
+        try (Connection conn = db.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT 1 FROM habnut_user_effects " +
+                 "WHERE user_id = ? AND effect_id = ? " +
+                 "AND (is_permanent = 1 OR expires_at IS NULL OR expires_at > NOW())")) {
+            ps.setLong(1, userId);
+            ps.setInt(2, effectId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            log.error("ownsEffect failed for user {} effect {}", userId, effectId, e);
+            return false;
+        }
+    }
+
+    /** Records which effect the user is currently wearing; 0 clears it. */
+    public void setCurrentEffect(long userId, int effectId) {
+        try (Connection conn = db.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "UPDATE habnut_users SET current_effect = ? WHERE id = ?")) {
+            ps.setInt(1, Math.max(0, effectId));
+            ps.setLong(2, userId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            log.error("setCurrentEffect failed for user {}", userId, e);
+        }
+    }
+
+    /** Effect ids the user owns and may currently select. */
+    public List<Integer> listEffects(long userId) {
+        List<Integer> effects = new ArrayList<>();
+        try (Connection conn = db.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT effect_id FROM habnut_user_effects " +
+                 "WHERE user_id = ? " +
+                 "AND (is_permanent = 1 OR expires_at IS NULL OR expires_at > NOW()) " +
+                 "ORDER BY effect_id")) {
+            ps.setLong(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) effects.add(rs.getInt("effect_id"));
+            }
+        } catch (SQLException e) {
+            log.error("listEffects failed for user {}", userId, e);
+        }
+        return effects;
     }
 }

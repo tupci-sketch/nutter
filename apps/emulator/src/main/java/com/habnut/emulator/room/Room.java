@@ -220,13 +220,46 @@ public final class Room {
     public void sitUser(long userId)  { setUserStatus(userId, "sit"); }
     public void standUser(long userId){ clearUserStatus(userId, "sit"); }
     public void waveUser(long userId) { setUserStatus(userId, "wave"); }
+
+    /** Starts or stops a dance. A sitting entity refuses, per RoomEntity. */
     public void danceUser(long userId, int danceId) {
         RoomEntity e = playerEntities.get(userId);
-        if (e != null) { e.setStatus("dance", String.valueOf(danceId)); broadcastUserStatus(e); }
+        if (e == null) return;
+        e.setDanceId(danceId);
+        broadcast(PacketType.ROOM_USER_DANCED,
+            Map.of("instanceId", e.instanceId, "danceId", e.getDanceId()));
     }
 
+    /** Enables or clears an avatar effect for everyone in the room to see. */
     public void setUserEffect(long userId, int effectId) {
-        broadcast(PacketType.ROOM_USER_MOVED, Map.of("effectId", effectId, "userId", userId));
+        RoomEntity e = playerEntities.get(userId);
+        if (e == null) return;
+        e.setEffectId(effectId);
+        broadcast(PacketType.ROOM_USER_EFFECT_SET,
+            Map.of("instanceId", e.instanceId, "effectId", e.getEffectId()));
+    }
+
+    /** Holds up a sign for its display duration. */
+    public void setUserSign(long userId, int signId) {
+        RoomEntity e = playerEntities.get(userId);
+        if (e == null) return;
+        e.setSign(signId);
+        broadcast(PacketType.ROOM_USER_SIGNED,
+            Map.of("instanceId", e.instanceId, "signId", e.getSignId()));
+    }
+
+    /** Puts an item in a user's hand, which clears itself after its duration. */
+    public void giveHandItem(long userId, int handItemId) {
+        RoomEntity e = playerEntities.get(userId);
+        if (e == null) return;
+        e.setHandItem(handItemId);
+        broadcast(PacketType.ROOM_USER_HAND_ITEM,
+            Map.of("instanceId", e.instanceId, "handItemId", e.getHandItemId()));
+    }
+
+    /** Announces new decoration to everyone currently in the room. */
+    public void broadcastDecoration(Map<String, Object> decoration) {
+        broadcast(PacketType.ROOM_DECORATION_UPDATED, decoration);
     }
 
     public void broadcastWiredChat(String msg) {
