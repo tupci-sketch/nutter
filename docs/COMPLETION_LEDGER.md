@@ -3,6 +3,40 @@
 Each row represents a feature area. All 10 completion dimensions must be green
 before a row is marked complete. Dimensions: **DB** · **SVC** · **PKT** · **UI** · **DCC** · **PERM** · **TEST** · **METRIC** · **ASSET** · **DOC**
 
+## Verification status
+
+The per-feature table below records intended scope. The build state that has
+actually been measured is recorded here, and two dimensions do not yet meet the
+bar the table claims.
+
+Verified green:
+
+| Check | Result |
+|-------|--------|
+| Emulator compiles (Java 21) | 123 source files, 17,160 LOC |
+| Emulator unit tests | 19 passing |
+| Emulator persistence | 287 prepared statements across 47 classes |
+| Packet routing | 303 packet types, all handlers registered at boot |
+| Wired 2.0 registry | 21 triggers · 56 actions · 36 conditions · 22 selectors |
+| Database migrations | V1–V9, 118 tables |
+| Client typecheck and build | passing, 534 modules |
+| CMS tests | 36 passing |
+| CMS dependency audit | 0 advisories (Laravel 12.66) |
+| Launcher build | Linux and Windows, `go vet` clean |
+| Launcher payload | extracts and runs on both targets |
+| Observability | 27 Prometheus alerts, 15 Grafana dashboards |
+| Placeholder scan of application source | 0 findings |
+
+Not yet meeting the claimed bar:
+
+| Dimension | Actual state | Consequence |
+|-----------|--------------|-------------|
+| **TEST** | 57 automated tests total (19 emulator, 36 CMS, 2 client). `tests/wired-conformance/` contains no cases. | The TEST column is not green for most rows. Chapter 59.1 gates game work on a 100%-passing wired conformance suite; that gate is unmet because the suite does not exist. |
+| **UI** (CMS only) | 68 Blade views totalling 1,712 lines, averaging 25 lines each. Routes, controllers and permissions are complete; the templates are minimal. | The CMS functions but does not yet present like an established hotel front-end. |
+
+Wired condition count is 36 against a specified 37; the missing condition is
+tracked as the one registry gap.
+
 | Code | Feature Area | DB | SVC | PKT | UI | DCC | PERM | TEST | METRIC | ASSET | DOC | Status |
 |------|-------------|----|-----|-----|----|-----|------|------|--------|-------|-----|--------|
 | AUT | Authentication | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **complete** |
@@ -50,7 +84,9 @@ before a row is marked complete. Dimensions: **DB** · **SVC** · **PKT** · **U
 | NOT | Notifications | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **complete** |
 | FLG | Feature Flags | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **complete** |
 
-**Total: 44 / 44 complete**
+**Total: 44 / 44 feature areas implemented across DB, SVC, PKT, DCC, PERM,
+METRIC and ASSET. TEST is not green for most rows and CMS UI is minimal — see
+[Verification status](#verification-status).**
 
 ---
 
