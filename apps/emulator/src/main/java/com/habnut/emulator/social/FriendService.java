@@ -29,7 +29,7 @@ public final class FriendService {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT u.id, u.username, u.figure, u.motto, u.online, u.last_seen " +
-                 "FROM habnut_friendships f " +
+                 "FROM habnut_friends f " +
                  "JOIN habnut_users u ON u.id = CASE WHEN f.user_a = ? THEN f.user_b ELSE f.user_a END " +
                  "WHERE (f.user_a = ? OR f.user_b = ?) AND f.accepted = 1 " +
                  "ORDER BY u.username ASC")) {
@@ -45,7 +45,7 @@ public final class FriendService {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT f.id, u.id as from_id, u.username, u.figure, f.created_at " +
-                 "FROM habnut_friendships f " +
+                 "FROM habnut_friends f " +
                  "JOIN habnut_users u ON u.id = f.user_a " +
                  "WHERE f.user_b = ? AND f.accepted = 0 ORDER BY f.created_at DESC")) {
             ps.setLong(1, userId);
@@ -72,7 +72,7 @@ public final class FriendService {
         try (Connection conn = db.getConnection()) {
             // Check existing relationship
             try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT accepted FROM habnut_friendships " +
+                "SELECT accepted FROM habnut_friends " +
                 "WHERE (user_a = ? AND user_b = ?) OR (user_a = ? AND user_b = ?)")) {
                 ps.setLong(1, fromUserId); ps.setLong(2, toUserId);
                 ps.setLong(3, toUserId); ps.setLong(4, fromUserId);
@@ -95,7 +95,7 @@ public final class FriendService {
                 }
             }
             try (PreparedStatement ins = conn.prepareStatement(
-                "INSERT INTO habnut_friendships (user_a, user_b, accepted) VALUES (?, ?, 0)")) {
+                "INSERT INTO habnut_friends (user_a, user_b, accepted) VALUES (?, ?, 0)")) {
                 ins.setLong(1, fromUserId); ins.setLong(2, toUserId);
                 ins.executeUpdate();
             }
@@ -109,7 +109,7 @@ public final class FriendService {
     public boolean acceptRequest(long requestId, long acceptingUserId) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "UPDATE habnut_friendships SET accepted = 1, accepted_at = NOW() " +
+                 "UPDATE habnut_friends SET accepted = 1, accepted_at = NOW() " +
                  "WHERE id = ? AND user_b = ? AND accepted = 0")) {
             ps.setLong(1, requestId); ps.setLong(2, acceptingUserId);
             return ps.executeUpdate() > 0;
@@ -122,7 +122,7 @@ public final class FriendService {
     public boolean declineRequest(long requestId, long decliningUserId) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "DELETE FROM habnut_friendships WHERE id = ? AND user_b = ? AND accepted = 0")) {
+                 "DELETE FROM habnut_friends WHERE id = ? AND user_b = ? AND accepted = 0")) {
             ps.setLong(1, requestId); ps.setLong(2, decliningUserId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -134,7 +134,7 @@ public final class FriendService {
     public boolean removeFriend(long userId, long friendId) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "DELETE FROM habnut_friendships " +
+                 "DELETE FROM habnut_friends " +
                  "WHERE ((user_a = ? AND user_b = ?) OR (user_a = ? AND user_b = ?)) AND accepted = 1")) {
             ps.setLong(1, userId); ps.setLong(2, friendId);
             ps.setLong(3, friendId); ps.setLong(4, userId);
@@ -150,7 +150,7 @@ public final class FriendService {
         try (Connection conn = db.getConnection()) {
             // Remove friendship if exists
             try (PreparedStatement del = conn.prepareStatement(
-                "DELETE FROM habnut_friendships " +
+                "DELETE FROM habnut_friends " +
                 "WHERE (user_a = ? AND user_b = ?) OR (user_a = ? AND user_b = ?)")) {
                 del.setLong(1, blockerId); del.setLong(2, blockedId);
                 del.setLong(3, blockedId); del.setLong(4, blockerId);
@@ -171,7 +171,7 @@ public final class FriendService {
     public boolean areFriends(long userA, long userB) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT 1 FROM habnut_friendships " +
+                 "SELECT 1 FROM habnut_friends " +
                  "WHERE ((user_a = ? AND user_b = ?) OR (user_a = ? AND user_b = ?)) AND accepted = 1")) {
             ps.setLong(1, userA); ps.setLong(2, userB);
             ps.setLong(3, userB); ps.setLong(4, userA);
@@ -186,7 +186,7 @@ public final class FriendService {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT u.id, u.username, u.figure, u.motto, u.online, u.last_seen " +
-                 "FROM habnut_friendships f " +
+                 "FROM habnut_friends f " +
                  "JOIN habnut_users u ON u.id = ? " +
                  "WHERE ((f.user_a = ? AND f.user_b = ?) OR (f.user_a = ? AND f.user_b = ?)) AND f.accepted = 1")) {
             ps.setLong(1, friendId);

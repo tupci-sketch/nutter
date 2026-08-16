@@ -71,7 +71,7 @@ public final class CatalogueService {
             try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT ci.id, ci.page_id, ci.base_id, ci.name, ci.description, " +
                 "ci.credits_price, ci.diamonds_price, ci.limited_total, ci.limited_sold, ci.is_gift " +
-                "FROM habnut_catalogue_items ci WHERE ci.page_id = ? AND ci.is_visible = 1")) {
+                "FROM habnut_catalogue_offers ci WHERE ci.page_id = ? AND ci.is_visible = 1")) {
                 ps.setLong(1, pageId);
                 List<CatItem> items = new ArrayList<>();
                 try (ResultSet rs = ps.executeQuery()) {
@@ -132,7 +132,7 @@ public final class CatalogueService {
 
     private int reserveLimited(Connection conn, long itemId, int total) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-            "UPDATE habnut_catalogue_items SET limited_sold = limited_sold + 1 " +
+            "UPDATE habnut_catalogue_offers SET limited_sold = limited_sold + 1 " +
             "WHERE id = ? AND limited_sold < ?")) {
             ps.setLong(1, itemId); ps.setInt(2, total);
             return ps.executeUpdate();
@@ -141,7 +141,7 @@ public final class CatalogueService {
 
     private CatItem findItem(Connection conn, long itemId) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-            "SELECT * FROM habnut_catalogue_items WHERE id = ?")) {
+            "SELECT * FROM habnut_catalogue_offers WHERE id = ?")) {
             ps.setLong(1, itemId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;

@@ -26,7 +26,7 @@ public final class BanService {
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT reason, expires_at FROM habnut_bans " +
                  "WHERE user_id = ? AND (expires_at IS NULL OR expires_at > NOW()) " +
-                 "AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1")) {
+                 "AND lifted_at IS NULL ORDER BY created_at DESC LIMIT 1")) {
             ps.setLong(1, userId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -67,7 +67,7 @@ public final class BanService {
     public void revoke(long banId, long revokedBy) throws SQLException {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "UPDATE habnut_bans SET revoked_at = NOW(), revoked_by_id = ? WHERE id = ?")) {
+                 "UPDATE habnut_bans SET lifted_at = NOW(), lifted_by_id = ? WHERE id = ?")) {
             ps.setLong(1, revokedBy);
             ps.setLong(2, banId);
             ps.executeUpdate();

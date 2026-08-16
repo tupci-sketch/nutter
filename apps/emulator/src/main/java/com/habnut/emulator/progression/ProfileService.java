@@ -35,9 +35,9 @@ public final class ProfileService {
                  "u.credits, u.diamonds, u.nut_points, u.xp, " +
                  "u.member_since, u.last_seen, u.online, " +
                  "(SELECT COUNT(*) FROM habnut_rooms WHERE owner_id = u.id) AS rooms_owned, " +
-                 "(SELECT COUNT(*) FROM habnut_friendships WHERE (user_a = u.id OR user_b = u.id) AND accepted = 1) AS friend_count, " +
+                 "(SELECT COUNT(*) FROM habnut_friends WHERE (user_a = u.id OR user_b = u.id) AND accepted = 1) AS friend_count, " +
                  "(SELECT COALESCE(SUM(ad.points), 0) FROM habnut_user_achievements ua " +
-                 " JOIN habnut_achievements_def ad ON ad.code = ua.achievement_code " +
+                 " JOIN habnut_achievements ad ON ad.code = ua.achievement_code " +
                  " WHERE ua.user_id = u.id AND ua.completed_at IS NOT NULL) AS achievement_points " +
                  "FROM habnut_users u WHERE u.id = ?")) {
             ps.setLong(1, targetUserId);

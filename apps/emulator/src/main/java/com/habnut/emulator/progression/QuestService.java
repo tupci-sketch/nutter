@@ -31,7 +31,7 @@ public final class QuestService {
                  "qd.required_progress, " +
                  "COALESCE(uq.progress, 0) as progress, " +
                  "uq.completed_at IS NOT NULL as completed, qd.expires_at " +
-                 "FROM habnut_quests_def qd " +
+                 "FROM habnut_quests qd " +
                  "LEFT JOIN habnut_user_quests uq ON uq.quest_id = qd.id AND uq.user_id = ? " +
                  "WHERE (qd.expires_at IS NULL OR qd.expires_at > NOW()) " +
                  "AND (uq.completed_at IS NULL OR uq.completed_at IS NOT NULL) " +
@@ -82,7 +82,7 @@ public final class QuestService {
             int requiredProgress; int rewardCredits; int rewardDiamonds; int rewardNutPoints; String badgeCode;
             try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT required_progress, reward_credits, reward_diamonds, reward_nut_points, badge_code " +
-                "FROM habnut_quests_def WHERE id = ?")) {
+                "FROM habnut_quests WHERE id = ?")) {
                 ps.setLong(1, questId);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) { conn.rollback(); return java.util.Optional.empty(); }

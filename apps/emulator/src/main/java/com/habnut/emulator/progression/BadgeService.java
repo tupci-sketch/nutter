@@ -28,7 +28,7 @@ public final class BadgeService {
                  "SELECT ub.badge_code, bd.name, bd.description, bd.image_url, " +
                  "ub.earned_at, ub.equipped, ub.slot_index " +
                  "FROM habnut_user_badges ub " +
-                 "JOIN habnut_badges_def bd ON bd.code = ub.badge_code " +
+                 "JOIN habnut_badges bd ON bd.code = ub.badge_code " +
                  "WHERE ub.user_id = ? ORDER BY ub.equipped DESC, ub.slot_index ASC, ub.earned_at DESC")) {
             ps.setLong(1, userId);
             List<Badge> result = new ArrayList<>();

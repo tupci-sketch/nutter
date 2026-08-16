@@ -27,6 +27,15 @@ public final class RoomEntity {
     private volatile String team     = null;
     private final Map<String, String> statusMap = new ConcurrentHashMap<>();
 
+    // Expression state. Each of these is visible to every other occupant of the
+    // room and is cleared when the entity leaves.
+    private volatile int effectId    = 0;   // 0 = no effect
+    private volatile int danceId     = 0;   // 0 = standing still
+    private volatile int handItemId  = 0;   // 0 = empty handed
+    private volatile long handItemExpiry = 0;
+    private volatile int signId      = -1;  // -1 = no sign held
+    private volatile long signExpiry = 0;
+
     public RoomEntity(Type type, long sourceId, String name,
                       String figureString, Position spawn) {
         this.instanceId   = ID_SEQ.getAndIncrement();
@@ -66,6 +75,67 @@ public final class RoomEntity {
 
     public String getTeam() { return team; }
     public void setTeam(String team) { this.team = team; }
+
+    // ─── expression state ───────────────────────────────────────────────────
+
+    /** How long a hand item or sign stays visible before it clears itself. */
+    public static final long HAND_ITEM_DURATION_MS = 30_000;
+    public static final long SIGN_DURATION_MS      = 5_000;
+
+    public int getEffectId() { return effectId; }
+    public void setEffectId(int id) { this.effectId = Math.max(0, id); }
+
+    public int getDanceId() { return danceId; }
+
+    /**
+     * Dances 0-4 are the standard set; anything outside that range is ignored
+     * so a crafted packet cannot put an entity into an undefined animation.
+     * Sitting or laying entities cannot dance.
+     */
+    public void setDanceId(int id) {
+        if (id < 0 || id > 4) return;
+        if (id > 0 && (sitting || laying)) return;
+        this.danceId = id;
+    }
+
+    public int getHandItemId() {
+        if (handItemId != 0 && System.currentTimeMillis() > handItemExpiry) {
+            handItemId = 0;
+        }
+        return handItemId;
+    }
+
+    public void setHandItem(int id) {
+        this.handItemId = Math.max(0, id);
+        this.handItemExpiry = id > 0 ? System.currentTimeMillis() + HAND_ITEM_DURATION_MS : 0;
+    }
+
+    public int getSignId() {
+        if (signId >= 0 && System.currentTimeMillis() > signExpiry) {
+            signId = -1;
+        }
+        return signId;
+    }
+
+    /** Signs 0-17 are the standard set; other values clear the sign. */
+    public void setSign(int id) {
+        if (id < 0 || id > 17) {
+            this.signId = -1;
+            this.signExpiry = 0;
+            return;
+        }
+        this.signId = id;
+        this.signExpiry = System.currentTimeMillis() + SIGN_DURATION_MS;
+    }
+
+    /** Clears every transient expression, used when an entity sits or leaves. */
+    public void clearExpressions() {
+        this.danceId = 0;
+        this.handItemId = 0;
+        this.handItemExpiry = 0;
+        this.signId = -1;
+        this.signExpiry = 0;
+    }
 
     public long getUserId() { return sourceId; }
 

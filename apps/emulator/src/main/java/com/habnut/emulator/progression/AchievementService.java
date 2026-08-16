@@ -35,7 +35,7 @@ public final class AchievementService {
                  "SELECT ad.code, ad.name, ad.description, ad.category, ad.points, " +
                  "ad.max_progress, COALESCE(up.progress, 0) as progress, " +
                  "up.completed_at " +
-                 "FROM habnut_achievements_def ad " +
+                 "FROM habnut_achievements ad " +
                  "LEFT JOIN habnut_user_achievements up " +
                  "  ON up.achievement_code = ad.code AND up.user_id = ? " +
                  "ORDER BY ad.category, ad.code")) {
@@ -71,7 +71,7 @@ public final class AchievementService {
             int maxProgress;
             String badgeCode;
             try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT max_progress, badge_code FROM habnut_achievements_def WHERE code = ?")) {
+                "SELECT max_progress, badge_code FROM habnut_achievements WHERE code = ?")) {
                 ps.setString(1, achievementCode);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) { conn.rollback(); return Optional.empty(); }

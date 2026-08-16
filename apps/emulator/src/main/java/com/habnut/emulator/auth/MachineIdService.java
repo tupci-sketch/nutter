@@ -43,7 +43,7 @@ public final class MachineIdService {
                  "SELECT COUNT(*) FROM habnut_machine_ids mid " +
                  "JOIN habnut_bans b ON b.user_id = mid.user_id " +
                  "WHERE mid.machine_id = ? AND b.ban_type = 'machine' " +
-                 "AND (b.expires_at IS NULL OR b.expires_at > NOW()) AND b.revoked_at IS NULL")) {
+                 "AND (b.expires_at IS NULL OR b.expires_at > NOW()) AND b.lifted_at IS NULL")) {
             ps.setString(1, machineId);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() && rs.getInt(1) > 0;
