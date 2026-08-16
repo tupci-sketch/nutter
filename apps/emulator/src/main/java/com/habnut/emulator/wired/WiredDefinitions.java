@@ -132,6 +132,8 @@ public final class WiredDefinitions {
             resolveVar(c, ctx).lte(resolveValue(c, ctx)));
         r.registerCondition("cond.var_contains", (c, ctx) ->
             resolveVar(c, ctx).contains(resolveValue(c, ctx)).asBool());
+        r.registerCondition("cond.not_var_contains", (c, ctx) ->
+            !resolveVar(c, ctx).contains(resolveValue(c, ctx)).asBool());
         // Time conditions
         r.registerCondition("cond.date_range_active", (c, ctx) -> {
             long now = System.currentTimeMillis();
@@ -503,6 +505,16 @@ public final class WiredDefinitions {
         return ctx.getVariable(scope, paramStr(c, "varName"));
     }
 
+    /**
+     * Resolves the operand of a condition or variable action.
+     *
+     * When the operand is itself a variable it is named by {@code valueScope}
+     * and {@code valueVarName}. Those keys are distinct from the {@code scope}
+     * and {@code varName} that name the target variable, so a stack can add one
+     * variable to another; sharing the keys would restrict every operation to
+     * the target variable itself. A stack that omits the operand keys falls
+     * back to the target's, which reads the target as its own operand.
+     */
     private static WiredValue resolveValue(WiredStack.WiredComponent c, WiredContext ctx) {
         String type = paramStr(c, "valueType");
         return switch (type) {
@@ -510,8 +522,9 @@ public final class WiredDefinitions {
             case "text"     -> WiredValue.ofText(paramStr(c, "value"));
             case "bool"     -> WiredValue.ofBool("true".equalsIgnoreCase(paramStr(c, "value")));
             case "variable" -> {
-                WiredContext.Scope scope = parseScope(paramStr(c, "scope"));
-                yield ctx.getVariable(scope, paramStr(c, "varName"));
+                String scopeKey = c.params().containsKey("valueScope")   ? "valueScope"   : "scope";
+                String nameKey  = c.params().containsKey("valueVarName") ? "valueVarName" : "varName";
+                yield ctx.getVariable(parseScope(paramStr(c, scopeKey)), paramStr(c, nameKey));
             }
             default -> WiredValue.ofText(paramStr(c, "value"));
         };

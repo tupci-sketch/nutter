@@ -15,6 +15,12 @@ public final class WiredVariableStore {
     private final ConcurrentHashMap<String, WiredValue> cache = new ConcurrentHashMap<>();
     private final DatabaseManager db;
 
+    /**
+     * @param db backing store for variable persistence, or {@code null} to keep
+     *           variables in memory only. The conformance suite uses the
+     *           in-memory form so wired semantics can be exercised without a
+     *           database; the server always supplies a real manager.
+     */
     public WiredVariableStore(DatabaseManager db) {
         this.db = db;
     }
@@ -43,6 +49,7 @@ public final class WiredVariableStore {
     }
 
     private WiredValue loadFromDb(WiredContext.Scope scope, long roomId, long userId, String name) {
+        if (db == null) return WiredValue.ZERO;
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT var_type, num_value, text_value, bool_value FROM habnut_wired_variables " +
@@ -67,6 +74,7 @@ public final class WiredVariableStore {
 
     private void persistToDb(WiredContext.Scope scope, long roomId, long userId,
                               String name, WiredValue value) {
+        if (db == null) return;
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "INSERT INTO habnut_wired_variables " +

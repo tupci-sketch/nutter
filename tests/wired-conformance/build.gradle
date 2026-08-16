@@ -1,0 +1,37 @@
+// Wired 2.0 conformance suite.
+//
+// Chapter 59.1 makes a fully passing run of this suite the precondition for
+// game work.  It asserts that every registered trigger, action, condition and
+// selector exists and behaves as specified, and that variable scoping, the
+// operator set, signals and the execution limiter hold.
+//
+// Run with:  gradle :wired-conformance:test
+
+plugins {
+    id 'java'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation project(':emulator')
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testImplementation 'org.slf4j:slf4j-api:2.0.9'
+    testRuntimeOnly   'ch.qos.logback:logback-classic:1.4.11'
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        showStandardStreams = false
+    }
+}
