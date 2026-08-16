@@ -14,7 +14,18 @@ public final class DatabaseManager implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseManager.class);
 
-    private final HikariDataSource dataSource;
+    private final DataSource dataSource;
+
+    /**
+     * Wraps an already-configured data source.
+     *
+     * The server builds its pool from {@link ServerConfig} using the other
+     * constructor; this one lets tests supply an in-memory database so
+     * transaction semantics can be exercised without a MariaDB instance.
+     */
+    public DatabaseManager(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
 
     public DatabaseManager(ServerConfig config) {
         log.info("Initialising database connection pool");
@@ -65,23 +76,27 @@ public final class DatabaseManager implements AutoCloseable {
         }
     }
 
+    // Pool statistics are reported to Prometheus.  A data source supplied
+    // directly (as in tests) exposes no pool bean, so these report zero rather
+    // than failing the metrics scrape.
+
     public int getActiveConnections() {
-        return dataSource.getHikariPoolMXBean().getActiveConnections();
+        return dataSource instanceof HikariDataSource h ? h.getHikariPoolMXBean().getActiveConnections() : 0;
     }
 
     public int getIdleConnections() {
-        return dataSource.getHikariPoolMXBean().getIdleConnections();
+        return dataSource instanceof HikariDataSource h ? h.getHikariPoolMXBean().getIdleConnections() : 0;
     }
 
     public int getTotalConnections() {
-        return dataSource.getHikariPoolMXBean().getTotalConnections();
+        return dataSource instanceof HikariDataSource h ? h.getHikariPoolMXBean().getTotalConnections() : 0;
     }
 
     @Override
     public void close() {
-        log.info("Closing database connection pool");
-        if (dataSource != null && !dataSource.isClosed()) {
-            dataSource.close();
+        if (dataSource instanceof HikariDataSource h && !h.isClosed()) {
+            log.info("Closing database connection pool");
+            h.close();
         }
     }
 }

@@ -51,6 +51,9 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:5.6.0'
     // Supplies MockitoExtension, which mockito-core alone does not contain.
     testImplementation 'org.mockito:mockito-junit-jupiter:5.6.0'
+    // In-memory database in MySQL compatibility mode, so the economy tests can
+    // exercise real locking, rollback and idempotency without a MariaDB server.
+    testImplementation 'com.h2database:h2:2.2.224'
     testImplementation 'org.testcontainers:testcontainers:1.19.3'
     testImplementation 'org.testcontainers:mariadb:1.19.3'
     testImplementation 'org.testcontainers:junit-jupiter:1.19.3'
