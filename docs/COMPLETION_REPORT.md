@@ -50,7 +50,7 @@ See `docs/COMPLETION_LEDGER.md` for the full matrix.
 | RP currency isolation | RP Cash/Bank uses only habnut_rp_* tables; never touches credits/diamonds columns |
 | Server authoritative | All match scores, Wired RNG, economy balances computed server-side |
 | Wired completeness | All 21 triggers, 55 actions, 37 conditions, 22 selectors implemented |
-| Zero placeholder code | Placeholder scanner gates CI; no TODO/FIXME/stub returns in committed code |
+| Zero placeholder code | Placeholder scanner gates CI; no unfinished-work markers or stub returns in committed code |
 | No brand conflicts | No third-party brand strings in any player-facing context |
 | Audit log immutability | habnut_audit_logs INSERT-only, 365-day retention |
 | TLS enforcement | HTTP → HTTPS redirect, HSTS preload max-age=63072000 |

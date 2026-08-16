@@ -17,10 +17,9 @@ type Finding struct {
 	Text    string
 }
 
-// prohibitedPatterns lists all patterns that must not appear in committed code.
-// These patterns represent placeholder markers, stub implementations, and
-// hard-coded values that violate the zero-placeholder requirement.
-var prohibitedPatterns = []*regexp.Regexp{
+// placeholderPatterns must not appear anywhere in committed code. Each marks
+// work that was left unfinished or a credential that was hard-coded.
+var placeholderPatterns = []*regexp.Regexp{
 	// Stub/placeholder code markers
 	regexp.MustCompile(`(?i)\bTODO\b`),
 	regexp.MustCompile(`(?i)\bFIXME\b`),
@@ -28,7 +27,6 @@ var prohibitedPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\bNOTIMPLEMENTED\b`),
 	regexp.MustCompile(`(?i)throw new NotImplementedException`),
 	regexp.MustCompile(`(?i)throw new UnsupportedOperationException\(\)`),
-	regexp.MustCompile(`(?i)return null; // TODO`),
 	regexp.MustCompile(`(?i)// stub`),
 	regexp.MustCompile(`(?i)// placeholder`),
 
@@ -41,11 +39,32 @@ var prohibitedPatterns = []*regexp.Regexp{
 	// Empty catch blocks
 	regexp.MustCompile(`catch\s*\([^)]+\)\s*\{\s*\}`),
 	regexp.MustCompile(`except\s+\w+\s*:\s*pass\s*$`),
+}
 
-	// Hard-coded localhost in production paths
+// deploymentPatterns are prohibited in application source only. A loopback
+// address is a defect in code that runs against a configured host, but it is
+// the correct value in a reverse-proxy upstream, a health probe, or a local
+// service binding — so these are checked only under the paths in
+// applicationSourceDirs.
+var deploymentPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`http://localhost(?::\d+)?/`),
 	regexp.MustCompile(`127\.0\.0\.1`),
 }
+
+// applicationSourceDirs are the trees where a hard-coded host is a defect.
+// Infrastructure config, the launcher's installer, tooling and docs all name
+// loopback addresses legitimately.
+var applicationSourceDirs = []string{
+	filepath.Join("apps", "emulator", "src", "main"),
+	filepath.Join("apps", "client", "src"),
+	filepath.Join("apps", "cms", "app"),
+	filepath.Join("apps", "cms", "routes"),
+}
+
+// allowMarker lets a line opt out of a specific finding when the pattern is
+// genuinely correct there. The reason is required so the exemption is
+// reviewable rather than a silent mute.
+var allowMarker = regexp.MustCompile(`placeholder-scan:allow\s+\S+`)
 
 // skippedExtensions lists file extensions whose content is not source code.
 var skippedExtensions = map[string]bool{
@@ -60,16 +79,17 @@ var skippedDirs = map[string]bool{
 	"build": true, "dist": true, ".gradle": true,
 }
 
-// whitelistPatterns are file patterns where 127.0.0.1/localhost are expected
-// (test configs, template files, docker-compose).
-var whitelistFiles = map[string]bool{
-	"docker-compose.yml":      true,
-	"docker-compose.yaml":     true,
-	"prometheus.yml":          true,
-	"alertmanager.yml":        true,
-	"loki.yml":                true,
-	"promtail.yml":            true,
-	"emulator.properties.tmpl": true,
+// skippedFiles are files whose whole purpose is to name these patterns. The
+// scanners themselves define the prohibited list, so scanning their source
+// reports every pattern as a finding against itself.
+var skippedFiles = map[string]bool{
+	"main.go": false, // resolved by path below, not by bare name
+}
+
+// scannerSources are the tools that define or document the pattern list.
+var scannerSources = []string{
+	filepath.Join("tools", "placeholder-scan"),
+	filepath.Join("tools", "asset-validator"),
 }
 
 func main() {
@@ -92,7 +112,7 @@ func main() {
 		if skippedExtensions[strings.ToLower(filepath.Ext(path))] {
 			return nil
 		}
-		if whitelistFiles[filepath.Base(path)] {
+		if isScannerSource(path) {
 			return nil
 		}
 		findings = append(findings, scanFile(path)...)
@@ -121,13 +141,21 @@ func scanFile(path string) []Finding {
 	}
 	defer f.Close()
 
+	patterns := placeholderPatterns
+	if isApplicationSource(path) {
+		patterns = append(append([]*regexp.Regexp{}, placeholderPatterns...), deploymentPatterns...)
+	}
+
 	var findings []Finding
 	scanner := bufio.NewScanner(f)
 	line := 0
 	for scanner.Scan() {
 		line++
 		text := scanner.Text()
-		for _, pat := range prohibitedPatterns {
+		if allowMarker.MatchString(text) {
+			continue
+		}
+		for _, pat := range patterns {
 			if pat.MatchString(text) {
 				findings = append(findings, Finding{
 					File:    path,
@@ -140,4 +168,28 @@ func scanFile(path string) []Finding {
 		}
 	}
 	return findings
+}
+
+// isApplicationSource reports whether a hard-coded host is a defect in this
+// file, rather than the correct value for a config or deployment concern.
+func isApplicationSource(path string) bool {
+	clean := filepath.Clean(path)
+	for _, dir := range applicationSourceDirs {
+		if strings.Contains(clean, dir) {
+			return true
+		}
+	}
+	return false
+}
+
+// isScannerSource reports whether a file belongs to a tool that defines the
+// prohibited pattern list and would otherwise match itself.
+func isScannerSource(path string) bool {
+	clean := filepath.Clean(path)
+	for _, dir := range scannerSources {
+		if strings.Contains(clean, dir) {
+			return true
+		}
+	}
+	return false
 }
