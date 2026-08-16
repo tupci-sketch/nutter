@@ -4,18 +4,22 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/habnut/launcher/internal/doctor"
 	"github.com/habnut/launcher/internal/installer"
+	"github.com/habnut/launcher/internal/payload"
+	"github.com/habnut/launcher/internal/service"
 	"github.com/habnut/launcher/internal/state"
 	"github.com/habnut/launcher/internal/swf"
 	"github.com/habnut/launcher/internal/updater"
 )
 
-const version = "1.0.0"
+// version is overridden at build time via -ldflags "-X main.version=…".
+var version = "1.0.0"
 
 func main() {
 	root := &cobra.Command{
@@ -98,35 +102,34 @@ func cmdUpdate() *cobra.Command {
 	}
 }
 
-func serviceCmd(action string, services []string) error {
-	for _, svc := range services {
-		cmd := exec.Command("systemctl", action, svc)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("%s %s: %w", action, svc, err)
+// forEachService applies an action to every managed service, reporting the
+// first failure but attempting the remainder so a single missing unit does not
+// leave the rest of the hotel in a half-changed state.
+func forEachService(action string, fn func(string) error) error {
+	var firstErr error
+	for _, svc := range service.Names {
+		if err := fn(svc); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("%s %s: %w", action, svc, err)
 		}
 	}
-	return nil
+	return firstErr
 }
-
-var managedServices = []string{"habnut-emulator", "nginx", "php8.3-fpm", "redis-server", "mariadb"}
 
 func cmdStart() *cobra.Command {
 	return &cobra.Command{Use: "start", Short: "Start all Habnut services", RunE: func(_ *cobra.Command, _ []string) error {
-		return serviceCmd("start", managedServices)
+		return forEachService("start", service.Start)
 	}}
 }
 
 func cmdStop() *cobra.Command {
 	return &cobra.Command{Use: "stop", Short: "Stop all Habnut services", RunE: func(_ *cobra.Command, _ []string) error {
-		return serviceCmd("stop", managedServices)
+		return forEachService("stop", service.Stop)
 	}}
 }
 
 func cmdRestart() *cobra.Command {
 	return &cobra.Command{Use: "restart", Short: "Restart all Habnut services", RunE: func(_ *cobra.Command, _ []string) error {
-		return serviceCmd("restart", managedServices)
+		return forEachService("restart", service.Restart)
 	}}
 }
 
@@ -135,10 +138,16 @@ func cmdStatus() *cobra.Command {
 		s, _ := state.Load()
 		if s != nil {
 			fmt.Printf("Habnut v%s (installed %s)\n\n", s.InstalledVersion, s.InstalledAt.Format("2006-01-02"))
+		} else {
+			fmt.Println("Habnut is not installed on this machine.")
+			fmt.Println()
 		}
-		for _, svc := range managedServices {
-			out, _ := exec.Command("systemctl", "is-active", svc).Output()
-			fmt.Printf("  %-30s %s", svc, out)
+		for _, st := range service.StatusAll() {
+			mark := "✗"
+			if st.Active {
+				mark = "✓"
+			}
+			fmt.Printf("  %s %-20s %s\n", mark, st.Name, st.State)
 		}
 		return nil
 	}}
@@ -146,30 +155,25 @@ func cmdStatus() *cobra.Command {
 
 func cmdLogs() *cobra.Command {
 	var follow bool
+	var lines int
 	cmd := &cobra.Command{Use: "logs [service]", Short: "Show logs for a service", RunE: func(_ *cobra.Command, args []string) error {
-		svc := "habnut-emulator"
+		svc := service.Names[0]
 		if len(args) > 0 {
 			svc = args[0]
 		}
-		jArgs := []string{"-u", svc, "-n", "100", "--no-pager"}
-		if follow {
-			jArgs = append(jArgs, "-f")
-		}
-		cmd := exec.Command("journalctl", jArgs...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		return service.Logs(svc, lines, follow)
 	}}
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Follow log output")
+	cmd.Flags().IntVarP(&lines, "lines", "n", 100, "Number of lines to show")
 	return cmd
 }
 
 func cmdRepair() *cobra.Command {
 	return &cobra.Command{Use: "repair", Short: "Attempt to repair a broken installation", RunE: func(_ *cobra.Command, _ []string) error {
 		fmt.Println("Running repair…")
-		_ = serviceCmd("stop", managedServices)
+		_ = forEachService("stop", service.Stop)
 		time.Sleep(2 * time.Second)
-		return serviceCmd("start", managedServices)
+		return forEachService("start", service.Start)
 	}}
 }
 
@@ -252,7 +256,7 @@ func cmdSwf() *cobra.Command {
 func cmdDoctor() *cobra.Command {
 	var bundle bool
 	cmd := &cobra.Command{Use: "doctor", Short: "Run health checks on the Habnut installation", RunE: func(_ *cobra.Command, _ []string) error {
-		fmt.Println("🌰 Habnut Doctor\n")
+		fmt.Print("🌰 Habnut Doctor\n\n")
 		_, err := doctor.Run()
 		if bundle {
 			dest := fmt.Sprintf("/tmp/habnut-support-%s.zip", time.Now().Format("20060102-150405"))
@@ -276,7 +280,12 @@ func cmdMigrate() *cobra.Command {
 
 func cmdVersion() *cobra.Command {
 	return &cobra.Command{Use: "version", Short: "Print habnutctl version", Run: func(_ *cobra.Command, _ []string) {
-		fmt.Printf("habnutctl v%s\n", version)
+		fmt.Printf("habnutctl v%s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)
+		if payload.Available() {
+			fmt.Printf("Bundled server components: v%s (emulator, client, CMS)\n", payload.Version())
+		} else {
+			fmt.Println("Bundled server components: none — this is a development build")
+		}
 		if s, err := state.Load(); err == nil {
 			fmt.Printf("Habnut v%s installed at %s\n", s.InstalledVersion, s.InstallPath)
 		}
