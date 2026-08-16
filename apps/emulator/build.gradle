@@ -49,6 +49,8 @@ dependencies {
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
     testImplementation 'org.mockito:mockito-core:5.6.0'
+    // Supplies MockitoExtension, which mockito-core alone does not contain.
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.6.0'
     testImplementation 'org.testcontainers:testcontainers:1.19.3'
     testImplementation 'org.testcontainers:mariadb:1.19.3'
     testImplementation 'org.testcontainers:junit-jupiter:1.19.3'
