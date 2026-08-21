@@ -1,6 +1,23 @@
 import * as PIXI from 'pixi.js';
+import { FigureData } from './figure/FigureData';
+import { AvatarComposer } from './figure/AvatarComposer';
 
 // ─── types ───────────────────────────────────────────────────────────────────
+
+/**
+ * Which visual era the hotel is drawn in.
+ *
+ * Both packs describe the same rooms, the same furniture and the same figures;
+ * they differ only in artwork. A player switching era stays in the room they
+ * are standing in, on the same world, talking to the same people.
+ */
+export type AssetEra = 'classic' | 'modern';
+
+export const ASSET_ERAS: readonly AssetEra[] = ['classic', 'modern'];
+
+export function isAssetEra(value: string): value is AssetEra {
+  return (ASSET_ERAS as readonly string[]).includes(value);
+}
 
 export interface FurniInfo {
   id: string;
@@ -16,253 +33,328 @@ export interface FurniInfo {
   defaultDir: number;
 }
 
-export interface FigureLibrary {
-  id: string;
-  revision: number;
-  parts: FigurePart[];
-}
-
-export interface FigurePart {
-  id: string;
-  type: string;
-  colorable: boolean;
-  index: number;
-  colorIndex: number;
-}
-
+/** A sprite as recorded in the manifest, before alias resolution. */
 interface SpriteEntry {
-  file: string;
-  width: number;
-  height: number;
+  file?: string;
+  width?: number;
+  height?: number;
+  offsetX?: number;
+  offsetY?: number;
+  /** Names the sprite this one mirrors, when it ships no image of its own. */
+  source?: string;
+  flipH?: boolean;
 }
 
 interface SpriteManifest {
   sprites: Record<string, SpriteEntry>;
 }
 
+/** A sprite resolved through any aliases, ready to draw. */
+export interface ResolvedSprite {
+  texture: PIXI.Texture;
+  offsetX: number;
+  offsetY: number;
+  /** True when the artwork must be mirrored to face the requested way. */
+  flip: boolean;
+}
+
+type EraListener = (era: AssetEra) => void;
+
 // ─── loader ──────────────────────────────────────────────────────────────────
 
 class AssetLoaderImpl {
   private baseUrl = '/assets';
+  private era: AssetEra = 'modern';
+
   private textureCache = new Map<string, PIXI.Texture>();
   private furnidata = new Map<string, FurniInfo>();
-  private figureLibs = new Map<string, FigureLibrary>();
   private manifest: SpriteManifest = { sprites: {} };
+
+  private figureData = new FigureData();
+  private composerInstance = new AvatarComposer(this.figureData);
+
   private ready = false;
   private initPromise: Promise<void> | null = null;
+  private eraListeners = new Set<EraListener>();
+
+  /** How deep an alias chain may go before it is treated as a loop. */
+  private static readonly MAX_ALIAS_DEPTH = 8;
 
   // ─── initialisation ─────────────────────────────────────────────────────
 
-  /** Must be called once before the room is rendered. */
+  /** Loads the pack for the current era. Safe to await more than once. */
   async init(): Promise<void> {
     if (this.initPromise) return this.initPromise;
-    this.initPromise = this._init();
+    this.initPromise = this.loadEra(this.era);
     return this.initPromise;
   }
 
-  private async _init(): Promise<void> {
-    await Promise.allSettled([
-      this.loadManifest(),
-      this.loadFurnidata(),
-      this.loadFiguremap(),
-    ]);
-    this.ready = true;
-  }
-
-  /** True once init() has resolved. */
   isReady(): boolean {
     return this.ready;
   }
 
-  /** True if at least one sprite was found in the manifest. */
+  /** True once a pack with at least one sprite has loaded. */
   hasSprites(): boolean {
     return Object.keys(this.manifest.sprites).length > 0;
   }
 
-  // ─── manifest / XML loaders ─────────────────────────────────────────────
+  /** The composer, which turns a figure string into ordered layers. */
+  get composer(): AvatarComposer {
+    return this.composerInstance;
+  }
 
-  private async loadManifest(): Promise<void> {
-    try {
-      const res = await fetch(`${this.baseUrl}/manifest.json`);
-      if (!res.ok) return;
-      this.manifest = await res.json();
-    } catch {
-      // Assets not yet installed — will use placeholder rendering.
+  get figures(): FigureData {
+    return this.figureData;
+  }
+
+  // ─── era ────────────────────────────────────────────────────────────────
+
+  currentEra(): AssetEra {
+    return this.era;
+  }
+
+  /**
+   * Switches visual era and reloads the pack in place.
+   *
+   * Everything derived from the old pack is dropped: textures are keyed by URL
+   * and the eras share sprite names, so keeping the cache would draw the
+   * previous era's artwork under the new era's names.
+   */
+  async setEra(era: AssetEra): Promise<void> {
+    if (era === this.era && this.ready) return;
+
+    this.era = era;
+    this.initPromise = this.loadEra(era);
+    await this.initPromise;
+
+    for (const listener of this.eraListeners) {
+      try {
+        listener(era);
+      } catch {
+        // One bad listener must not stop the others from redrawing.
+      }
     }
   }
 
-  private async loadFurnidata(): Promise<void> {
-    try {
-      const res = await fetch(`${this.baseUrl}/furnidata.xml`);
-      if (!res.ok) return;
-      const text = await res.text();
-      this.parseFurnidata(text);
-    } catch { /* ignore */ }
+  /** Subscribes to era changes. Returns an unsubscribe function. */
+  onEraChange(listener: EraListener): () => void {
+    this.eraListeners.add(listener);
+    return () => this.eraListeners.delete(listener);
+  }
+
+  private async loadEra(era: AssetEra): Promise<void> {
+    this.ready = false;
+    this.clearCaches();
+
+    const root = `${this.baseUrl}/${era}`;
+    await Promise.allSettled([
+      this.loadManifest(root),
+      this.loadFurnidata(root),
+      this.loadFigureData(root),
+    ]);
+
+    this.ready = true;
+  }
+
+  private clearCaches(): void {
+    for (const texture of this.textureCache.values()) {
+      texture.destroy(true);
+    }
+    this.textureCache.clear();
+    this.furnidata.clear();
+    this.manifest = { sprites: {} };
+    this.figureData = new FigureData();
+    this.composerInstance = new AvatarComposer(this.figureData);
+  }
+
+  // ─── pack loading ───────────────────────────────────────────────────────
+
+  private async loadManifest(root: string): Promise<void> {
+    const manifest = await fetchJson<SpriteManifest>(`${root}/manifest.json`);
+    if (manifest?.sprites) this.manifest = manifest;
+  }
+
+  private async loadFurnidata(root: string): Promise<void> {
+    const xml = await fetchText(`${root}/furnidata.xml`);
+    if (xml) this.parseFurnidata(xml);
+  }
+
+  private async loadFigureData(root: string): Promise<void> {
+    const [figureData, figureMap] = await Promise.all([
+      fetchText(`${root}/figuredata.xml`),
+      fetchText(`${root}/figuremap.xml`),
+    ]);
+    if (figureData) this.figureData.parseFigureData(figureData);
+    if (figureMap) this.figureData.parseFigureMap(figureMap);
   }
 
   private parseFurnidata(xml: string): void {
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
-    const process = (selector: string, type: 'S' | 'I') => {
-      doc.querySelectorAll(selector + ' itemtype').forEach(el => {
-        const id = el.querySelector('id')?.textContent?.trim() ?? '';
+    const read = (selector: string, type: 'S' | 'I') => {
+      doc.querySelectorAll(`${selector} furnitype`).forEach((el) => {
+        const id = el.getAttribute('classname')?.trim()
+          ?? el.querySelector('id')?.textContent?.trim()
+          ?? '';
         if (!id) return;
         this.furnidata.set(id, {
           id,
           type,
-          revision:    parseInt(el.querySelector('revision')?.textContent ?? '0'),
-          xdim:        parseInt(el.querySelector('xdim')?.textContent ?? '1'),
-          ydim:        parseInt(el.querySelector('ydim')?.textContent ?? '1'),
-          name:        el.querySelector('name')?.textContent?.trim() ?? id,
+          revision: intOf(el.querySelector('revision')?.textContent, 0),
+          xdim: intOf(el.querySelector('xdim')?.textContent, 1),
+          ydim: intOf(el.querySelector('ydim')?.textContent, 1),
+          name: el.querySelector('name')?.textContent?.trim() ?? id,
           description: el.querySelector('description')?.textContent?.trim() ?? '',
-          canSitOn:    el.querySelector('cansiton')?.textContent === '1',
-          canStandOn:  el.querySelector('canstandon')?.textContent === '1',
-          canLayOn:    el.querySelector('canlayon')?.textContent === '1',
-          defaultDir:  parseInt(el.querySelector('defaultdir')?.textContent ?? '2'),
+          canSitOn: el.querySelector('cansiton')?.textContent === '1',
+          canStandOn: el.querySelector('canstandon')?.textContent === '1',
+          canLayOn: el.querySelector('canlayon')?.textContent === '1',
+          defaultDir: intOf(el.querySelector('defaultdir')?.textContent, 2),
         });
       });
     };
-    process('roomitemtypes', 'S');
-    process('wallitemtypes', 'I');
+    read('roomitemtypes', 'S');
+    read('wallitemtypes', 'I');
   }
 
-  private async loadFiguremap(): Promise<void> {
-    try {
-      const res = await fetch(`${this.baseUrl}/figuremap.xml`);
-      if (!res.ok) return;
-      const text = await res.text();
-      this.parseFiguremap(text);
-    } catch { /* ignore */ }
-  }
+  // ─── sprite resolution ──────────────────────────────────────────────────
 
-  private parseFiguremap(xml: string): void {
-    const doc = new DOMParser().parseFromString(xml, 'text/xml');
-    doc.querySelectorAll('map > lib').forEach(lib => {
-      const id = lib.getAttribute('id') ?? '';
-      const rev = parseInt(lib.getAttribute('revision') ?? '0');
-      const parts: FigurePart[] = [];
-      lib.querySelectorAll('part').forEach(p => {
-        parts.push({
-          id:         p.getAttribute('id') ?? '0',
-          type:       p.getAttribute('type') ?? '',
-          colorable:  p.getAttribute('colorable') === '1',
-          index:      parseInt(p.getAttribute('index') ?? '0'),
-          colorIndex: parseInt(p.getAttribute('colorindex') ?? '1'),
-        });
-      });
-      this.figureLibs.set(id, { id, revision: rev, parts });
-    });
+  /** True if the pack knows this sprite, whether directly or as an alias. */
+  hasSprite(name: string): boolean {
+    return name in this.manifest.sprites;
   }
-
-  // ─── furni texture lookups ───────────────────────────────────────────────
 
   /**
-   * Returns the PIXI.Texture for a furniture sprite, or null if not available.
-   * Sprite name convention: {baseItem}_{size}_{layer}_{dir}_{frame}
-   * e.g. "throne_64_a_0_0"
+   * Resolves a sprite name to a texture, its draw offset, and whether it must
+   * be mirrored.
+   *
+   * A pack ships only half the directions and derives the rest by mirroring, so
+   * an entry may name another sprite instead of carrying an image. Those chains
+   * are followed here, with a depth limit so a pack that points a sprite back at
+   * itself cannot hang the renderer.
    */
-  async getFurniTexture(
-    baseItem: string,
+  async resolve(name: string): Promise<ResolvedSprite | null> {
+    let entry = this.manifest.sprites[name];
+    if (!entry) return null;
+
+    let flip = entry.flipH ?? false;
+    const offsetX = entry.offsetX ?? 0;
+    const offsetY = entry.offsetY ?? 0;
+
+    let depth = 0;
+    while (!entry.file && entry.source) {
+      if (++depth > AssetLoaderImpl.MAX_ALIAS_DEPTH) return null;
+      const next = this.manifest.sprites[entry.source];
+      if (!next) return null;
+      entry = next;
+      // Mirroring twice returns to the original orientation.
+      if (entry.flipH) flip = !flip;
+    }
+
+    if (!entry.file) return null;
+
+    const texture = await this.loadTexture(`${this.baseUrl}/${this.era}/${entry.file}`);
+    if (!texture) return null;
+
+    return { texture, offsetX, offsetY, flip };
+  }
+
+  // ─── furniture ──────────────────────────────────────────────────────────
+
+  /**
+   * Sprite name for a furniture layer.
+   * Convention: {item}_{size}_{layer}_{direction}_{frame}
+   */
+  furniSpriteName(item: string, direction: number, layer: string, frame: number, size = 64): string {
+    return `${item}_${size}_${layer}_${direction}_${frame}`;
+  }
+
+  async getFurniSprite(
+    item: string,
     direction: number,
     layer = 'a',
     frame = 0,
     size = 64,
-  ): Promise<PIXI.Texture | null> {
-    const name = `${baseItem}_${size}_${layer}_${direction}_${frame}`;
-    const entry = this.manifest.sprites[name];
-    if (!entry) return null;
-    return this.loadTexture(`${this.baseUrl}/${entry.file}`);
+  ): Promise<ResolvedSprite | null> {
+    return this.resolve(this.furniSpriteName(item, direction, layer, frame, size));
   }
 
-  /** Returns all available layer letters for a furniture item+direction. */
-  furniLayers(baseItem: string, direction: number, size = 64): string[] {
+  /** Layer letters present for an item and direction, in draw order. */
+  furniLayers(item: string, direction: number, size = 64): string[] {
     const letters = 'abcdefghijklmnopqrstuvwxyz';
-    const result: string[] = [];
-    for (const l of letters) {
-      const name = `${baseItem}_${size}_${l}_${direction}_0`;
-      if (this.manifest.sprites[name]) {
-        result.push(l);
-      } else {
-        break;
-      }
+    const found: string[] = [];
+    for (const letter of letters) {
+      if (!this.hasSprite(this.furniSpriteName(item, direction, letter, 0, size))) break;
+      found.push(letter);
     }
-    return result;
+    return found;
   }
 
-  /** Returns the number of animation frames for a given furniture layer. */
-  furniFrameCount(baseItem: string, direction: number, layer: string, size = 64): number {
+  /** Animation frame count for one layer; at least 1. */
+  furniFrameCount(item: string, direction: number, layer: string, size = 64): number {
     let n = 0;
-    while (this.manifest.sprites[`${baseItem}_${size}_${layer}_${direction}_${n}`]) n++;
+    while (this.hasSprite(this.furniSpriteName(item, direction, layer, n, size))) n++;
     return Math.max(1, n);
   }
 
-  /** Catalog/inventory icon for a furniture item. */
-  async getFurniIcon(baseItem: string): Promise<PIXI.Texture | null> {
-    for (const suffix of ['_icon', '_icon_a_0_0']) {
-      const name = baseItem + suffix;
-      if (this.manifest.sprites[name]) {
-        const entry = this.manifest.sprites[name];
-        return this.loadTexture(`${this.baseUrl}/${entry.file}`);
-      }
+  async getFurniIcon(item: string): Promise<ResolvedSprite | null> {
+    for (const suffix of ['_icon', '_icon_a', '_icon_a_0_0']) {
+      const resolved = await this.resolve(item + suffix);
+      if (resolved) return resolved;
     }
     return null;
   }
 
-  // ─── figure texture lookups ──────────────────────────────────────────────
-
-  /**
-   * Returns a PIXI.Texture for an avatar body part, or null if not available.
-   * Sprite name convention: {libId}_{type}_{dir}_{frame}
-   * e.g. "hh_human_body_0_0"
-   */
-  async getAvatarPartTexture(
-    libId: string,
-    partType: string,
-    direction: number,
-    frame = 0,
-  ): Promise<PIXI.Texture | null> {
-    const name = `${libId}_${partType}_${direction}_${frame}`;
-    const entry = this.manifest.sprites[name];
-    if (!entry) return null;
-    return this.loadTexture(`${this.baseUrl}/${entry.file}`);
+  getFurniInfo(item: string): FurniInfo | undefined {
+    return this.furnidata.get(item);
   }
 
-  /** Returns the FigureLibrary that owns a given part type, if any. */
-  figureLibForPartType(partType: string): FigureLibrary | undefined {
-    for (const lib of this.figureLibs.values()) {
-      if (lib.parts.some(p => p.type === partType)) return lib;
-    }
-    return undefined;
+  /** Warms the cache for an item in all four placeable directions. */
+  async prefetchFurni(item: string): Promise<void> {
+    const layers = this.furniLayers(item, 0);
+    if (layers.length === 0) return;
+    await Promise.allSettled(
+      [0, 2, 4, 6].flatMap((d) => layers.map((l) => this.getFurniSprite(item, d, l))),
+    );
   }
 
-  /** Furni metadata — name, dims, interaction flags. */
-  getFurniInfo(baseItem: string): FurniInfo | undefined {
-    return this.furnidata.get(baseItem);
-  }
-
-  // ─── texture cache ───────────────────────────────────────────────────────
+  // ─── textures ───────────────────────────────────────────────────────────
 
   private async loadTexture(url: string): Promise<PIXI.Texture | null> {
-    if (this.textureCache.has(url)) {
-      return this.textureCache.get(url)!;
-    }
+    const cached = this.textureCache.get(url);
+    if (cached) return cached;
     try {
       const texture = await PIXI.Assets.load<PIXI.Texture>(url);
       this.textureCache.set(url, texture);
       return texture;
     } catch {
+      // A pack missing one sprite should cost that sprite, not the room.
       return null;
     }
   }
+}
 
-  /** Pre-warm the texture cache for a furniture item in all 4 directions. */
-  async prefetchFurni(baseItem: string): Promise<void> {
-    const dirs = [0, 2, 4, 6];
-    const layers = this.furniLayers(baseItem, 0);
-    if (layers.length === 0) return;
-    await Promise.allSettled(
-      dirs.flatMap(d => layers.map(l => this.getFurniTexture(baseItem, d, l)))
-    );
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+async function fetchText(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    return res.ok ? await res.text() : null;
+  } catch {
+    return null;
   }
+}
+
+async function fetchJson<T>(url: string): Promise<T | null> {
+  try {
+    const res = await fetch(url);
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function intOf(text: string | null | undefined, fallback: number): number {
+  const value = parseInt(text ?? '', 10);
+  return Number.isNaN(value) ? fallback : value;
 }
 
 export const AssetLoader = new AssetLoaderImpl();

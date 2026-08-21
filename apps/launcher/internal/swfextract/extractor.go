@@ -9,6 +9,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"image"
 	"image/color"
@@ -29,19 +30,44 @@ const (
 	tagDefineBitsLossless2 uint16 = 36
 	tagExportAssets        uint16 = 56
 	tagSymbolClass         uint16 = 76
+	tagDefineBinaryData    uint16 = 87
 	tagDefineBitsJPEG4     uint16 = 90
 )
 
 // SpriteEntry records a single extracted sprite in the manifest.
+//
+// OffsetX and OffsetY are the sprite's draw origin relative to the tile it sits
+// on. They come from the asset descriptor embedded in the SWF, and without them
+// every sprite draws from its own top-left corner, which leaves furniture
+// floating off its tile and figure parts scattered around the avatar.
+//
+// Source and FlipH describe an alias: the pack stores only half the directions
+// and derives the rest by mirroring, so an entry may carry no file of its own
+// and instead name the sprite it mirrors.
 type SpriteEntry struct {
-	File   string `json:"file"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
+	File    string `json:"file,omitempty"`
+	Width   int    `json:"width,omitempty"`
+	Height  int    `json:"height,omitempty"`
+	OffsetX int    `json:"offsetX,omitempty"`
+	OffsetY int    `json:"offsetY,omitempty"`
+	Source  string `json:"source,omitempty"`
+	FlipH   bool   `json:"flipH,omitempty"`
 }
 
 // Manifest is the top-level output manifest written to manifest.json.
 type Manifest struct {
 	Sprites map[string]SpriteEntry `json:"sprites"`
+}
+
+// assetDescriptor mirrors the asset XML embedded in a SWF's binary data tag.
+type assetDescriptor struct {
+	Assets []struct {
+		Name   string `xml:"name,attr"`
+		Source string `xml:"source,attr"`
+		X      int    `xml:"x,attr"`
+		Y      int    `xml:"y,attr"`
+		FlipH  string `xml:"flipH,attr"`
+	} `xml:"asset"`
 }
 
 // ExtractDir walks inputDir, runs Extract on every .swf file found,
@@ -97,10 +123,13 @@ func Extract(swfPath, outputDir string) (*Manifest, error) {
 		return nil, fmt.Errorf("decompress: %w", err)
 	}
 
-	images, names, err := parseTags(body)
+	images, names, descriptors, err := parseTags(body)
 	if err != nil {
 		return nil, fmt.Errorf("parse: %w", err)
 	}
+
+	// Offsets and mirror aliases, keyed by sprite name.
+	offsets := mergeDescriptors(descriptors)
 
 	manifest := &Manifest{Sprites: make(map[string]SpriteEntry)}
 
@@ -118,9 +147,52 @@ func Extract(swfPath, outputDir string) (*Manifest, error) {
 			continue
 		}
 		b := img.Bounds()
-		manifest.Sprites[name] = SpriteEntry{File: filename, Width: b.Dx(), Height: b.Dy()}
+		entry := SpriteEntry{File: filename, Width: b.Dx(), Height: b.Dy()}
+		if off, ok := offsets[name]; ok {
+			entry.OffsetX, entry.OffsetY = off.OffsetX, off.OffsetY
+		}
+		manifest.Sprites[name] = entry
 	}
+
+	// Mirrored directions carry no image of their own; they name the sprite
+	// they mirror. Record them so the client can flip rather than fail to find
+	// an asset that was never in the pack.
+	for name, off := range offsets {
+		if off.Source == "" || off.Source == name {
+			continue
+		}
+		if _, exists := manifest.Sprites[name]; exists {
+			continue
+		}
+		manifest.Sprites[name] = SpriteEntry{
+			Source:  off.Source,
+			FlipH:   off.FlipH,
+			OffsetX: off.OffsetX,
+			OffsetY: off.OffsetY,
+		}
+	}
+
 	return manifest, nil
+}
+
+// mergeDescriptors flattens every asset descriptor found in a SWF into one
+// lookup of sprite name to offset and alias information.
+func mergeDescriptors(descriptors []assetDescriptor) map[string]SpriteEntry {
+	out := make(map[string]SpriteEntry)
+	for _, d := range descriptors {
+		for _, a := range d.Assets {
+			if a.Name == "" {
+				continue
+			}
+			out[a.Name] = SpriteEntry{
+				OffsetX: a.X,
+				OffsetY: a.Y,
+				Source:  a.Source,
+				FlipH:   a.FlipH == "1" || strings.EqualFold(a.FlipH, "true"),
+			}
+		}
+	}
+	return out
 }
 
 // ─── decompression ──────────────────────────────────────────────────────────
@@ -148,18 +220,19 @@ func decompressBody(sig string, raw []byte) ([]byte, error) {
 
 // ─── tag parser ─────────────────────────────────────────────────────────────
 
-func parseTags(body []byte) (map[uint16]image.Image, map[uint16]string, error) {
+func parseTags(body []byte) (map[uint16]image.Image, map[uint16]string, []assetDescriptor, error) {
 	br := &bodyReader{data: body}
 
 	// Skip RECT (variable bit-packed), FrameRate (uint16), FrameCount (uint16).
 	if err := br.skipRect(); err != nil {
-		return nil, nil, fmt.Errorf("skip RECT: %w", err)
+		return nil, nil, nil, fmt.Errorf("skip RECT: %w", err)
 	}
 	br.byteAlign()
 	br.skipBytes(4)
 
 	images := make(map[uint16]image.Image)
 	names := make(map[uint16]string)
+	var descriptors []assetDescriptor
 
 	for {
 		tagType, tagData, err := br.readTag()
@@ -179,9 +252,45 @@ func parseTags(body []byte) (map[uint16]image.Image, map[uint16]string, error) {
 			}
 		case tagSymbolClass, tagExportAssets:
 			parseSymbols(tagData, names)
+		case tagDefineBinaryData:
+			if d, err := parseBinaryData(tagData); err == nil {
+				descriptors = append(descriptors, d)
+			}
 		}
 	}
-	return images, names, nil
+	return images, names, descriptors, nil
+}
+
+// ─── DefineBinaryData (tag 87) ──────────────────────────────────────────────
+
+// parseBinaryData reads an embedded asset descriptor.
+//
+// The tag holds a two-byte character id and four reserved bytes followed by the
+// payload. A pack embeds several of these — the asset descriptor carrying
+// offsets, and a manifest listing library contents — so anything that is not
+// the asset XML is skipped rather than treated as an error.
+func parseBinaryData(data []byte) (assetDescriptor, error) {
+	var d assetDescriptor
+	if len(data) < 6 {
+		return d, fmt.Errorf("binary data tag too short")
+	}
+	payload := bytes.TrimSpace(data[6:])
+	if !bytes.Contains(payload, []byte("<asset")) {
+		return d, fmt.Errorf("not an asset descriptor")
+	}
+	if err := xml.Unmarshal(payload, &d); err != nil {
+		// Some packs wrap the assets in an outer element the struct does not
+		// name; fall back to scanning for the assets element itself.
+		start := bytes.Index(payload, []byte("<assets"))
+		end := bytes.LastIndex(payload, []byte("</assets>"))
+		if start < 0 || end < 0 {
+			return d, err
+		}
+		if err := xml.Unmarshal(payload[start:end+len("</assets>")], &d); err != nil {
+			return d, err
+		}
+	}
+	return d, nil
 }
 
 // ─── DefineBitsLossless2 (tag 36) ───────────────────────────────────────────

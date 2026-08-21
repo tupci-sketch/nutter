@@ -26,6 +26,13 @@ export class RoomRenderer {
   private offsetX = 0;
   private offsetY = 0;
 
+  // The last state pushed in, kept so the room can be rebuilt from scratch when
+  // the artwork changes underneath it.
+  private lastUsers: Map<number, RoomUser> = new Map();
+  private lastFurni: Map<number, RoomFurni> = new Map();
+
+  private stopEraWatch: (() => void) | null = null;
+
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
     this.app = new PIXI.Application({
       view:            canvas,
@@ -48,6 +55,25 @@ export class RoomRenderer {
 
     // Kick off asset loading; room will upgrade automatically once ready.
     void AssetLoader.init();
+
+    // Switching visual era replaces every texture in the pack, so each sprite
+    // has to be rebuilt from the state we last received. The room, the world
+    // and everyone in it stay exactly as they were.
+    this.stopEraWatch = AssetLoader.onEraChange(() => this.rebuildAll());
+  }
+
+  /** Rebuilds every sprite from the last known state, keeping positions. */
+  private rebuildAll(): void {
+    this.furniMap.forEach((sprite) => sprite.destroy({ children: true }));
+    this.furniMap.clear();
+    this.avatarMap.forEach((figure) => figure.destroy({ children: true }));
+    this.avatarMap.clear();
+
+    this.floorLayer.removeChildren();
+    this.drawFloor();
+
+    this.updateFurni(this.lastFurni);
+    this.updateUsers(this.lastUsers);
   }
 
   // ─── tile map ────────────────────────────────────────────────────────────
@@ -130,6 +156,7 @@ export class RoomRenderer {
   // ─── furniture ───────────────────────────────────────────────────────────
 
   updateFurni(furni: Map<number, RoomFurni>): void {
+    this.lastFurni = furni;
     const seen = new Set<number>();
 
     furni.forEach(f => {
@@ -169,6 +196,7 @@ export class RoomRenderer {
   // ─── avatars ─────────────────────────────────────────────────────────────
 
   updateUsers(users: Map<number, RoomUser>): void {
+    this.lastUsers = users;
     const seen = new Set<number>();
 
     users.forEach(user => {
@@ -215,6 +243,8 @@ export class RoomRenderer {
   }
 
   destroy(): void {
+    this.stopEraWatch?.();
+    this.stopEraWatch = null;
     this.furniMap.forEach(s => s.destroy({ children: true }));
     this.avatarMap.forEach(f => f.destroy({ children: true }));
     this.app.destroy(false);

@@ -73,7 +73,7 @@ export class FurniSprite extends PIXI.Container {
     const layers = AssetLoader.furniLayers(baseItem, dir, this.size);
 
     if (layers.length === 0) {
-      // No sprites in manifest for this item — fall back to placeholder.
+      // The pack has no artwork for this item — fall back to the placeholder.
       this.buildPlaceholder();
       return;
     }
@@ -81,14 +81,22 @@ export class FurniSprite extends PIXI.Container {
     this.frameCount = AssetLoader.furniFrameCount(baseItem, dir, layers[0], this.size);
 
     for (const layer of layers) {
-      const tex = await AssetLoader.getFurniTexture(baseItem, dir, layer, this.currentFrame, this.size);
-      if (!tex) continue;
+      const resolved = await AssetLoader.getFurniSprite(
+        baseItem, dir, layer, this.currentFrame, this.size,
+      );
+      if (!resolved) continue;
 
-      const sprite = new PIXI.Sprite(tex);
-      // Furniture sprites are anchored at the bottom-left of their bounding box
-      // in Habbo's coordinate system.  We compensate here so the isometric origin
-      // point sits at the correct tile position.
-      sprite.anchor.set(0, 1);
+      const sprite = new PIXI.Sprite(resolved.texture);
+      // The offset carried by the pack places the artwork against the tile
+      // origin. Without it every piece floats off its own square.
+      if (resolved.flip) {
+        sprite.scale.x = -1;
+        sprite.x = resolved.offsetX + resolved.texture.width;
+      } else {
+        sprite.x = -resolved.offsetX;
+      }
+      sprite.y = -resolved.offsetY;
+
       this.addChild(sprite);
       this.layerSprites.push(sprite);
     }
@@ -152,16 +160,18 @@ export class FurniSprite extends PIXI.Container {
   private async advanceFrame(): Promise<void> {
     this.currentFrame = (this.currentFrame + 1) % this.frameCount;
     const { baseItem, dir } = this.furni;
-    const layers = this.layerSprites.map((_, i) =>
-      String.fromCharCode(97 + i) // a, b, c, …
-    );
+
     await Promise.all(
-      layers.map(async (layer, i) => {
-        const tex = await AssetLoader.getFurniTexture(baseItem, dir, layer, this.currentFrame, this.size);
-        if (tex && this.layerSprites[i]) {
-          this.layerSprites[i].texture = tex;
+      this.layerSprites.map(async (sprite, i) => {
+        const layer = String.fromCharCode(97 + i); // a, b, c, …
+        const resolved = await AssetLoader.getFurniSprite(
+          baseItem, dir, layer, this.currentFrame, this.size,
+        );
+        // The sprite may have been torn down while this frame was loading.
+        if (resolved && !sprite.destroyed) {
+          sprite.texture = resolved.texture;
         }
-      })
+      }),
     );
   }
 }

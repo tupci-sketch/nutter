@@ -223,25 +223,61 @@ func cmdRollback() *cobra.Command {
 }
 
 // cmdSwf provides SWF asset pack management sub-commands.
+//
+// Packs are installed per visual era. A hotel may install both, and each player
+// then chooses which artwork they see without leaving the room or changing
+// world.
 func cmdSwf() *cobra.Command {
 	cmd := &cobra.Command{Use: "swf", Short: "Manage SWF asset packs"}
 
+	// eraFlag attaches a shared --era flag to a sub-command.
+	eraFlag := func(c *cobra.Command, target *string) *cobra.Command {
+		c.Flags().StringVar(target, "era", swf.EraModern,
+			"Visual era to install into: classic or modern")
+		return c
+	}
+
+	var installEra, updateEra, rollbackEra string
+
 	cmd.AddCommand(
-		&cobra.Command{Use: "install <pack.zip>", Short: "Install a new SWF pack", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
-			return swf.Install(args[0])
-		}},
-		&cobra.Command{Use: "update <pack.zip>", Short: "Update the installed SWF pack", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
-			return swf.Update(args[0])
-		}},
+		eraFlag(&cobra.Command{
+			Use:   "install <pack.zip>",
+			Short: "Install a SWF pack into one visual era",
+			Args:  cobra.ExactArgs(1),
+			RunE: func(_ *cobra.Command, args []string) error {
+				return swf.Install(args[0], installEra)
+			},
+		}, &installEra),
+
+		eraFlag(&cobra.Command{
+			Use:   "update <pack.zip>",
+			Short: "Update the pack installed for one visual era",
+			Args:  cobra.ExactArgs(1),
+			RunE: func(_ *cobra.Command, args []string) error {
+				return swf.Update(args[0], updateEra)
+			},
+		}, &updateEra),
+
 		&cobra.Command{Use: "rebrand <name>", Short: "Apply branding strings to the asset pack", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			return swf.Rebrand(args[0])
 		}},
-		&cobra.Command{Use: "validate", Short: "Validate that all required assets are present", RunE: func(_ *cobra.Command, _ []string) error {
-			return swf.Validate()
+		&cobra.Command{Use: "validate", Short: "Validate that every installed era is complete", RunE: func(_ *cobra.Command, _ []string) error {
+			if err := swf.Validate(); err != nil {
+				return err
+			}
+			fmt.Printf("Assets valid. Installed eras: %v\n", swf.InstalledEras())
+			return nil
 		}},
-		&cobra.Command{Use: "rollback <backup.zip>", Short: "Restore a previous SWF pack", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
-			return swf.Rollback(args[0])
-		}},
+
+		eraFlag(&cobra.Command{
+			Use:   "rollback <backup.zip>",
+			Short: "Restore a previous SWF pack for one visual era",
+			Args:  cobra.ExactArgs(1),
+			RunE: func(_ *cobra.Command, args []string) error {
+				return swf.Rollback(args[0], rollbackEra)
+			},
+		}, &rollbackEra),
+
 		&cobra.Command{Use: "add-custom <file> <target-path>", Short: "Add a custom asset to the pack", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
 			return swf.AddCustom(args[0], args[1])
 		}},
