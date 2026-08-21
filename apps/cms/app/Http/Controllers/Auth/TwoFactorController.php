@@ -4,15 +4,15 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use PragmaRX\Google2FALaravel\Support\Authenticator;
 
 class TwoFactorController extends Controller
 {
     public function show()
     {
-        if (!auth()->user()->two_factor_enabled) {
+        if (! auth()->user()->two_factor_enabled) {
             return redirect()->route('home');
         }
+
         return view('auth.two-factor');
     }
 
@@ -23,11 +23,12 @@ class TwoFactorController extends Controller
         $user = $request->user();
         $google2fa = app('pragmarx.google2fa');
 
-        if (!$google2fa->verifyKey($user->two_factor_secret, $request->code)) {
+        if (! $google2fa->verifyKey($user->two_factor_secret, $request->code)) {
             return back()->withErrors(['code' => 'Invalid authentication code.']);
         }
 
         session(['2fa_verified' => true]);
+
         return redirect()->intended(route('home'));
     }
 
@@ -36,7 +37,7 @@ class TwoFactorController extends Controller
         $user = $request->user();
         $google2fa = app('pragmarx.google2fa');
 
-        if (!$user->two_factor_secret) {
+        if (! $user->two_factor_secret) {
             $secret = $google2fa->generateSecretKey();
             $user->update(['two_factor_secret' => $secret]);
         }
@@ -45,7 +46,7 @@ class TwoFactorController extends Controller
 
         return view('auth.two-factor-setup', [
             'secret' => $user->two_factor_secret,
-            'qrUrl'  => $qrUrl,
+            'qrUrl' => $qrUrl,
         ]);
     }
 
@@ -56,7 +57,7 @@ class TwoFactorController extends Controller
         $user = $request->user();
         $google2fa = app('pragmarx.google2fa');
 
-        if (!$google2fa->verifyKey($user->two_factor_secret, $request->code)) {
+        if (! $google2fa->verifyKey($user->two_factor_secret, $request->code)) {
             return back()->withErrors(['code' => 'Invalid code. Please try again.']);
         }
 
@@ -72,7 +73,7 @@ class TwoFactorController extends Controller
 
         $request->user()->update([
             'two_factor_enabled' => false,
-            'two_factor_secret'  => null,
+            'two_factor_secret' => null,
         ]);
 
         session()->forget('2fa_verified');

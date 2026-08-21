@@ -20,10 +20,10 @@ class HomeController extends Controller
         $articles = NewsArticle::published()->latest('published_at')->take(4)->get();
 
         return view('cms.home', [
-            'articles'    => $articles,
+            'articles' => $articles,
             'onlineCount' => $this->onlineCount(),
             'staffOnline' => $this->staffOnline(),
-            'topPlayers'  => $this->topPlayers(),
+            'topPlayers' => $this->topPlayers(),
         ]);
     }
 

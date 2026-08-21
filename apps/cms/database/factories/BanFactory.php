@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Ban;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class BanFactory extends Factory
@@ -12,11 +13,11 @@ class BanFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id'            => \App\Models\User::factory(),
-            'reason'             => fake()->sentence(),
+            'user_id' => User::factory(),
+            'reason' => fake()->sentence(),
             'banned_by_username' => 'admin',
-            'active'             => true,
-            'expires_at'         => now()->addDays(7),
+            'active' => true,
+            'expires_at' => now()->addDays(7),
         ];
     }
 

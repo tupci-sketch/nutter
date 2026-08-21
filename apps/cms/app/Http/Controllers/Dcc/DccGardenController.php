@@ -14,8 +14,8 @@ class DccGardenController extends Controller
     public function index()
     {
         $activeSeason = DB::table('habnut_garden_seasons')->where('active', true)->first();
-        $plotCount    = DB::table('habnut_garden_plots')->count();
-        $plantCount   = DB::table('habnut_garden_plants')->count();
+        $plotCount = DB::table('habnut_garden_plots')->count();
+        $plantCount = DB::table('habnut_garden_plants')->count();
 
         return view('dcc.garden.index', compact('activeSeason', 'plotCount', 'plantCount'));
     }
@@ -23,17 +23,17 @@ class DccGardenController extends Controller
     public function startSeason(Request $request)
     {
         $request->validate([
-            'name'       => ['required', 'string', 'max:100'],
-            'ends_at'    => ['required', 'date', 'after:now'],
+            'name' => ['required', 'string', 'max:100'],
+            'ends_at' => ['required', 'date', 'after:now'],
         ]);
 
         DB::table('habnut_garden_seasons')->where('active', true)->update(['active' => false]);
 
         $id = DB::table('habnut_garden_seasons')->insertGetId([
-            'name'       => $request->name,
-            'active'     => true,
+            'name' => $request->name,
+            'active' => true,
             'started_at' => now(),
-            'ends_at'    => $request->ends_at,
+            'ends_at' => $request->ends_at,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -57,6 +57,7 @@ class DccGardenController extends Controller
     public function goals()
     {
         $goals = DB::table('habnut_garden_goals')->orderBy('id')->paginate(25);
+
         return view('dcc.garden.goals', compact('goals'));
     }
 }

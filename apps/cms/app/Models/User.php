@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -10,22 +11,26 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, HasRoles;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     /** Rank thresholds. Staff begins at moderator, full access at admin. */
-    public const RANK_MEMBER    = 1;
-    public const RANK_VIP       = 2;
-    public const RANK_HELPER    = 3;
+    public const RANK_MEMBER = 1;
+
+    public const RANK_VIP = 2;
+
+    public const RANK_HELPER = 3;
+
     public const RANK_MODERATOR = 4;
-    public const RANK_ADMIN     = 7;
+
+    public const RANK_ADMIN = 7;
 
     /** Display names for each rank threshold, highest first. */
     public const RANK_NAMES = [
-        self::RANK_ADMIN     => 'Administrator',
+        self::RANK_ADMIN => 'Administrator',
         self::RANK_MODERATOR => 'Moderator',
-        self::RANK_HELPER    => 'Helper',
-        self::RANK_VIP       => 'VIP',
-        self::RANK_MEMBER    => 'Member',
+        self::RANK_HELPER => 'Helper',
+        self::RANK_VIP => 'VIP',
+        self::RANK_MEMBER => 'Member',
     ];
 
     protected $fillable = [
@@ -58,14 +63,14 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'last_login'        => 'datetime',
-            'two_factor_enabled'=> 'boolean',
-            'rank'              => 'integer',
-            'online'            => 'boolean',
+            'last_login' => 'datetime',
+            'two_factor_enabled' => 'boolean',
+            'rank' => 'integer',
+            'online' => 'boolean',
             'achievement_score' => 'integer',
-            'credits'           => 'integer',
-            'diamonds'          => 'integer',
-            'nut_points'        => 'integer',
+            'credits' => 'integer',
+            'diamonds' => 'integer',
+            'nut_points' => 'integer',
             'seasonal_currency' => 'integer',
         ];
     }
@@ -88,6 +93,7 @@ class User extends Authenticatable
                 return $name;
             }
         }
+
         return 'Member';
     }
 
@@ -104,7 +110,8 @@ class User extends Authenticatable
         if (! $imager) {
             return null;
         }
-        return rtrim($imager, '/') . '/?figure=' . urlencode($this->look) . '&size=' . $size;
+
+        return rtrim($imager, '/').'/?figure='.urlencode($this->look).'&size='.$size;
     }
 
     /** True when this user is a staff member and currently in the hotel. */
@@ -113,7 +120,7 @@ class User extends Authenticatable
         return $this->online && $this->isStaff();
     }
 
-    public function bans(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function bans(): HasMany
     {
         return $this->hasMany(Ban::class);
     }
@@ -122,7 +129,7 @@ class User extends Authenticatable
     {
         return $this->bans()
             ->where('active', true)
-            ->where(fn($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->latest()
             ->first();
     }

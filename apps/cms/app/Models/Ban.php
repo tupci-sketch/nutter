@@ -20,7 +20,7 @@ class Ban extends Model
     protected function casts(): array
     {
         return [
-            'active'     => 'boolean',
+            'active' => 'boolean',
             'expires_at' => 'datetime',
         ];
     }

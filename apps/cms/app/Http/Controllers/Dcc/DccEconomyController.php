@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class DccEconomyController extends Controller
@@ -50,34 +51,34 @@ class DccEconomyController extends Controller
     public function grant(Request $request)
     {
         $request->validate([
-            'user_id'  => ['required', 'exists:users,id'],
+            'user_id' => ['required', 'exists:users,id'],
             'currency' => ['required', Rule::in(['credits', 'diamonds', 'nut_points', 'seasonal_currency'])],
-            'amount'   => ['required', 'integer', 'min:1'],
-            'reason'   => ['required', 'string', 'max:500'],
+            'amount' => ['required', 'integer', 'min:1'],
+            'reason' => ['required', 'string', 'max:500'],
         ]);
 
-        $user   = User::findOrFail($request->user_id);
+        $user = User::findOrFail($request->user_id);
         $column = $request->currency;
         $before = $user->{$column};
 
         DB::table('habnut_transactions')->insert([
-            'user_id'         => $user->id,
-            'type'            => $request->currency . '_grant',
-            'currency'        => $request->currency,
-            'amount'          => $request->amount,
-            'balance_before'  => $before,
-            'balance_after'   => $before + $request->amount,
-            'description'     => 'DCC grant: ' . $request->reason,
-            'idempotency_key' => \Illuminate\Support\Str::uuid(),
-            'transaction_hash'=> hash('sha256', $user->id . $request->amount . microtime()),
-            'created_at'      => now(),
+            'user_id' => $user->id,
+            'type' => $request->currency.'_grant',
+            'currency' => $request->currency,
+            'amount' => $request->amount,
+            'balance_before' => $before,
+            'balance_after' => $before + $request->amount,
+            'description' => 'DCC grant: '.$request->reason,
+            'idempotency_key' => Str::uuid(),
+            'transaction_hash' => hash('sha256', $user->id.$request->amount.microtime()),
+            'created_at' => now(),
         ]);
 
         $user->increment($column, $request->amount);
         $this->audit->log($request->user()->id, 'economy_grant', 'user', $user->id, [
             'currency' => $request->currency,
-            'amount'   => $request->amount,
-            'reason'   => $request->reason,
+            'amount' => $request->amount,
+            'reason' => $request->reason,
         ]);
 
         return back()->with('success', 'Currency granted.');
@@ -86,35 +87,35 @@ class DccEconomyController extends Controller
     public function debit(Request $request)
     {
         $request->validate([
-            'user_id'  => ['required', 'exists:users,id'],
+            'user_id' => ['required', 'exists:users,id'],
             'currency' => ['required', Rule::in(['credits', 'diamonds', 'nut_points', 'seasonal_currency'])],
-            'amount'   => ['required', 'integer', 'min:1'],
-            'reason'   => ['required', 'string', 'max:500'],
+            'amount' => ['required', 'integer', 'min:1'],
+            'reason' => ['required', 'string', 'max:500'],
         ]);
 
-        $user   = User::findOrFail($request->user_id);
+        $user = User::findOrFail($request->user_id);
         $column = $request->currency;
         $before = $user->{$column};
-        $after  = max(0, $before - $request->amount);
+        $after = max(0, $before - $request->amount);
 
         DB::table('habnut_transactions')->insert([
-            'user_id'         => $user->id,
-            'type'            => $request->currency . '_debit',
-            'currency'        => $request->currency,
-            'amount'          => $request->amount,
-            'balance_before'  => $before,
-            'balance_after'   => $after,
-            'description'     => 'DCC debit: ' . $request->reason,
-            'idempotency_key' => \Illuminate\Support\Str::uuid(),
-            'transaction_hash'=> hash('sha256', $user->id . $request->amount . microtime()),
-            'created_at'      => now(),
+            'user_id' => $user->id,
+            'type' => $request->currency.'_debit',
+            'currency' => $request->currency,
+            'amount' => $request->amount,
+            'balance_before' => $before,
+            'balance_after' => $after,
+            'description' => 'DCC debit: '.$request->reason,
+            'idempotency_key' => Str::uuid(),
+            'transaction_hash' => hash('sha256', $user->id.$request->amount.microtime()),
+            'created_at' => now(),
         ]);
 
         $user->update([$column => $after]);
         $this->audit->log($request->user()->id, 'economy_debit', 'user', $user->id, [
             'currency' => $request->currency,
-            'amount'   => $request->amount,
-            'reason'   => $request->reason,
+            'amount' => $request->amount,
+            'reason' => $request->reason,
         ]);
 
         return back()->with('success', 'Currency debited.');

@@ -9,6 +9,7 @@
 
 plugins {
     id 'java'
+    id 'jacoco'
 }
 
 java {
@@ -31,7 +32,64 @@ dependencies {
 test {
     useJUnitPlatform()
     testLogging {
-        events 'passed', 'failed', 'skipped'
+        events 'failed', 'skipped'
         showStandardStreams = false
+    }
+    finalizedBy jacocoTestReport
+}
+
+// The suite covers classes that live in the emulator module, so the report is
+// pointed at the emulator's sources and classes rather than this module's.
+jacocoTestReport {
+    dependsOn test
+    def emulator = project(':emulator')
+    sourceDirectories.setFrom(files(emulator.sourceSets.main.java.srcDirs))
+    classDirectories.setFrom(
+        files(emulator.sourceSets.main.output.classesDirs).asFileTree.matching {
+            include 'com/habnut/emulator/wired/**'
+        }
+    )
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// Chapter 59.1 gates game work on this suite. The floor keeps the wired engine
+// genuinely exercised rather than merely having a suite that runs.
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    def emulator = project(':emulator')
+    sourceDirectories.setFrom(files(emulator.sourceSets.main.java.srcDirs))
+    classDirectories.setFrom(
+        files(emulator.sourceSets.main.output.classesDirs).asFileTree.matching {
+            include 'com/habnut/emulator/wired/**'
+        }
+    )
+    violationRules {
+        rule {
+            element = 'CLASS'
+            includes = [
+                'com.habnut.emulator.wired.WiredValue',
+                'com.habnut.emulator.wired.WiredExecutor',
+                'com.habnut.emulator.wired.WiredSignalBus',
+            ]
+            limit {
+                counter = 'LINE'
+                minimum = 0.70
+            }
+        }
+        // WiredDefinitions holds all 136 block implementations. Many actions
+        // need a live room and its entities to run, which this suite
+        // deliberately does not stand up, so its floor sits lower than the
+        // engine classes around it.
+        rule {
+            element = 'CLASS'
+            includes = ['com.habnut.emulator.wired.WiredDefinitions']
+            limit {
+                counter = 'LINE'
+                minimum = 0.55
+            }
+        }
     }
 }

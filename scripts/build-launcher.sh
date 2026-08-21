@@ -25,7 +25,9 @@ say() { printf '\n\033[1;33m==> %s\033[0m\n' "$*"; }
 
 # ── 1. emulator ─────────────────────────────────────────────────────────────
 say "Building emulator JAR"
-( cd "$ROOT/apps/emulator" && gradle jar -q --console=plain )
+# Uses the wrapper so the build does not depend on a Gradle installed on the
+# host, which is what CI and a fresh clone both need.
+( cd "$ROOT" && ./gradlew :emulator:jar -q --console=plain )
 JAR="$ROOT/apps/emulator/build/libs/habnut-emulator.jar"
 [ -f "$JAR" ] || { echo "emulator JAR not produced at $JAR" >&2; exit 1; }
 

@@ -18,7 +18,7 @@ class DccRoomsController extends Controller
             ->select('habnut_rooms.*', 'users.username as owner_name');
 
         if ($request->filled('q')) {
-            $query->where('habnut_rooms.name', 'like', '%' . $request->q . '%');
+            $query->where('habnut_rooms.name', 'like', '%'.$request->q.'%');
         }
 
         $rooms = $query->orderByDesc('habnut_rooms.visitors_now')->paginate(25);
@@ -41,15 +41,17 @@ class DccRoomsController extends Controller
     {
         DB::table('habnut_rooms')->where('id', $id)->delete();
         $this->audit->log($request->user()->id, 'room_delete', 'room', $id, []);
+
         return redirect()->route('dcc.rooms.index')->with('success', 'Room deleted.');
     }
 
     public function toggleFeatured(Request $request, int $id)
     {
         $room = DB::table('habnut_rooms')->where('id', $id)->first();
-        $featured = !$room->featured;
+        $featured = ! $room->featured;
         DB::table('habnut_rooms')->where('id', $id)->update(['featured' => $featured]);
         $this->audit->log($request->user()->id, 'room_feature_toggle', 'room', $id, ['featured' => $featured]);
+
         return back()->with('success', $featured ? 'Room featured.' : 'Room unfeatured.');
     }
 }

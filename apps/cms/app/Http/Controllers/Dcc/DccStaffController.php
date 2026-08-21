@@ -20,6 +20,7 @@ class DccStaffController extends Controller
     public function online()
     {
         $online = cache()->get('online_staff', []);
+
         return view('dcc.staff.online', compact('online'));
     }
 

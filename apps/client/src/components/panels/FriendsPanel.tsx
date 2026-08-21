@@ -6,7 +6,7 @@ export function FriendsPanel() {
   const { friends, loadFriends, removeFriend, sendFriendRequest } = useSocialStore();
   const [newFriend, setNewFriend] = useState('');
 
-  useEffect(() => { loadFriends(); }, []);
+  useEffect(() => { loadFriends(); }, [loadFriends]);
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();

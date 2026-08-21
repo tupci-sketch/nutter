@@ -20,7 +20,7 @@ class ProfileController extends Controller
         $user = $request->user();
 
         $request->validate([
-            'email'    => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'password' => ['nullable', 'confirmed', 'min:8'],
         ]);
 
@@ -38,12 +38,14 @@ class ProfileController extends Controller
     {
         $request->validate(['motto' => ['required', 'string', 'max:255']]);
         $request->user()->update(['motto' => $request->motto]);
+
         return back()->with('success', 'Motto updated.');
     }
 
     public function view(string $username)
     {
         $user = User::where('username', $username)->firstOrFail();
+
         return view('cms.profile.view', compact('user'));
     }
 }

@@ -9,7 +9,7 @@ class DccGamesController extends Controller
 {
     public function index()
     {
-        $matchCount      = DB::table('habnut_game_matches')->count();
+        $matchCount = DB::table('habnut_game_matches')->count();
         $tournamentCount = DB::table('habnut_tournaments')->count();
         $activeTournaments = DB::table('habnut_tournaments')->where('status', 'active')->count();
 

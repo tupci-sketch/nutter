@@ -33,8 +33,8 @@ class PasswordResetController extends Controller
     public function update(Request $request)
     {
         $request->validate([
-            'token'    => ['required'],
-            'email'    => ['required', 'email'],
+            'token' => ['required'],
+            'email' => ['required', 'email'],
             'password' => ['required', 'confirmed', Rules\Password::min(8)],
         ]);
 

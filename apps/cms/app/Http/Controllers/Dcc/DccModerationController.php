@@ -15,7 +15,7 @@ class DccModerationController extends Controller
     public function index()
     {
         $openReports = DB::table('habnut_reports')->where('status', 'open')->count();
-        $activeBans  = Ban::where('active', true)->count();
+        $activeBans = Ban::where('active', true)->count();
         $openAppeals = DB::table('habnut_ban_appeals')->where('status', 'pending')->count();
 
         return view('dcc.moderation.index', compact('openReports', 'activeBans', 'openAppeals'));
@@ -62,13 +62,13 @@ class DccModerationController extends Controller
     {
         $request->validate([
             'resolution' => ['required', 'string', 'max:1000'],
-            'action'     => ['required', 'in:none,warn,mute,ban'],
+            'action' => ['required', 'in:none,warn,mute,ban'],
         ]);
 
         DB::table('habnut_reports')->where('id', $id)->update([
-            'status'      => 'resolved',
+            'status' => 'resolved',
             'resolver_id' => $request->user()->id,
-            'resolution'  => $request->resolution,
+            'resolution' => $request->resolution,
             'resolved_at' => now(),
         ]);
 
@@ -82,7 +82,7 @@ class DccModerationController extends Controller
         $query = Ban::with(['user', 'staff'])->where('active', true);
 
         if ($request->filled('q')) {
-            $query->whereHas('user', fn($q) => $q->where('username', 'like', '%' . $request->q . '%'));
+            $query->whereHas('user', fn ($q) => $q->where('username', 'like', '%'.$request->q.'%'));
         }
 
         $bans = $query->latest()->paginate(25);
@@ -94,12 +94,13 @@ class DccModerationController extends Controller
     {
         Ban::where('id', $id)->update(['active' => false]);
         $this->audit->log($request->user()->id, 'ban_lift', 'ban', $id, []);
+
         return back()->with('success', 'Ban lifted.');
     }
 
     public function appeals(Request $request)
     {
-        $status  = $request->input('status', 'pending');
+        $status = $request->input('status', 'pending');
         $appeals = DB::table('habnut_ban_appeals')
             ->join('users', 'users.id', '=', 'habnut_ban_appeals.user_id')
             ->join('habnut_bans', 'habnut_bans.id', '=', 'habnut_ban_appeals.ban_id')
@@ -117,6 +118,7 @@ class DccModerationController extends Controller
         DB::table('habnut_bans')->where('id', $appeal->ban_id)->update(['active' => false]);
         DB::table('habnut_ban_appeals')->where('id', $id)->update(['status' => 'accepted', 'resolved_at' => now(), 'resolver_id' => $request->user()->id]);
         $this->audit->log($request->user()->id, 'appeal_accept', 'appeal', $id, []);
+
         return back()->with('success', 'Appeal accepted, ban lifted.');
     }
 
@@ -124,28 +126,30 @@ class DccModerationController extends Controller
     {
         DB::table('habnut_ban_appeals')->where('id', $id)->update(['status' => 'denied', 'resolved_at' => now(), 'resolver_id' => $request->user()->id]);
         $this->audit->log($request->user()->id, 'appeal_deny', 'appeal', $id, []);
+
         return back()->with('success', 'Appeal denied.');
     }
 
     public function wordFilter()
     {
         $words = DB::table('habnut_word_filter')->orderBy('word')->paginate(50);
+
         return view('dcc.moderation.wordfilter', compact('words'));
     }
 
     public function addWord(Request $request)
     {
         $request->validate([
-            'word'        => ['required', 'string', 'max:100'],
+            'word' => ['required', 'string', 'max:100'],
             'replacement' => ['nullable', 'string', 'max:100'],
-            'severity'    => ['required', 'in:low,medium,high'],
+            'severity' => ['required', 'in:low,medium,high'],
         ]);
 
         DB::table('habnut_word_filter')->insertOrIgnore([
-            'word'        => strtolower($request->word),
+            'word' => strtolower($request->word),
             'replacement' => $request->replacement ?? '****',
-            'severity'    => $request->severity,
-            'created_at'  => now(),
+            'severity' => $request->severity,
+            'created_at' => now(),
         ]);
 
         return back()->with('success', 'Word added to filter.');
@@ -154,6 +158,7 @@ class DccModerationController extends Controller
     public function removeWord(Request $request, int $id)
     {
         DB::table('habnut_word_filter')->where('id', $id)->delete();
+
         return back()->with('success', 'Word removed.');
     }
 

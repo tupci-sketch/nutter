@@ -5,7 +5,7 @@ import { Panel } from './Panel';
 export function InventoryPanel() {
   const { items, load, loaded } = useInventoryStore();
 
-  useEffect(() => { if (!loaded) load(); }, [loaded]);
+  useEffect(() => { if (!loaded) load(); }, [loaded, load]);
 
   return (
     <Panel title={`Inventory (${items.length})`} width={300}>

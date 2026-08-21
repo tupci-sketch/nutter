@@ -9,8 +9,10 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    # Separate directive since nginx 1.25; the combined form is deprecated.
+    http2 on;
     server_name {{.Domain}};
 
     ssl_certificate     /etc/letsencrypt/live/{{.Domain}}/fullchain.pem;

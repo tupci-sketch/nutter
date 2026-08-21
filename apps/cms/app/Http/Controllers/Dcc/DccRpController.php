@@ -13,8 +13,8 @@ class DccRpController extends Controller
 
     public function index()
     {
-        $charCount      = DB::table('habnut_rp_characters')->count();
-        $imprisoned     = DB::table('habnut_rp_characters')->whereNotNull('prison_expiry')->where('prison_expiry', '>', now())->count();
+        $charCount = DB::table('habnut_rp_characters')->count();
+        $imprisoned = DB::table('habnut_rp_characters')->whereNotNull('prison_expiry')->where('prison_expiry', '>', now())->count();
         $activeDispatch = DB::table('habnut_rp_dispatch_calls')->where('status', 'pending')->count();
 
         return view('dcc.rp.index', compact('charCount', 'imprisoned', 'activeDispatch'));
@@ -28,7 +28,7 @@ class DccRpController extends Controller
 
         if ($request->filled('q')) {
             $q = $request->q;
-            $query->where(fn($qb) => $qb->where('habnut_rp_characters.name', 'like', "%{$q}%")->orWhere('habnut_rp_characters.surname', 'like', "%{$q}%"));
+            $query->where(fn ($qb) => $qb->where('habnut_rp_characters.name', 'like', "%{$q}%")->orWhere('habnut_rp_characters.surname', 'like', "%{$q}%"));
         }
 
         $characters = $query->orderBy('habnut_rp_characters.name')->paginate(25);
@@ -65,6 +65,7 @@ class DccRpController extends Controller
     public function factions()
     {
         $factions = DB::table('habnut_rp_factions')->orderBy('name')->paginate(25);
+
         return view('dcc.rp.factions', compact('factions'));
     }
 
@@ -92,20 +93,21 @@ class DccRpController extends Controller
     public function laws()
     {
         $laws = DB::table('habnut_rp_laws')->where('active', true)->orderBy('title')->paginate(25);
+
         return view('dcc.rp.laws', compact('laws'));
     }
 
     public function createLaw(Request $request)
     {
         $request->validate([
-            'title'   => ['required', 'string', 'max:200'],
-            'body'    => ['required', 'string'],
+            'title' => ['required', 'string', 'max:200'],
+            'body' => ['required', 'string'],
         ]);
 
         $id = DB::table('habnut_rp_laws')->insertGetId([
-            'title'      => $request->title,
-            'body'       => $request->body,
-            'active'     => true,
+            'title' => $request->title,
+            'body' => $request->body,
+            'active' => true,
             'enacted_at' => now(),
             'created_at' => now(),
         ]);
@@ -119,6 +121,7 @@ class DccRpController extends Controller
     {
         DB::table('habnut_rp_laws')->where('id', $id)->update(['active' => false, 'repealed_at' => now()]);
         $this->audit->log($request->user()->id, 'rp_law_repeal', 'rp_law', $id, []);
+
         return back()->with('success', 'Law repealed.');
     }
 }

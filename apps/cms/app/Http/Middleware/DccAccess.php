@@ -11,9 +11,10 @@ class DccAccess
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        if (!$user || !$user->isStaff()) {
+        if (! $user || ! $user->isStaff()) {
             abort(403, 'Access denied.');
         }
+
         return $next($request);
     }
 }

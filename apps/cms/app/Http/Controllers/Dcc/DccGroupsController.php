@@ -18,7 +18,7 @@ class DccGroupsController extends Controller
             ->select('habnut_groups.*', 'users.username as owner_name');
 
         if ($request->filled('q')) {
-            $query->where('habnut_groups.name', 'like', '%' . $request->q . '%');
+            $query->where('habnut_groups.name', 'like', '%'.$request->q.'%');
         }
 
         $groups = $query->orderByDesc('habnut_groups.created_at')->paginate(25);
@@ -43,6 +43,7 @@ class DccGroupsController extends Controller
         DB::table('habnut_group_members')->where('group_id', $id)->delete();
         DB::table('habnut_groups')->where('id', $id)->delete();
         $this->audit->log($request->user()->id, 'group_delete', 'group', $id, []);
+
         return redirect()->route('dcc.groups.index')->with('success', 'Group deleted.');
     }
 
@@ -50,6 +51,7 @@ class DccGroupsController extends Controller
     {
         DB::table('habnut_groups')->where('id', $id)->update(['verified' => true]);
         $this->audit->log($request->user()->id, 'group_verify', 'group', $id, []);
+
         return back()->with('success', 'Group verified.');
     }
 }

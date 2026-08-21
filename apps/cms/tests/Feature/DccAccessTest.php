@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
 
 class DccAccessTest extends TestCase
 {
@@ -14,11 +14,11 @@ class DccAccessTest extends TestCase
     private function makeUser(int $rank, string $suffix = ''): User
     {
         return User::factory()->create([
-            'username'          => "tupci{$suffix}",
-            'email'             => "tupci{$suffix}@test.com",
-            'password'          => Hash::make('password'),
-            'rank'              => $rank,
-            'two_factor_enabled'=> false,
+            'username' => "tupci{$suffix}",
+            'email' => "tupci{$suffix}@test.com",
+            'password' => Hash::make('password'),
+            'rank' => $rank,
+            'two_factor_enabled' => false,
             'email_verified_at' => now(),
         ]);
     }
@@ -83,7 +83,7 @@ class DccAccessTest extends TestCase
     /** @test */
     public function tupci_admin_can_view_user_detail(): void
     {
-        $tupci   = $this->makeUser(7, '_admin');
+        $tupci = $this->makeUser(7, '_admin');
         $subject = $this->makeUser(1, '_subject');
         $this->actingAs($tupci);
 
@@ -94,7 +94,7 @@ class DccAccessTest extends TestCase
     /** @test */
     public function tupci_admin_cannot_elevate_rank_to_own_level(): void
     {
-        $tupci   = $this->makeUser(7, '_admin');
+        $tupci = $this->makeUser(7, '_admin');
         $subject = $this->makeUser(1, '_target');
         $this->actingAs($tupci);
 
@@ -109,7 +109,7 @@ class DccAccessTest extends TestCase
     /** @test */
     public function tupci_admin_can_assign_lower_rank(): void
     {
-        $tupci   = $this->makeUser(7, '_admin');
+        $tupci = $this->makeUser(7, '_admin');
         $subject = $this->makeUser(1, '_target2');
         $this->actingAs($tupci);
 
@@ -124,7 +124,7 @@ class DccAccessTest extends TestCase
     /** @test */
     public function dcc_economy_credit_adjustment_is_audit_logged(): void
     {
-        $tupci   = $this->makeUser(7, '_admin');
+        $tupci = $this->makeUser(7, '_admin');
         $subject = $this->makeUser(1, '_rich');
         $this->actingAs($tupci);
 
@@ -135,9 +135,9 @@ class DccAccessTest extends TestCase
 
         $this->assertDatabaseHas('habnut_audit_logs', [
             'actor_user_id' => $tupci->id,
-            'action'        => 'credits_adjust',
-            'target_type'   => 'user',
-            'target_id'     => $subject->id,
+            'action' => 'credits_adjust',
+            'target_type' => 'user',
+            'target_id' => $subject->id,
         ]);
     }
 }

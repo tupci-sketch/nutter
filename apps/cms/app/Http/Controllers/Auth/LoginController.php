@@ -18,11 +18,11 @@ class LoginController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'email'    => ['required', 'string'],
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::attempt(['email' => $request->email, 'password' => $request->password], $request->boolean('remember'))) {
+        if (! Auth::attempt(['email' => $request->email, 'password' => $request->password], $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
             ]);
@@ -39,7 +39,7 @@ class LoginController extends Controller
 
         $user->update([
             'last_login' => now(),
-            'last_ip'    => $request->ip(),
+            'last_ip' => $request->ip(),
         ]);
 
         $request->session()->regenerate();
@@ -56,14 +56,16 @@ class LoginController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('login');
     }
 
     public function ticket(Request $request)
     {
         $user = $request->user();
-        $ticket = 'HNT-' . Str::upper(Str::random(32));
+        $ticket = 'HNT-'.Str::upper(Str::random(32));
         cache()->put("ticket:{$ticket}", $user->id, now()->addMinutes(5));
+
         return response()->json(['ticket' => $ticket]);
     }
 }

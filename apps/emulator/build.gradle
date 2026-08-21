@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id 'jacoco'
 }
 
 group = 'com.habnut'
@@ -66,6 +67,40 @@ application {
 test {
     useJUnitPlatform()
     jvmArgs '--add-opens', 'java.base/java.util=ALL-UNNAMED'
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// Coverage floors apply to the classes this module's own tests exercise. The
+// wired engine is gated by the conformance suite in its own module, which is
+// where those classes are covered, so it is deliberately not listed here.
+// Floors sit at the level the suite currently sustains, so removing a test
+// fails the build; they are raised as coverage grows rather than set to an
+// aspirational number that has to be ignored.
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    violationRules {
+        rule {
+            element = 'CLASS'
+            includes = [
+                'com.habnut.emulator.economy.TransactionService',
+                'com.habnut.emulator.room.NavigationGrid',
+                'com.habnut.emulator.net.PacketRouter',
+                'com.habnut.emulator.wired.WiredVariableStore',
+            ]
+            limit {
+                counter = 'LINE'
+                minimum = 0.70
+            }
+        }
+    }
 }
 
 jar {

@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use App\Models\User;
 use App\Models\Ban;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
 
 class AuthTest extends TestCase
 {
@@ -15,15 +15,15 @@ class AuthTest extends TestCase
     private function createTupci(array $overrides = []): User
     {
         return User::factory()->create(array_merge([
-            'username'           => 'tupci',
-            'email'              => 'tupci@icloud.com',
-            'password'           => Hash::make('testpassword123'),
-            'rank'               => 1,
-            'credits'            => 500,
-            'diamonds'           => 10,
-            'nut_points'         => 250,
+            'username' => 'tupci',
+            'email' => 'tupci@icloud.com',
+            'password' => Hash::make('testpassword123'),
+            'rank' => 1,
+            'credits' => 500,
+            'diamonds' => 10,
+            'nut_points' => 250,
             'two_factor_enabled' => false,
-            'email_verified_at'  => now(),
+            'email_verified_at' => now(),
         ], $overrides));
     }
 
@@ -41,7 +41,7 @@ class AuthTest extends TestCase
         $this->createTupci();
 
         $response = $this->post(route('login'), [
-            'email'    => 'tupci@icloud.com',
+            'email' => 'tupci@icloud.com',
             'password' => 'testpassword123',
         ]);
 
@@ -55,7 +55,7 @@ class AuthTest extends TestCase
         $this->createTupci();
 
         $response = $this->post(route('login'), [
-            'email'    => 'tupci@icloud.com',
+            'email' => 'tupci@icloud.com',
             'password' => 'wrongpassword',
         ]);
 
@@ -69,14 +69,14 @@ class AuthTest extends TestCase
         $tupci = $this->createTupci();
 
         Ban::factory()->create([
-            'user_id'    => $tupci->id,
-            'active'     => true,
+            'user_id' => $tupci->id,
+            'active' => true,
             'expires_at' => now()->addDays(30),
-            'reason'     => 'Testing ban enforcement',
+            'reason' => 'Testing ban enforcement',
         ]);
 
         $response = $this->post(route('login'), [
-            'email'    => 'tupci@icloud.com',
+            'email' => 'tupci@icloud.com',
             'password' => 'testpassword123',
         ]);
 
@@ -89,11 +89,11 @@ class AuthTest extends TestCase
     {
         $this->createTupci([
             'two_factor_enabled' => true,
-            'two_factor_secret'  => 'TESTSECRET123456',
+            'two_factor_secret' => 'TESTSECRET123456',
         ]);
 
         $response = $this->post(route('login'), [
-            'email'    => 'tupci@icloud.com',
+            'email' => 'tupci@icloud.com',
             'password' => 'testpassword123',
         ]);
 
@@ -139,7 +139,7 @@ class AuthTest extends TestCase
         $this->actingAs($tupci, 'sanctum');
 
         $response = $this->postJson(route('api.ticket'));
-        $ticket   = $response->json('ticket');
+        $ticket = $response->json('ticket');
 
         $this->assertEquals($tupci->id, cache()->get("ticket:{$ticket}"));
     }
@@ -155,16 +155,16 @@ class AuthTest extends TestCase
     public function tupci_can_register_a_new_account(): void
     {
         $response = $this->post(route('register'), [
-            'username'              => 'tupci',
-            'email'                 => 'tupci@icloud.com',
-            'password'              => 'securepassword123',
+            'username' => 'tupci',
+            'email' => 'tupci@icloud.com',
+            'password' => 'securepassword123',
             'password_confirmation' => 'securepassword123',
         ]);
 
         $response->assertRedirect();
         $this->assertDatabaseHas('users', [
             'username' => 'tupci',
-            'email'    => 'tupci@icloud.com',
+            'email' => 'tupci@icloud.com',
         ]);
     }
 
@@ -174,9 +174,9 @@ class AuthTest extends TestCase
         $this->createTupci();
 
         $response = $this->post(route('register'), [
-            'username'              => 'tupci',
-            'email'                 => 'different@test.com',
-            'password'              => 'securepassword123',
+            'username' => 'tupci',
+            'email' => 'different@test.com',
+            'password' => 'securepassword123',
             'password_confirmation' => 'securepassword123',
         ]);
 

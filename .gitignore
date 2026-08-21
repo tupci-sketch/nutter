@@ -6,6 +6,9 @@ vendor/
 dist/
 build/
 *.jar
+# The Gradle wrapper jar must be committed: CI and a fresh clone both run
+# ./gradlew, which cannot bootstrap without it.
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.class
 target/

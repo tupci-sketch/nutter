@@ -2,27 +2,28 @@
 
 namespace Tests\Unit;
 
-use Tests\TestCase;
-use App\Services\AuditService;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
 
 class AuditServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     private AuditService $audit;
+
     private User $tupci;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->audit = new AuditService();
+        $this->audit = new AuditService;
         $this->tupci = User::factory()->create([
             'username' => 'tupci',
-            'email'    => 'tupci@icloud.com',
-            'rank'     => 7,
+            'email' => 'tupci@icloud.com',
+            'rank' => 7,
         ]);
     }
 
@@ -30,19 +31,19 @@ class AuditServiceTest extends TestCase
     public function audit_log_inserts_a_row(): void
     {
         $this->audit->log(
-            actorId:    $this->tupci->id,
-            action:     'rank_change',
+            actorId: $this->tupci->id,
+            action: 'rank_change',
             targetType: 'user',
-            targetId:   2,
-            metadata:   ['old' => 1, 'new' => 3],
+            targetId: 2,
+            metadata: ['old' => 1, 'new' => 3],
         );
 
         $this->assertDatabaseHas('habnut_audit_logs', [
             'actor_user_id' => $this->tupci->id,
-            'action'        => 'rank_change',
-            'target_type'   => 'user',
-            'target_id'     => 2,
-            'source'        => 'dcc',
+            'action' => 'rank_change',
+            'target_type' => 'user',
+            'target_id' => 2,
+            'source' => 'dcc',
         ]);
     }
 

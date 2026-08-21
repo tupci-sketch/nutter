@@ -28,7 +28,9 @@ export function RoomCanvas() {
       r.destroy();
       rendererRef.current = null;
     };
-  }, []);
+    // move is a stable store action; listing it keeps the click handler bound
+    // to the current one rather than closing over the first render's copy.
+  }, [move]);
 
   useEffect(() => {
     rendererRef.current?.updateUsers(users);

@@ -28,11 +28,11 @@ class HomePageTest extends TestCase
     public function test_signed_in_player_sees_their_own_page(): void
     {
         $tupci = User::factory()->create([
-            'username'          => 'tupci',
-            'motto'             => 'Building something',
-            'credits'           => 12500,
-            'diamonds'          => 42,
-            'nut_points'        => 380,
+            'username' => 'tupci',
+            'motto' => 'Building something',
+            'credits' => 12500,
+            'diamonds' => 42,
+            'nut_points' => 380,
             'achievement_score' => 1275,
         ]);
 
@@ -62,13 +62,13 @@ class HomePageTest extends TestCase
     {
         User::factory()->create([
             'username' => 'modstaff',
-            'rank'     => User::RANK_MODERATOR,
-            'online'   => true,
+            'rank' => User::RANK_MODERATOR,
+            'online' => true,
         ]);
         User::factory()->create([
             'username' => 'plainmember',
-            'rank'     => User::RANK_MEMBER,
-            'online'   => true,
+            'rank' => User::RANK_MEMBER,
+            'online' => true,
         ]);
 
         $response = $this->get('/');

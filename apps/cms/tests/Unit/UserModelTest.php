@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use Tests\TestCase;
-use App\Models\User;
 use App\Models\Ban;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class UserModelTest extends TestCase
 {
@@ -15,9 +15,9 @@ class UserModelTest extends TestCase
     {
         return User::factory()->create(array_merge([
             'username' => 'tupci',
-            'email'    => 'tupci@icloud.com',
-            'rank'     => 1,
-            'credits'  => 500,
+            'email' => 'tupci@icloud.com',
+            'rank' => 1,
+            'credits' => 500,
             'diamonds' => 10,
         ], $overrides));
     }
@@ -63,10 +63,10 @@ class UserModelTest extends TestCase
         $tupci = $this->makeTupci();
 
         Ban::factory()->create([
-            'user_id'    => $tupci->id,
-            'active'     => true,
+            'user_id' => $tupci->id,
+            'active' => true,
             'expires_at' => now()->addDays(7),
-            'reason'     => 'Test ban',
+            'reason' => 'Test ban',
         ]);
 
         $this->assertNotNull($tupci->fresh()->activeBan());
@@ -78,10 +78,10 @@ class UserModelTest extends TestCase
         $tupci = $this->makeTupci();
 
         Ban::factory()->create([
-            'user_id'    => $tupci->id,
-            'active'     => true,
+            'user_id' => $tupci->id,
+            'active' => true,
             'expires_at' => now()->subMinutes(1),
-            'reason'     => 'Expired ban',
+            'reason' => 'Expired ban',
         ]);
 
         $this->assertNull($tupci->fresh()->activeBan());

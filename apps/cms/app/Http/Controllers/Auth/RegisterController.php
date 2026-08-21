@@ -21,19 +21,19 @@ class RegisterController extends Controller
     {
         $request->validate([
             'username' => ['required', 'string', 'min:3', 'max:30', 'alpha_num', 'unique:users'],
-            'email'    => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Password::min(8)],
         ]);
 
         $user = User::create([
             'username' => $request->username,
-            'email'    => $request->email,
+            'email' => $request->email,
             'password' => Hash::make($request->password),
-            'rank'     => 1,
-            'credits'  => 200,
+            'rank' => 1,
+            'credits' => 200,
             'diamonds' => 0,
             'nut_points' => 0,
-            'look'     => 'hd-180-1.ch-210-66.lg-280-110.sh-300-91',
+            'look' => 'hd-180-1.ch-210-66.lg-280-110.sh-300-91',
         ]);
 
         event(new Registered($user));

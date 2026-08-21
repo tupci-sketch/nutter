@@ -14,7 +14,7 @@ class DccWiredController extends Controller
     public function index()
     {
         $globalVarCount = DB::table('habnut_wired_variables')->where('scope', 'global')->count();
-        $execLogCount   = DB::table('habnut_wired_execution_log')->where('created_at', '>=', now()->subDay())->count();
+        $execLogCount = DB::table('habnut_wired_execution_log')->where('created_at', '>=', now()->subDay())->count();
 
         return view('dcc.wired.index', compact('globalVarCount', 'execLogCount'));
     }
