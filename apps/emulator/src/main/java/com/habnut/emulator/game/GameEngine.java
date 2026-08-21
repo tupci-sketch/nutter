@@ -54,11 +54,14 @@ public final class GameEngine implements GameObserver {
 
     public GameMatch createMatch(String gameType, long roomId) {
         GameMatch match = switch (gameType) {
-            case "football"   -> new FootballMatch(roomId);
-            case "battleball" -> new BattleballMatch(roomId);
-            case "freeze"     -> new FreezeMatch(roomId);
-            case "racing"     -> new RacingMatch(roomId);
-            case "telephrase" -> new TelephrasMatch(roomId);
+            case "football"       -> new FootballMatch(roomId);
+            case "battleball"     -> new BattleBallMatch(roomId);
+            case "freeze"         -> new FreezeMatch(roomId);
+            case "racing"         -> new RacingMatch(roomId);
+            case "telephrase"     -> new TelephrasMatch(roomId);
+            case "snowstorm"      -> new SnowStormMatch(roomId);
+            case "wobblesquabble" -> new WobbleSquabbleMatch(roomId);
+            case "lidodiving"     -> new LidoDivingMatch(roomId);
             default -> throw new IllegalArgumentException("Unknown game type: " + gameType);
         };
         match.setObserver(this);
