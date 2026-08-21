@@ -15,7 +15,6 @@ env:
   NODE_VERSION: "22"
   GO_VERSION: "1.24"
   PHP_VERSION: "8.3"
-  PNPM_VERSION: "8"
 
 jobs:
   # ── 1 · Placeholder scan ──────────────────────────────────────────────────
@@ -114,9 +113,9 @@ jobs:
     needs: [placeholder-scan]
     steps:
       - uses: actions/checkout@v4
+      # Version comes from the packageManager field in package.json; passing
+      # it here as well makes the action fail with a conflict.
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -135,9 +134,9 @@ jobs:
     needs: [client-lint]
     steps:
       - uses: actions/checkout@v4
+      # Version comes from the packageManager field in package.json; passing
+      # it here as well makes the action fail with a conflict.
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -154,9 +153,9 @@ jobs:
     needs: [client-test]
     steps:
       - uses: actions/checkout@v4
+      # Version comes from the packageManager field in package.json; passing
+      # it here as well makes the action fail with a conflict.
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -282,7 +281,12 @@ jobs:
             -subj "/CN=ci.habnut.test" 2>/dev/null
       - name: Test config syntax
         run: |
+          # proxy_pass and fastcgi_pass name Docker Compose services, which
+          # nginx resolves at start-up. They are mapped to loopback so the
+          # check validates syntax rather than failing on DNS.
           docker run --rm \
+            --add-host emulator:127.0.0.1 \
+            --add-host cms:127.0.0.1 \
             -v "$PWD/rendered/habnut.conf:/etc/nginx/conf.d/habnut.conf:ro" \
             -v "$PWD/rendered/certs:/etc/letsencrypt/live/ci.habnut.test:ro" \
             nginx:1.27-alpine nginx -t
@@ -310,9 +314,9 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
       - uses: gradle/actions/setup-gradle@v4
+      # Version comes from the packageManager field in package.json; passing
+      # it here as well makes the action fail with a conflict.
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
