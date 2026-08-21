@@ -65,9 +65,23 @@ playwright-report/
 # PHPUnit
 apps/cms/.phpunit.result.cache
 
-# Laravel cache
+# Laravel runtime directories. The trees themselves must exist on a fresh
+# clone — Laravel refuses to boot without them — so the directory skeleton is
+# tracked through each .gitignore while their contents stay ignored.
 apps/cms/bootstrap/cache/*.php
-apps/cms/storage/
+apps/cms/storage/*
+!apps/cms/storage/app/
+apps/cms/storage/app/*
+!apps/cms/storage/app/public/
+!apps/cms/storage/framework/
+apps/cms/storage/framework/*
+!apps/cms/storage/framework/cache/
+apps/cms/storage/framework/cache/*
+!apps/cms/storage/framework/cache/data/
+!apps/cms/storage/framework/sessions/
+!apps/cms/storage/framework/views/
+!apps/cms/storage/logs/
+!.gitignore
 
 # Misc
 *.tmp
