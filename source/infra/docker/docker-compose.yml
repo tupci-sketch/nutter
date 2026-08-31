@@ -1,0 +1,288 @@
+
+x-logging: &default-logging
+  driver: loki
+  options:
+    loki-url: "http://localhost:3100/loki/api/v1/push"
+    loki-pipeline-stages: |
+      - json:
+          expressions:
+            level: level
+      - labels:
+          level:
+
+services:
+  mariadb:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_pass
+      MARIADB_DATABASE: habnut
+      MARIADB_USER: habnut
+      MARIADB_PASSWORD_FILE: /run/secrets/db_pass
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./mariadb/my.cnf:/etc/mysql/conf.d/habnut.cnf:ro
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+    secrets: [db_root_pass, db_pass]
+    logging: *default-logging
+
+  redis:
+    image: redis:7.0-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "notice"]
+    volumes:
+      - redis_data:/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    logging: *default-logging
+
+  emulator:
+    image: eclipse-temurin:21-jre
+    restart: unless-stopped
+    command: ["java", "-Xmx2g", "-jar", "/app/habnut-emulator.jar",
+              "--config", "/etc/habnut/emulator.properties"]
+    volumes:
+      - emulator_app:/app:ro
+      - emulator_config:/etc/habnut:ro
+      - emulator_logs:/var/log/habnut
+    networks: [backend, frontend]
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 2G
+    logging: *default-logging
+
+  cms:
+    image: php:8.3-fpm-alpine
+    restart: unless-stopped
+    volumes:
+      - cms_app:/var/www/cms:ro
+      - cms_env:/var/www/cms/.env:ro
+    networks: [backend, frontend]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+    logging: *default-logging
+
+  # Renders avatars and group badges from the installed asset pack, so the
+  # website's pictures come from the artwork this hotel actually runs rather
+  # than from somebody else's server.
+  imager:
+    image: alpine:3.19
+    restart: unless-stopped
+    command: ["/usr/local/bin/habnutctl", "imager", "--listen", "0.0.0.0:8081"]
+    volumes:
+      - /usr/local/bin/habnutctl:/usr/local/bin/habnutctl:ro
+      - /var/lib/habnut/assets:/var/lib/habnut/assets:ro
+    networks: [frontend]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+    logging: *default-logging
+
+  horizon:
+    image: php:8.3-cli-alpine
+    restart: unless-stopped
+    command: ["php", "/var/www/cms/artisan", "horizon"]
+    volumes:
+      - cms_app:/var/www/cms:ro
+      - cms_env:/var/www/cms/.env:ro
+    networks: [backend]
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+    logging: *default-logging
+
+  nginx:
+    image: nginx:1.24-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/habnut.conf:/etc/nginx/conf.d/default.conf:ro
+      - client_dist:/usr/share/nginx/html:ro
+      - letsencrypt:/etc/letsencrypt:ro
+    networks: [frontend]
+    depends_on: [emulator, cms, imager]
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 256M
+    logging: *default-logging
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=90d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    networks: [monitoring]
+    ports:
+      - "127.0.0.1:9090:9090"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana_pass
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    networks: [monitoring]
+    ports:
+      - "127.0.0.1:3000:3000"
+    secrets: [grafana_pass]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    logging: *default-logging
+
+  loki:
+    image: grafana/loki:2.9.0
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ../loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    networks: [monitoring]
+    ports:
+      - "127.0.0.1:3100:3100"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/promtail.yml"]
+    volumes:
+      - ../promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ../prometheus/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    networks: [monitoring]
+    ports:
+      - "127.0.0.1:9093:9093"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+
+networks:
+  frontend:
+  backend:
+  monitoring:
+
+volumes:
+  mariadb_data:
+  redis_data:
+  emulator_app:
+  emulator_config:
+  emulator_logs:
+  cms_app:
+  cms_env:
+  client_dist:
+  letsencrypt:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  alertmanager_data:
+
+secrets:
+  db_root_pass:
+    file: ./secrets/db_root_pass.txt
+  db_pass:
+    file: ./secrets/db_pass.txt
+  grafana_pass:
+    file: ./secrets/grafana_pass.txt

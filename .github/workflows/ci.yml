@@ -27,10 +27,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: tools/placeholder-scan/go.mod
+          cache-dependency-path: source/tools/placeholder-scan/go.mod
       # Each tool is its own Go module, so the build runs from inside it.
       - name: Build scanner
-        working-directory: tools/placeholder-scan
+        working-directory: source/tools/placeholder-scan
         run: go build -o /tmp/placeholder-scan .
       - name: Run scan
         run: /tmp/placeholder-scan .
@@ -44,15 +44,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: tools/asset-validator/go.mod
+          cache-dependency-path: source/tools/asset-validator/go.mod
       - name: Build validator
-        working-directory: tools/asset-validator
+        working-directory: source/tools/asset-validator
         run: go build -o /tmp/asset-validator .
       - name: Vet
-        working-directory: tools/asset-validator
+        working-directory: source/tools/asset-validator
         run: go vet ./...
       - name: Validate pack manifest schema
-        run: python3 -c "import json; json.load(open('infra/swf/PACK_MANIFEST.json')); print('Manifest JSON valid')"
+        run: python3 -c "import json; json.load(open('source/infra/swf/PACK_MANIFEST.json')); print('Manifest JSON valid')"
 
   # ── 3 · Emulator ──────────────────────────────────────────────────────────
   # Unit tests plus the schema guard, which applies every migration and checks
@@ -78,8 +78,8 @@ jobs:
         with:
           name: emulator-reports
           path: |
-            apps/emulator/build/reports/tests/
-            apps/emulator/build/reports/jacoco/
+            source/apps/emulator/build/reports/tests/
+            source/apps/emulator/build/reports/jacoco/
 
   # ── 4 · Wired conformance ─────────────────────────────────────────────────
   # Chapter 59.1 gate. Gradle fails the task on any test failure, so a green
@@ -104,7 +104,7 @@ jobs:
         if: always()
         with:
           name: wired-conformance-reports
-          path: tests/wired-conformance/build/reports/
+          path: source/tests/wired-conformance/build/reports/
 
   # ── 5 · Client lint and types ─────────────────────────────────────────────
   client-lint:
@@ -168,7 +168,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: client-dist
-          path: apps/client/dist/
+          path: source/apps/client/dist/
 
   # ── 8 · CMS lint ──────────────────────────────────────────────────────────
   cms-lint:
@@ -183,10 +183,10 @@ jobs:
           extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, gd
           coverage: none
       - name: Install
-        working-directory: apps/cms
+        working-directory: source/apps/cms
         run: composer install --prefer-dist --no-progress --no-interaction
       - name: Lint
-        working-directory: apps/cms
+        working-directory: source/apps/cms
         run: vendor/bin/pint --test
 
   # ── 9 · CMS tests ─────────────────────────────────────────────────────────
@@ -204,19 +204,19 @@ jobs:
           extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, gd
           coverage: none
       - name: Install
-        working-directory: apps/cms
+        working-directory: source/apps/cms
         run: composer install --prefer-dist --no-progress --no-interaction
       - name: Test
-        working-directory: apps/cms
+        working-directory: source/apps/cms
         run: vendor/bin/phpunit
       - name: Dependency audit
-        working-directory: apps/cms
+        working-directory: source/apps/cms
         run: composer audit --no-interaction
 
   # ── 10 · Launcher ─────────────────────────────────────────────────────────
   # Built for both targets it ships to. The payload package is exercised in
   # its unbundled form here; a release build is produced by
-  # scripts/build-launcher.sh, which needs the other components present.
+  # source/scripts/build-launcher.sh, which needs the other components present.
   launcher:
     name: "10 · Launcher (Go)"
     runs-on: ubuntu-24.04
@@ -226,21 +226,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: apps/launcher/go.sum
+          cache-dependency-path: source/apps/launcher/go.sum
       - name: Vet
-        working-directory: apps/launcher
+        working-directory: source/apps/launcher
         run: go vet ./...
       - name: Test
-        working-directory: apps/launcher
+        working-directory: source/apps/launcher
         run: go test ./...
       - name: Build for Linux
-        working-directory: apps/launcher
+        working-directory: source/apps/launcher
         run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/habnutctl-linux .
       - name: Build for Windows
-        working-directory: apps/launcher
+        working-directory: source/apps/launcher
         run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o /tmp/habnutctl.exe .
       - name: Vet Windows build
-        working-directory: apps/launcher
+        working-directory: source/apps/launcher
         run: GOOS=windows go vet ./...
 
   # ── 11 · Prometheus rules ─────────────────────────────────────────────────
@@ -257,9 +257,9 @@ jobs:
           tar xzf prometheus.tar.gz
           sudo mv "prometheus-${VERSION}.linux-amd64/promtool" /usr/local/bin/
       - name: Check rules
-        run: promtool check rules infra/prometheus/rules/habnut.yml
+        run: promtool check rules source/infra/prometheus/rules/habnut.yml
       - name: Check config
-        run: promtool check config infra/prometheus/prometheus.yml
+        run: promtool check config source/infra/prometheus/prometheus.yml
 
   # ── 12 · Nginx config ─────────────────────────────────────────────────────
   nginx-config:
@@ -274,7 +274,7 @@ jobs:
       - name: Render template and generate a certificate
         run: |
           mkdir -p rendered/certs
-          sed 's/${HABNUT_DOMAIN}/ci.habnut.test/g' infra/nginx/habnut.conf > rendered/habnut.conf
+          sed 's/${HABNUT_DOMAIN}/ci.habnut.test/g' source/infra/nginx/habnut.conf > rendered/habnut.conf
           openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
             -keyout rendered/certs/privkey.pem \
             -out rendered/certs/fullchain.pem \
@@ -298,7 +298,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate
-        run: docker compose -f infra/docker/docker-compose.yml config --quiet
+        run: docker compose -f source/infra/docker/docker-compose.yml config --quiet
 
   # ── 14 · Release binaries ─────────────────────────────────────────────────
   # Proves the shipping artefact still assembles: the emulator JAR, the client
@@ -324,7 +324,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: apps/launcher/go.sum
+          cache-dependency-path: source/apps/launcher/go.sum
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
@@ -335,7 +335,7 @@ jobs:
       - name: Build release binaries
         run: ./scripts/build-launcher.sh
       - name: Verify the payload extracts
-        working-directory: apps/launcher
+        working-directory: source/apps/launcher
         run: go test -tags bundled ./internal/payload/
       - name: Upload binaries
         uses: actions/upload-artifact@v4

@@ -2,25 +2,26 @@
 node_modules/
 vendor/
 
-# Build outputs
+# Build outputs. bin/ is deliberately not here: the released executables are
+# committed, so somebody can download a hotel without building one first.
 dist/
 build/
 *.jar
 # The Gradle wrapper jar must be committed: CI and a fresh clone both run
 # ./gradlew, which cannot bootstrap without it.
-!gradle/wrapper/gradle-wrapper.jar
+!source/gradle/wrapper/gradle-wrapper.jar
 *.war
 *.class
 target/
 
 # Gradle
 .gradle/
-apps/emulator/.gradle/
-apps/emulator/build/
+source/apps/emulator/.gradle/
+source/apps/emulator/build/
 
 # Go
-apps/launcher/habnutctl
-apps/launcher/habnutctl.exe
+source/apps/launcher/habnutctl
+source/apps/launcher/habnutctl.exe
 
 # Environment and secrets
 .env
@@ -53,9 +54,9 @@ coverage/
 .turbo/
 
 # SWF asset packs (never committed — operator-supplied)
-infra/swf/source/
-infra/swf/rebranded/
-infra/swf/previous/
+source/infra/swf/source/
+source/infra/swf/rebranded/
+source/infra/swf/previous/
 /var/lib/habnut/
 
 # Playwright
@@ -63,24 +64,24 @@ test-results/
 playwright-report/
 
 # PHPUnit
-apps/cms/.phpunit.result.cache
+source/apps/cms/.phpunit.result.cache
 
 # Laravel runtime directories. The trees themselves must exist on a fresh
 # clone — Laravel refuses to boot without them — so the directory skeleton is
 # tracked through each .gitignore while their contents stay ignored.
-apps/cms/bootstrap/cache/*.php
-apps/cms/storage/*
-!apps/cms/storage/app/
-apps/cms/storage/app/*
-!apps/cms/storage/app/public/
-!apps/cms/storage/framework/
-apps/cms/storage/framework/*
-!apps/cms/storage/framework/cache/
-apps/cms/storage/framework/cache/*
-!apps/cms/storage/framework/cache/data/
-!apps/cms/storage/framework/sessions/
-!apps/cms/storage/framework/views/
-!apps/cms/storage/logs/
+source/apps/cms/bootstrap/cache/*.php
+source/apps/cms/storage/*
+!source/apps/cms/storage/app/
+source/apps/cms/storage/app/*
+!source/apps/cms/storage/app/public/
+!source/apps/cms/storage/framework/
+source/apps/cms/storage/framework/*
+!source/apps/cms/storage/framework/cache/
+source/apps/cms/storage/framework/cache/*
+!source/apps/cms/storage/framework/cache/data/
+!source/apps/cms/storage/framework/sessions/
+!source/apps/cms/storage/framework/views/
+!source/apps/cms/storage/logs/
 !.gitignore
 
 # Misc

@@ -1,0 +1,53 @@
+{
+  "uid": "habnut-games",
+  "title": "Games",
+  "tags": ["habnut", "games"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Matches",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "habnut_game_matches_active", "legendFormat": "Matches"}]
+    },
+    {
+      "id": 2,
+      "title": "Players in Games",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "habnut_game_players_active", "legendFormat": "Players"}]
+    },
+    {
+      "id": 3,
+      "title": "Matches Completed",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "rate(habnut_game_matches_completed_total[1h])", "legendFormat": "Matches/h"}]
+    },
+    {
+      "id": 4,
+      "title": "Game Tick Duration",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [{"expr": "habnut_game_tick_duration_ms", "legendFormat": "Tick ms"}],
+      "fieldConfig": {"defaults": {"unit": "ms"}}
+    },
+    {
+      "id": 5,
+      "title": "Matches by Game Type",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {"expr": "habnut_game_matches_active{game_type=\"football\"}", "legendFormat": "Football"},
+        {"expr": "habnut_game_matches_active{game_type=\"battleball\"}", "legendFormat": "Battleball"},
+        {"expr": "habnut_game_matches_active{game_type=\"freeze\"}", "legendFormat": "Freeze"},
+        {"expr": "habnut_game_matches_active{game_type=\"racing\"}", "legendFormat": "Racing"},
+        {"expr": "habnut_game_matches_active{game_type=\"telephrase\"}", "legendFormat": "Telephrase"}
+      ]
+    }
+  ]
+}

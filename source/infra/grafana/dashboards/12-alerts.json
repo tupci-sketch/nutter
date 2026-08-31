@@ -1,0 +1,47 @@
+{
+  "uid": "habnut-alerts",
+  "title": "Alert Overview",
+  "tags": ["habnut", "alerts"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Firing Alerts",
+      "type": "alertlist",
+      "gridPos": {"h": 16, "w": 12, "x": 0, "y": 0},
+      "options": {
+        "alertInstanceLabelFilter": "",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": ["alertname", "severity"],
+        "groupMode": "default",
+        "maxItems": 20,
+        "sortOrder": 3,
+        "stateFilter": {"firing": true, "pending": true, "noData": false, "normal": false, "error": false}
+      }
+    },
+    {
+      "id": 2,
+      "title": "Alert Count by Severity",
+      "type": "piechart",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {"expr": "count(ALERTS{alertstate=\"firing\",severity=\"critical\"})", "legendFormat": "Critical"},
+        {"expr": "count(ALERTS{alertstate=\"firing\",severity=\"warning\"})", "legendFormat": "Warning"}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Alert Timeline",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {"expr": "count(ALERTS{alertstate=\"firing\",severity=\"critical\"}) or vector(0)", "legendFormat": "Critical"},
+        {"expr": "count(ALERTS{alertstate=\"firing\",severity=\"warning\"}) or vector(0)", "legendFormat": "Warning"}
+      ]
+    }
+  ]
+}

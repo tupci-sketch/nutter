@@ -1,0 +1,48 @@
+{
+  "uid": "habnut-sessions",
+  "title": "Sessions",
+  "tags": ["habnut", "sessions"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Sessions",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "habnut_sessions_active", "legendFormat": "Active"}],
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 3000}, {"color": "red", "value": 5000}]}}}
+    },
+    {
+      "id": 2,
+      "title": "WebSocket Disconnects/s",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "rate(habnut_ws_disconnects_total[5m])", "legendFormat": "Disconnects/s"}],
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 50}, {"color": "red", "value": 100}]}}}
+    },
+    {
+      "id": 3,
+      "title": "Sessions Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 4},
+      "targets": [
+        {"expr": "habnut_sessions_active", "legendFormat": "Active Sessions"},
+        {"expr": "rate(habnut_sessions_new_total[5m]) * 60", "legendFormat": "New/min"},
+        {"expr": "rate(habnut_ws_disconnects_total[5m]) * 60", "legendFormat": "Disconnects/min"}
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Packet Queue Depth",
+      "type": "timeseries",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {"expr": "habnut_packet_queue_depth", "legendFormat": "Queue Depth"},
+        {"expr": "rate(habnut_rate_limit_rejected_total[5m])", "legendFormat": "Rate Limited/s"}
+      ]
+    }
+  ]
+}

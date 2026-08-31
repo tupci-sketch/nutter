@@ -1,0 +1,89 @@
+{
+  "uid": "habnut-emulator",
+  "title": "Emulator Overview",
+  "tags": ["habnut", "emulator"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Sessions",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "habnut_sessions_active", "legendFormat": "Sessions"}],
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto"}
+    },
+    {
+      "id": 2,
+      "title": "Packet Queue Depth",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "targets": [{"expr": "habnut_packet_queue_depth", "legendFormat": "Queue"}],
+      "options": {"colorMode": "value", "graphMode": "area"}
+    },
+    {
+      "id": 3,
+      "title": "Active Rooms",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "targets": [{"expr": "habnut_rooms_active", "legendFormat": "Rooms"}],
+      "options": {"colorMode": "value", "graphMode": "area"}
+    },
+    {
+      "id": 4,
+      "title": "Active Bans",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "targets": [{"expr": "habnut_active_bans_total", "legendFormat": "Bans"}],
+      "options": {"colorMode": "value", "graphMode": "area"}
+    },
+    {
+      "id": 5,
+      "title": "Sessions Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [{"expr": "habnut_sessions_active", "legendFormat": "Active Sessions"}]
+    },
+    {
+      "id": 6,
+      "title": "Packet Processing p99",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {"expr": "histogram_quantile(0.99, rate(habnut_packet_processing_duration_ms_bucket[5m]))", "legendFormat": "p99"},
+        {"expr": "histogram_quantile(0.95, rate(habnut_packet_processing_duration_ms_bucket[5m]))", "legendFormat": "p95"},
+        {"expr": "histogram_quantile(0.50, rate(habnut_packet_processing_duration_ms_bucket[5m]))", "legendFormat": "p50"}
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Auth Failures",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [{"expr": "rate(habnut_auth_failure_total[5m])", "legendFormat": "Auth Failures/s"}]
+    },
+    {
+      "id": 8,
+      "title": "WebSocket Disconnects",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "targets": [{"expr": "rate(habnut_ws_disconnects_total[5m])", "legendFormat": "Disconnects/s"}]
+    },
+    {
+      "id": 9,
+      "title": "Game Tick Duration",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "targets": [{"expr": "habnut_game_tick_duration_ms", "legendFormat": "Tick ms"}]
+    },
+    {
+      "id": 10,
+      "title": "Rate Limiter Rejections",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "targets": [{"expr": "rate(habnut_rate_limit_rejected_total[5m])", "legendFormat": "Rejections/s"}]
+    }
+  ]
+}

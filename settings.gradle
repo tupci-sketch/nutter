@@ -1,7 +1,0 @@
-rootProject.name = 'habnut'
-
-include 'emulator'
-include 'wired-conformance'
-
-project(':emulator').projectDir           = file('apps/emulator')
-project(':wired-conformance').projectDir  = file('tests/wired-conformance')

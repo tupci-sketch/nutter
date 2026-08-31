@@ -1,0 +1,179 @@
+import { z } from 'zod';
+
+export const WiredVarScopeSchema = z.enum(['room', 'user', 'global']);
+export const WiredVarTypeSchema = z.enum(['number', 'text', 'bool']);
+
+export const WiredVariableSchema = z.object({
+  name: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/).max(64),
+  scope: WiredVarScopeSchema,
+  type: WiredVarTypeSchema,
+  value: z.union([z.number(), z.string(), z.boolean()]),
+  roomId: z.number().int().positive().nullable(),
+  userId: z.number().int().positive().nullable(),
+  updatedAt: z.string().datetime(),
+});
+
+export type WiredVariable = z.infer<typeof WiredVariableSchema>;
+
+export const WIRED_EXECUTION_LIMIT_PER_TICK = 100;
+export const WIRED_GLOBAL_SIGNAL_RATE_LIMIT = 5;
+export const WIRED_VARIABLE_MAX_STRING_LENGTH = 1024;
+export const WIRED_MAX_FURNI_IDS_PER_ITEM = 10;
+export const WIRED_CHEST_MAX_SLOTS = 20;
+export const WIRED_TICK_INTERVAL_MS = 500;
+
+export const WiredTriggerIds = {
+  PLAYER_ENTERS_ROOM: 1,
+  PLAYER_LEAVES_ROOM: 2,
+  PLAYER_SAYS: 3,
+  PLAYER_SAYS_KEYWORD: 4,
+  PLAYER_WALKS_ON: 5,
+  PLAYER_WALKS_OFF: 6,
+  PLAYER_SITS: 7,
+  PLAYER_STANDS: 8,
+  FURNI_STATE_CHANGED: 9,
+  FURNI_CLICKED: 10,
+  FURNI_SELECTED: 11,
+  GAME_STARTS: 12,
+  GAME_ENDS: 13,
+  GAME_SCORE_UPDATED: 14,
+  PERIODICALLY: 15,
+  PERIODICALLY_LONG: 16,
+  SCORE_ACHIEVED: 17,
+  SCORE_ACHIEVED_FOR_TEAM: 18,
+  TOGGLE_FURNI: 19,
+  AVATAR_SAYS_TO_AVATAR: 20,
+  WIRED_RESETS: 21,
+  SIGNAL_RECEIVED: 22,
+} as const;
+
+export type WiredTriggerId = (typeof WiredTriggerIds)[keyof typeof WiredTriggerIds];
+
+export const WiredActionIds = {
+  MOVE_FURNI: 1,
+  ROTATE_FURNI: 2,
+  RESIZE_FURNI: 3,
+  MOVE_AND_ROTATE_FURNI: 4,
+  SET_FURNI_STATE: 5,
+  TOGGLE_FURNI_STATE: 6,
+  SET_FURNI_TO_RANDOM_STATE: 7,
+  GIVE_SCORE: 8,
+  GIVE_SCORE_TO_TEAM: 9,
+  RESET_SCORES: 10,
+  MOVE_AVATAR_TO_DIRECTION: 11,
+  TELEPORT_TO: 12,
+  TELEPORT_TO_FURNI: 13,
+  CHASE_AVATAR: 14,
+  FLEE_AVATAR: 15,
+  GIVE_REWARD: 16,
+  GIVE_CREDITS: 17,
+  GIVE_DIAMONDS: 18,
+  GIVE_NUT_POINTS: 19,
+  GIVE_ITEM: 20,
+  SAY: 21,
+  SHOUT: 22,
+  WHISPER: 23,
+  BOT_SAY: 24,
+  BOT_SHOUT: 25,
+  BOT_WHISPER: 26,
+  SET_VARIABLE: 27,
+  MATH_VARIABLE: 28,
+  TEXT_VARIABLE: 29,
+  CONVERT_VARIABLE: 30,
+  SEND_SIGNAL: 31,
+  SEND_GLOBAL_SIGNAL: 32,
+  KICK_AVATAR: 33,
+  MUTE_AVATAR: 34,
+  UNMUTE_AVATAR: 35,
+  SET_ROLE_PLAY_TEAM: 36,
+  RESET_TIMER: 37,
+  SHOW_MESSAGE: 38,
+  PLAY_SOUND: 39,
+  CALL_OTHER_STACK: 40,
+  STOP_ALL_WIRED: 41,
+  SET_FURNI_DIRECTION: 42,
+  SET_FURNI_ALTITUDE: 43,
+  SET_FURNI_TO_AVATAR_COUNT: 44,
+  JOIN_TEAM: 45,
+  LEAVE_TEAM: 46,
+  SHOW_IMAGE: 47,
+  HIDE_IMAGE: 48,
+  TOGGLE_ROOM_BLOCK_WALKING: 49,
+  TOGGLE_ROOM_MUTE: 50,
+  GIVE_ACHIEVEMENT: 51,
+  COMPLETE_QUEST: 52,
+  SET_NPC_STATE: 53,
+  TRIGGER_RANDOM: 54,
+  TRIGGER_STACKED: 55,
+} as const;
+
+export type WiredActionId = (typeof WiredActionIds)[keyof typeof WiredActionIds];
+
+export const WiredConditionIds = {
+  ACTOR_IN_GROUP: 1,
+  ACTOR_NOT_IN_GROUP: 2,
+  ACTOR_WEARS_BADGE: 3,
+  ACTOR_NOT_WEARS_BADGE: 4,
+  ACTOR_HAS_RANK: 5,
+  ACTOR_NOT_HAS_RANK: 6,
+  ACTOR_IS_MEMBER: 7,
+  ACTOR_IS_NOT_MEMBER: 8,
+  FURNI_MATCHES_SNAPSHOT: 9,
+  FURNI_NOT_MATCHES_SNAPSHOT: 10,
+  FURNI_HAS_STATE: 11,
+  FURNI_NOT_HAS_STATE: 12,
+  ROOM_PLAYER_COUNT: 13,
+  ROOM_PLAYER_COUNT_RANGE: 14,
+  TEAM_PLAYER_COUNT: 15,
+  ACTOR_ON_TEAM: 16,
+  DATE_IS: 17,
+  TIME_OF_DAY_IS: 18,
+  TIME_ELAPSED_MORE: 19,
+  TIME_ELAPSED_LESS: 20,
+  VARIABLE_EQUALS: 21,
+  VARIABLE_GREATER: 22,
+  VARIABLE_LESS: 23,
+  VARIABLE_GREATER_EQ: 24,
+  VARIABLE_LESS_EQ: 25,
+  VARIABLE_CONTAINS: 26,
+  VARIABLE_STARTS_WITH: 27,
+  VARIABLE_IS_EMPTY: 28,
+  VARIABLE_IS_NOT_EMPTY: 29,
+  ACTOR_STANDS_ON: 30,
+  ACTOR_NOT_STANDS_ON: 31,
+  TRIGGER_COLLIDES_FURNI: 32,
+  RANDOM_CHANCE: 33,
+  ACTOR_IS_BLOCKED: 34,
+  ACTOR_IS_NOT_BLOCKED: 35,
+  SCORE_EQUALS: 36,
+  SCORE_GREATER: 37,
+} as const;
+
+export type WiredConditionId = (typeof WiredConditionIds)[keyof typeof WiredConditionIds];
+
+export const WiredSelectorIds = {
+  FURNI_NAMED: 1,
+  FURNI_WITH_STATE: 2,
+  FURNI_NEAR: 3,
+  FURNI_RANDOM: 4,
+  FURNI_ALL_IN_RANGE: 5,
+  FURNI_OF_TYPE: 6,
+  FURNI_TOUCHING_TRIGGER: 7,
+  AVATAR_NAMED: 8,
+  AVATAR_RANDOM: 9,
+  AVATAR_WITH_BADGE: 10,
+  AVATAR_IN_TEAM: 11,
+  AVATAR_TRIGGERER: 12,
+  AVATAR_IN_GROUP: 13,
+  AVATAR_WITH_RANK: 14,
+  ALL_FURNI_OF_TYPE: 15,
+  RANDOM_FURNI_OF_TYPE: 16,
+  NEAREST_FURNI: 17,
+  FARTHEST_FURNI: 18,
+  BOT_NAMED: 19,
+  BOT_RANDOM: 20,
+  PET_NAMED: 21,
+  PET_RANDOM: 22,
+} as const;
+
+export type WiredSelectorId = (typeof WiredSelectorIds)[keyof typeof WiredSelectorIds];
