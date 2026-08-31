@@ -8,7 +8,9 @@ return [
     'ticket_ttl_minutes' => 5,
     'brand_name' => 'Habnut',
     'brand_acorn' => '🌰',
-    'imager_url' => env('IMAGER_URL'),
+    // The hotel renders its own avatars and badges, served alongside the site
+    // so a picture never depends on another host being up.
+    'imager_url' => env('IMAGER_URL', '/imager'),
     'hotel_name' => 'Hotel Habnut',
     'nutropolis_name' => 'Nutropolis',
 ];

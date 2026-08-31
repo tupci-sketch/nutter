@@ -122,7 +122,56 @@ class HomePageTest extends TestCase
 
         $url = User::factory()->make(['look' => 'hd-180-1.ch-255-62'])->avatarUrl('l');
 
+        $this->assertStringStartsWith('https://imager.example/render/avatar.png?', $url);
         $this->assertStringContainsString('figure=hd-180-1.ch-255-62', urldecode($url));
-        $this->assertStringContainsString('size=l', $url);
+        // A large avatar is the full figure drawn at two pixels per pixel.
+        $this->assertStringContainsString('scale=2', $url);
+        $this->assertStringContainsString('headonly=0', $url);
+    }
+
+    public function test_small_avatars_are_heads_on_their_own(): void
+    {
+        config(['habnut.imager_url' => '/imager']);
+
+        $url = User::factory()->make(['look' => 'hd-180-1'])->avatarUrl('s');
+
+        $this->assertStringContainsString('headonly=1', $url);
+        $this->assertStringContainsString('size=s', $url);
+    }
+
+    public function test_avatar_url_carries_the_requested_direction(): void
+    {
+        config(['habnut.imager_url' => '/imager']);
+
+        $url = User::factory()->make(['look' => 'hd-180-1'])->avatarUrl('m', 4);
+
+        $this->assertStringContainsString('direction=4', $url);
+        $this->assertStringContainsString('head_direction=4', $url);
+    }
+
+    public function test_avatar_url_is_null_for_a_player_with_no_figure(): void
+    {
+        config(['habnut.imager_url' => '/imager']);
+
+        // Rendering an empty figure produces nothing, so the view is told to
+        // draw its own fallback rather than to request a picture.
+        $this->assertNull(User::factory()->make(['look' => ''])->avatarUrl());
+    }
+
+    public function test_badge_urls_cover_named_badges_and_group_codes(): void
+    {
+        config(['habnut.imager_url' => '/imager']);
+        $user = User::factory()->make(['look' => 'hd-180-1']);
+
+        $this->assertSame('/imager/badge/ACH_Login1.png', $user->badgeUrl('ACH_Login1'));
+        $this->assertSame('/imager/badge/b03120s13181.png', $user->badgeUrl('b03120s13181'));
+        $this->assertNull($user->badgeUrl(''));
+    }
+
+    public function test_badge_urls_are_null_without_a_configured_imager(): void
+    {
+        config(['habnut.imager_url' => null]);
+
+        $this->assertNull(User::factory()->make()->badgeUrl('ACH_Login1'));
     }
 }

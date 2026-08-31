@@ -10,7 +10,7 @@ import (
 )
 
 func names() []string {
-	return []string{"habnut-emulator", "habnut-horizon", "nginx", "php8.3-fpm", "mariadb", "redis-server"}
+	return []string{"habnut-emulator", "habnut-imager", "habnut-horizon", "nginx", "php8.3-fpm", "mariadb", "redis-server"}
 }
 
 func systemctl(args ...string) error {

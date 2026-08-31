@@ -104,6 +104,30 @@ services:
           memory: 1G
     logging: *default-logging
 
+  # Renders avatars and group badges from the installed asset pack, so the
+  # website's pictures come from the artwork this hotel actually runs rather
+  # than from somebody else's server.
+  imager:
+    image: alpine:3.19
+    restart: unless-stopped
+    command: ["/usr/local/bin/habnutctl", "imager", "--listen", "0.0.0.0:8081"]
+    volumes:
+      - /usr/local/bin/habnutctl:/usr/local/bin/habnutctl:ro
+      - /var/lib/habnut/assets:/var/lib/habnut/assets:ro
+    networks: [frontend]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+    logging: *default-logging
+
   horizon:
     image: php:8.3-cli-alpine
     restart: unless-stopped
@@ -133,7 +157,7 @@ services:
       - client_dist:/usr/share/nginx/html:ro
       - letsencrypt:/etc/letsencrypt:ro
     networks: [frontend]
-    depends_on: [emulator, cms]
+    depends_on: [emulator, cms, imager]
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s

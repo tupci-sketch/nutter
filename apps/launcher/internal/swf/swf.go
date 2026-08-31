@@ -232,10 +232,10 @@ func mergeManifests(era string) error {
 // from the unpacked SWF tree to assetsBase so the client can fetch them.
 func copyAssetXMLs(swfDir, era string) error {
 	targets := map[string]bool{
-		"furnidata.xml":  false,
-		"figuremap.xml":  false,
-		"figuredata.xml": false,
-		"effectmap.xml":  false,
+		"furnidata.xml":   false,
+		"figuremap.xml":   false,
+		"figuredata.xml":  false,
+		"effectmap.xml":   false,
 		"productdata.xml": false,
 	}
 	return filepath.WalkDir(swfDir, func(path string, d fs.DirEntry, err error) error {
@@ -383,3 +383,9 @@ func run(name string, args ...string) error {
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
+
+// AssetsRoot is the directory holding every installed era's artwork.
+func AssetsRoot() string { return assetsBase }
+
+// EraRoot is the directory holding one era's artwork.
+func EraRoot(era string) string { return eraRoot(era) }

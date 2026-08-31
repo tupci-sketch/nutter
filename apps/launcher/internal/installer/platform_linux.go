@@ -20,7 +20,7 @@ func defaultPaths() (install, data, config string) {
 }
 
 func serviceNames() []string {
-	return []string{"habnut-emulator", "habnut-horizon", "nginx", "redis-server", "mariadb", "php8.3-fpm"}
+	return []string{"habnut-emulator", "habnut-imager", "habnut-horizon", "nginx", "redis-server", "mariadb", "php8.3-fpm"}
 }
 
 func platformSteps() platform {
@@ -40,6 +40,7 @@ func platformSteps() platform {
 			{"Obtain TLS certificate", stepObtainTLS},
 			{"Install systemd units", stepInstallServices},
 			{"Start emulator", stepStartEmulator},
+			{"Start imager", stepStartImager},
 			{"Start queue worker", stepStartHorizon},
 			{"Start web server", stepStartNginx},
 		},
@@ -262,6 +263,25 @@ RestartSec=5s
 [Install]
 WantedBy=multi-user.target
 `, cfg.cmsDir()),
+
+		// The imager is the launcher itself in a serving mode, so it needs
+		// nothing installed beyond the binary already on the machine.
+		"habnut-imager.service": fmt.Sprintf(`[Unit]
+Description=Habnut Avatar and Badge Imager
+After=network.target
+
+[Service]
+Type=simple
+User=habnut
+ExecStart=%s imager --listen 127.0.0.1:8081
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+`, selfPath()),
 	}
 
 	for name, body := range units {
@@ -274,6 +294,20 @@ WantedBy=multi-user.target
 
 func stepStartEmulator(_ *Config) error {
 	return run("systemctl", "enable", "--now", "habnut-emulator")
+}
+
+// selfPath is where this binary lives, so the unit it writes keeps pointing at
+// the launcher even when it was installed somewhere unusual.
+func selfPath() string {
+	path, err := os.Executable()
+	if err != nil {
+		return "/usr/local/bin/habnutctl"
+	}
+	return path
+}
+
+func stepStartImager(_ *Config) error {
+	return run("systemctl", "enable", "--now", "habnut-imager")
 }
 
 func stepStartHorizon(_ *Config) error {

@@ -13,7 +13,7 @@
 # Download and install habnutctl
 curl -fsSL https://releases.habnut.local/habnutctl/latest/install.sh | bash
 
-# Run the 28-step installer
+# Run the installer
 habnutctl install \
   --domain yourdomain.example \
   --email admin@yourdomain.example \

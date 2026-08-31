@@ -117,7 +117,7 @@ func stepRebuildClient(cfg *Config) error {
 }
 
 func stepUpdateNginx(_ *Config) error { return nil }
-func stepReloadNginx(_ *Config) error  { return run("systemctl", "reload", "nginx") }
+func stepReloadNginx(_ *Config) error { return run("systemctl", "reload", "nginx") }
 
 func stepStartEmulator(_ *Config) error {
 	return run("systemctl", "start", "habnut-emulator")

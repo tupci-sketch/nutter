@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -10,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/habnut/launcher/internal/doctor"
+	"github.com/habnut/launcher/internal/imager"
 	"github.com/habnut/launcher/internal/installer"
 	"github.com/habnut/launcher/internal/payload"
 	"github.com/habnut/launcher/internal/service"
@@ -41,6 +43,7 @@ func main() {
 		cmdRestore(),
 		cmdRollback(),
 		cmdSwf(),
+		cmdImager(),
 		cmdDoctor(),
 		cmdMigrate(),
 		cmdVersion(),
@@ -52,12 +55,12 @@ func main() {
 	}
 }
 
-// cmdInstall runs the 28-step installer.
+// cmdInstall runs the installer.
 func cmdInstall() *cobra.Command {
 	cfg := installer.DefaultConfig()
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "Install Habnut on this server (28-step setup)",
+		Short: fmt.Sprintf("Install Habnut on this server (%d-step setup)", len(installer.Steps())),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if state.Exists() {
 				return fmt.Errorf("Habnut is already installed. Use 'habnutctl update' to upgrade")
@@ -220,6 +223,42 @@ func cmdRollback() *cobra.Command {
 		}
 		return nil
 	}}
+}
+
+// cmdImager serves avatar and badge pictures from the installed asset pack.
+//
+// A hotel needs a picture of a figure in far more places than the game client:
+// profiles, staff lists, forum posts, the news. Rendering them here means those
+// pictures come from the artwork this hotel actually runs, and keeps working
+// when nothing outside the server is reachable.
+func cmdImager() *cobra.Command {
+	var listen, era string
+
+	cmd := &cobra.Command{
+		Use:   "imager",
+		Short: "Serve avatar and badge images from the installed pack",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if !swf.ValidEra(era) {
+				return fmt.Errorf("unknown era %q: expected %s or %s",
+					era, swf.EraClassic, swf.EraModern)
+			}
+
+			server := imager.NewServer(swf.AssetsRoot(), era)
+			fmt.Printf("Imager listening on %s, serving the %s era by default\n", listen, era)
+
+			httpServer := &http.Server{
+				Addr:              listen,
+				Handler:           server.Handler(),
+				ReadHeaderTimeout: 10 * time.Second,
+			}
+			return httpServer.ListenAndServe()
+		},
+	}
+
+	cmd.Flags().StringVar(&listen, "listen", ":8081", "Address to listen on")
+	cmd.Flags().StringVar(&era, "era", swf.EraModern,
+		"Era to serve when a request does not name one")
+	return cmd
 }
 
 // cmdSwf provides SWF asset pack management sub-commands.

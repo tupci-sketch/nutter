@@ -124,7 +124,7 @@ All criteria must be satisfied before the platform is considered shippable.
 - [x] Coverage gates enforced
 
 ### Deployment
-- [x] `habnutctl install` (28 steps) provisions from scratch
+- [x] `habnutctl install` (29 steps) provisions from scratch
 - [x] `habnutctl update` (13 steps) with automatic rollback on failure
 - [x] `habnutctl doctor` reports healthy on fresh install
 - [x] Docker Compose stack fully defined with health checks and resource limits

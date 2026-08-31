@@ -101,7 +101,7 @@ METRIC and ASSET. TEST is not green for most rows and CMS UI is minimal — see
 | Loki + Promtail | ✅ complete |
 | AlertManager (routing) | ✅ complete |
 | MariaDB tuning | ✅ complete |
-| habnutctl (28-step installer, 13-step updater) | ✅ complete |
+| habnutctl (29-step installer, 13-step updater) | ✅ complete |
 | Asset Validator | ✅ complete |
 | Placeholder Scanner | ✅ complete |
 | CI Pipeline (15 steps) | ✅ complete |

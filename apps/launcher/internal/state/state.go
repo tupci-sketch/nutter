@@ -10,13 +10,13 @@ import (
 const statePath = "/var/lib/habnut/state.json"
 
 type State struct {
-	InstalledVersion string    `json:"installed_version"`
-	InstallPath      string    `json:"install_path"`
-	InstalledAt      time.Time `json:"installed_at"`
+	InstalledVersion string     `json:"installed_version"`
+	InstallPath      string     `json:"install_path"`
+	InstalledAt      time.Time  `json:"installed_at"`
 	LastUpdatedAt    *time.Time `json:"last_updated_at,omitempty"`
-	Services         []string  `json:"services"`
-	DbMigrationLevel int       `json:"db_migration_level"`
-	SwfVersion       string    `json:"swf_version,omitempty"`
+	Services         []string   `json:"services"`
+	DbMigrationLevel int        `json:"db_migration_level"`
+	SwfVersion       string     `json:"swf_version,omitempty"`
 	SwfInstalledAt   *time.Time `json:"swf_installed_at,omitempty"`
 }
 

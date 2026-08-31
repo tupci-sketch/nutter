@@ -116,10 +116,15 @@ export class AvatarFigure extends PIXI.Container {
       part.zIndex = layer.z;
 
       // Offsets place the part against the avatar's origin, which sits at the
-      // feet. A mirrored part is flipped about its own width.
-      if (layer.flip || sprite.flip) {
+      // feet. Mirroring reflects the part about that origin so the figure turns
+      // as one piece; reflecting each part about its own width instead would
+      // scatter them by however wide each happened to be.
+      //
+      // A direction that must be mirrored and artwork the pack already stores
+      // mirrored cancel out, so the two flips combine exclusively.
+      if (layer.flip !== sprite.flip) {
         part.scale.x = -1;
-        part.x = sprite.offsetX + sprite.texture.width;
+        part.x = sprite.offsetX;
       } else {
         part.x = -sprite.offsetX;
       }

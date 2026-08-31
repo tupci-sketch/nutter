@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Imager;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -100,18 +101,23 @@ class User extends Authenticatable
     /**
      * URL of this user's rendered figure.
      *
-     * When an imager service is configured the figure string is rendered by it;
-     * otherwise this returns null and the view falls back to a monogram, so a
-     * hotel without an imager still shows a complete page.
+     * The picture comes from the hotel's own imager, which draws it from the
+     * same asset pack the game client uses. A hotel that has turned the imager
+     * off gets null and the view falls back to a monogram, so the page is still
+     * complete.
+     *
+     * A size of 's' asks for the small head used in lists; 'm' and 'l' are the
+     * full figure at one and two pixels per pixel.
      */
-    public function avatarUrl(string $size = 'm'): ?string
+    public function avatarUrl(string $size = 'm', int $direction = 2): ?string
     {
-        $imager = config('habnut.imager_url');
-        if (! $imager) {
-            return null;
-        }
+        return Imager::avatar($this->look, $size, $direction);
+    }
 
-        return rtrim($imager, '/').'/?figure='.urlencode($this->look).'&size='.$size;
+    /** URL of a badge picture, whether it is a named badge or a group code. */
+    public function badgeUrl(string $badge): ?string
+    {
+        return Imager::badge($badge);
     }
 
     /** True when this user is a staff member and currently in the hotel. */
