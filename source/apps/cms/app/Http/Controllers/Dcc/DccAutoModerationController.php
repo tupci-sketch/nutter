@@ -21,9 +21,7 @@ class DccAutoModerationController extends Controller
 {
     private const CATEGORIES = ['hate', 'threat', 'minor_safety', 'doxxing', 'self_harm', 'scam'];
 
-    public function __construct(private AuditService $audit)
-    {
-    }
+    public function __construct(private AuditService $audit) {}
 
     // ─── the queue ──────────────────────────────────────────────────────────
 

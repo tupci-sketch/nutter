@@ -33,7 +33,7 @@ jobs:
         working-directory: source/tools/placeholder-scan
         run: go build -o /tmp/placeholder-scan .
       - name: Run scan
-        run: /tmp/placeholder-scan .
+        run: /tmp/placeholder-scan source
 
   # ── 2 · Asset validator ───────────────────────────────────────────────────
   asset-validate:
@@ -69,8 +69,10 @@ jobs:
           distribution: temurin
       - uses: gradle/actions/setup-gradle@v4
       - name: Test
+        working-directory: source
         run: ./gradlew :emulator:test --no-daemon
       - name: Coverage floor
+        working-directory: source
         run: ./gradlew :emulator:jacocoTestCoverageVerification --no-daemon
       - name: Upload reports
         uses: actions/upload-artifact@v4
@@ -96,8 +98,10 @@ jobs:
           distribution: temurin
       - uses: gradle/actions/setup-gradle@v4
       - name: Run conformance suite
+        working-directory: source
         run: ./gradlew :wired-conformance:test --no-daemon
       - name: Coverage floor
+        working-directory: source
         run: ./gradlew :wired-conformance:jacocoTestCoverageVerification --no-daemon
       - name: Upload reports
         uses: actions/upload-artifact@v4
@@ -116,15 +120,21 @@ jobs:
       # Version comes from the packageManager field in package.json; passing
       # it here as well makes the action fail with a conflict.
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
       - name: Install
+        working-directory: source
         run: pnpm install --frozen-lockfile
       - name: Typecheck
+        working-directory: source
         run: pnpm --filter @habnut/client run typecheck
       - name: Lint
+        working-directory: source
         run: pnpm --filter @habnut/client run lint
 
   # ── 6 · Client tests ──────────────────────────────────────────────────────
@@ -137,13 +147,18 @@ jobs:
       # Version comes from the packageManager field in package.json; passing
       # it here as well makes the action fail with a conflict.
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
       - name: Install
+        working-directory: source
         run: pnpm install --frozen-lockfile
       - name: Test
+        working-directory: source
         run: pnpm --filter @habnut/client run test
 
   # ── 7 · Client build ──────────────────────────────────────────────────────
@@ -156,13 +171,18 @@ jobs:
       # Version comes from the packageManager field in package.json; passing
       # it here as well makes the action fail with a conflict.
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
       - name: Install
+        working-directory: source
         run: pnpm install --frozen-lockfile
       - name: Build
+        working-directory: source
         run: pnpm --filter @habnut/client run build
       - name: Upload dist
         uses: actions/upload-artifact@v4
@@ -287,6 +307,7 @@ jobs:
           docker run --rm \
             --add-host emulator:127.0.0.1 \
             --add-host cms:127.0.0.1 \
+            --add-host imager:127.0.0.1 \
             -v "$PWD/rendered/habnut.conf:/etc/nginx/conf.d/habnut.conf:ro" \
             -v "$PWD/rendered/certs:/etc/letsencrypt/live/ci.habnut.test:ro" \
             nginx:1.27-alpine nginx -t
@@ -317,10 +338,13 @@ jobs:
       # Version comes from the packageManager field in package.json; passing
       # it here as well makes the action fail with a conflict.
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -331,9 +355,10 @@ jobs:
           extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, gd
           coverage: none
       - name: Install client dependencies
+        working-directory: source
         run: pnpm install --frozen-lockfile
       - name: Build release binaries
-        run: ./scripts/build-launcher.sh
+        run: source/scripts/build-launcher.sh
       - name: Verify the payload extracts
         working-directory: source/apps/launcher
         run: go test -tags bundled ./internal/payload/
@@ -341,5 +366,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: habnutctl
-          path: dist/
+          path: bin/habnutctl-*
           retention-days: 14

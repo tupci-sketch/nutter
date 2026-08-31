@@ -25,9 +25,7 @@ class ForumController extends Controller
 
     private const POSTS_PER_PAGE = 15;
 
-    public function __construct(private readonly ForumAuthority $authority)
-    {
-    }
+    public function __construct(private readonly ForumAuthority $authority) {}
 
     /** The board list. */
     public function index(Request $request)

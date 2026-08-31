@@ -19,9 +19,7 @@ use Illuminate\Validation\Rule;
  */
 class DccForumController extends Controller
 {
-    public function __construct(private AuditService $audit)
-    {
-    }
+    public function __construct(private AuditService $audit) {}
 
     // ─── boards ─────────────────────────────────────────────────────────────
 

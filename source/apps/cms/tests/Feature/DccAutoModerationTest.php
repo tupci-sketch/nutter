@@ -26,7 +26,7 @@ class DccAutoModerationTest extends TestCase
 
     /** An automatic mute with its case, as the emulator would have written it. */
     private function openCase(string $category = 'threat', string $message = 'i will hurt you',
-                              ?string $username = null): object
+        ?string $username = null): object
     {
         $player = $username === null
             ? User::factory()->create()
