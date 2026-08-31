@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import { AssetLoader } from './AssetLoader';
+import { motionIsReduced } from '@/stores/a11yStore';
 import { ACTION, type FigureAction } from './figure/AvatarComposer';
 import type { RoomUser } from '@/stores/roomStore';
 
@@ -195,6 +196,11 @@ export class AvatarFigure extends PIXI.Container {
     this.action = ACTION.Walk;
     this.frame = 0;
     this.rebuild();
+
+    // A room full of avatars cycling their legs is the single busiest thing on
+    // screen. Somebody who has asked for less motion still sees them move
+    // between tiles; they just do not also flicker while doing it.
+    if (motionIsReduced()) return;
 
     this.frameTimer ??= setInterval(() => {
       this.frame = (this.frame + 1) % AvatarFigure.WALK_FRAMES;

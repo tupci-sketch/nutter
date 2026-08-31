@@ -255,15 +255,73 @@ export class RoomRenderer {
   /** Returns an unsubscribe function. */
   onClick(handler: (tx: number, ty: number) => void): () => void {
     const listener = (ev: PIXI.FederatedPointerEvent) => {
+      // A tap that was really the end of a drag or a pinch is not a tap: it
+      // would walk the avatar every time somebody moved the camera.
+      if (this.gestureMoved) return;
+
       const local = ev.getLocalPosition(this.floorLayer);
-      const rx = local.x - this.offsetX;
-      const ry = local.y - this.offsetY;
-      const tx = Math.round((rx / (TILE_W / 2) + ry / (TILE_H / 2)) / 2);
-      const ty = Math.round((ry / (TILE_H / 2) - rx / (TILE_W / 2)) / 2);
-      handler(tx, ty);
+      handler(...this.tileAt(local.x, local.y));
     };
     this.stage.interactive = true;
-    this.stage.on('pointerdown', listener);
-    return () => this.stage.off('pointerdown', listener);
+    this.stage.on('pointerup', listener);
+    return () => this.stage.off('pointerup', listener);
+  }
+
+  /** The tile under a point in the floor layer's own coordinates. */
+  private tileAt(x: number, y: number): [number, number] {
+    const rx = x - this.offsetX;
+    const ry = y - this.offsetY;
+    return [
+      Math.round((rx / (TILE_W / 2) + ry / (TILE_H / 2)) / 2),
+      Math.round((ry / (TILE_H / 2) - rx / (TILE_W / 2)) / 2),
+    ];
+  }
+
+  // ─── camera ──────────────────────────────────────────────────────────────
+
+  /** How far the view may be zoomed, either way. */
+  private static readonly MIN_ZOOM = 0.5;
+
+  private static readonly MAX_ZOOM = 3;
+
+  private zoom = 1;
+
+  /** True once the current gesture has moved far enough not to be a tap. */
+  private gestureMoved = false;
+
+  /** Sets the zoom, clamped to what is useful. */
+  setZoom(zoom: number): void {
+    this.zoom = Math.max(RoomRenderer.MIN_ZOOM, Math.min(RoomRenderer.MAX_ZOOM, zoom));
+    this.stage.scale.set(this.zoom);
+  }
+
+  getZoom(): number {
+    return this.zoom;
+  }
+
+  /** Multiplies the current zoom, for a pinch or a scroll wheel. */
+  zoomBy(factor: number): void {
+    this.setZoom(this.zoom * factor);
+  }
+
+  /** Moves the view by a number of screen pixels. */
+  panBy(dx: number, dy: number): void {
+    this.stage.position.set(this.stage.position.x + dx, this.stage.position.y + dy);
+  }
+
+  /** Puts the camera back where it started. */
+  resetCamera(): void {
+    this.setZoom(1);
+    this.stage.position.set(0, 0);
+  }
+
+  /**
+   * Marks the current gesture as a drag rather than a tap.
+   *
+   * Held here rather than in the component because the click handler above is
+   * the thing that has to know, and it runs inside the renderer.
+   */
+  setGestureMoved(moved: boolean): void {
+    this.gestureMoved = moved;
   }
 }

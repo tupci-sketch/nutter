@@ -2,19 +2,28 @@ import { useUiStore, type Panel } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSocialStore } from '@/stores/socialStore';
 
-const TOOLS: Array<{ id: Panel; label: string }> = [
-  { id: 'navigator',    label: '🗺' },
-  { id: 'catalogue',   label: '🛍' },
-  { id: 'inventory',   label: '🎒' },
-  { id: 'friends',     label: '👥' },
-  { id: 'groups',      label: '🏘' },
-  { id: 'profile',     label: '👤' },
-  { id: 'marketplace', label: '🏪' },
-  { id: 'achievements',label: '🏆' },
-  { id: 'quests',      label: '📜' },
-  { id: 'garden',      label: '🌱' },
-  { id: 'games',       label: '🎮' },
-  { id: 'rp',          label: '🎭' },
+/**
+ * The tools, with a name for each.
+ *
+ * An emoji on its own is read aloud as whatever the screen reader happens to
+ * call that picture — "world map", "backpack" — which tells nobody what the
+ * button does. The name is what a screen reader announces and what a tooltip
+ * shows; the emoji is decoration on top of it.
+ */
+const TOOLS: Array<{ id: Panel; icon: string; name: string }> = [
+  { id: 'navigator',    icon: '🗺', name: 'Rooms' },
+  { id: 'catalogue',    icon: '🛍', name: 'Catalogue' },
+  { id: 'inventory',    icon: '🎒', name: 'Inventory' },
+  { id: 'friends',      icon: '👥', name: 'Friends' },
+  { id: 'groups',       icon: '🏘', name: 'Groups' },
+  { id: 'profile',      icon: '👤', name: 'Profile' },
+  { id: 'marketplace',  icon: '🏪', name: 'Marketplace' },
+  { id: 'achievements', icon: '🏆', name: 'Achievements' },
+  { id: 'quests',       icon: '📜', name: 'Quests' },
+  { id: 'garden',       icon: '🌱', name: 'Garden' },
+  { id: 'games',        icon: '🎮', name: 'Games' },
+  { id: 'rp',           icon: '🎭', name: 'Roleplay' },
+  { id: 'settings',     icon: '⚙️', name: 'Settings' },
 ];
 
 export function Toolbar() {
@@ -25,12 +34,24 @@ export function Toolbar() {
   return (
     <div style={styles.bar}>
       <div style={styles.currency}>
-        <span style={styles.chip}>💰 {credits.toLocaleString()}</span>
-        <span style={styles.chip}>💎 {diamonds.toLocaleString()}</span>
-        <span style={styles.chip}>🌰 {nutPoints.toLocaleString()}</span>
+        <span style={styles.chip}>
+          <span aria-hidden="true">💰</span>
+          <span className="sr-only">Credits: </span>
+          {credits.toLocaleString()}
+        </span>
+        <span style={styles.chip}>
+          <span aria-hidden="true">💎</span>
+          <span className="sr-only">Diamonds: </span>
+          {diamonds.toLocaleString()}
+        </span>
+        <span style={styles.chip}>
+          <span aria-hidden="true">🌰</span>
+          <span className="sr-only">Nut points: </span>
+          {nutPoints.toLocaleString()}
+        </span>
       </div>
-      <div style={styles.tools}>
-        {TOOLS.map(({ id, label }) => (
+      <nav style={styles.tools} aria-label="Hotel tools">
+        {TOOLS.map(({ id, icon, name }) => (
           <button
             key={id}
             style={{
@@ -38,15 +59,21 @@ export function Toolbar() {
               ...(activePanel === id ? styles.active : {}),
             }}
             onClick={() => togglePanel(id)}
-            title={id ?? ''}
+            title={name}
+            aria-label={
+              id === 'friends' && unread > 0
+                ? `${name}, ${unread} unread`
+                : name
+            }
+            aria-pressed={activePanel === id}
           >
-            {label}
+            <span aria-hidden="true">{icon}</span>
             {id === 'friends' && unread > 0 && (
-              <span style={styles.badge}>{unread}</span>
+              <span style={styles.badge} aria-hidden="true">{unread}</span>
             )}
           </button>
         ))}
-      </div>
+      </nav>
     </div>
   );
 }
@@ -76,10 +103,19 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#e8e0d0',
     fontFamily: 'monospace',
   },
-  tools: { display: 'flex', gap: 4 },
+  // Twelve tools do not fit across a phone, so the row scrolls rather than
+  // wrapping into a second row that would cover the room.
+  tools: {
+    display: 'flex',
+    gap: 4,
+    overflowX: 'auto',
+    scrollbarWidth: 'none',
+    WebkitOverflowScrolling: 'touch',
+  },
   btn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
+    flex: 'none',
     background: '#2a2a3e',
     border: '1px solid #444',
     borderRadius: 4,

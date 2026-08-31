@@ -11,6 +11,9 @@ import { FriendsPanel } from '@/components/panels/FriendsPanel';
 import { ProfilePanel } from '@/components/panels/ProfilePanel';
 import { AchievementsPanel } from '@/components/panels/AchievementsPanel';
 import { GardenPanel } from '@/components/panels/GardenPanel';
+import { Panel } from '@/components/panels/Panel';
+import { AccessibilityPanel } from '@/components/ui/AccessibilityPanel';
+import { EraSwitch } from '@/components/ui/EraSwitch';
 
 const PANEL_MAP = {
   navigator:    NavigatorPanel,
@@ -20,7 +23,19 @@ const PANEL_MAP = {
   profile:      ProfilePanel,
   achievements: AchievementsPanel,
   garden:       GardenPanel,
+  settings:     SettingsPanel,
 } as const;
+
+/** Everything about how the hotel presents itself, in one place. */
+function SettingsPanel() {
+  return (
+    <Panel title="Settings" width={340}>
+      <EraSwitch />
+      <h3 style={{ margin: '16px 0 8px', color: '#f0a040', fontSize: 13 }}>Accessibility</h3>
+      <AccessibilityPanel />
+    </Panel>
+  );
+}
 
 export function App() {
   const authenticated = useAuthStore((s) => s.authenticated);
