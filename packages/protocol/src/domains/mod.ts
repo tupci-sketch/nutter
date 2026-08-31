@@ -21,6 +21,8 @@ export const ModPacketTypes = {
   APPEAL_SUBMIT: 'mod.appeal.submit',
   APPEAL_LIST: 'mod.appeal.list',
   APPEAL_REVIEW: 'mod.appeal.review',
+  AUTO_MUTE_STATE: 'mod.automute.state',
+  AUTO_MUTE_HELP: 'mod.automute.help',
 
   // s2c
   REPORT_CREATED: 'mod.report.created',
@@ -43,6 +45,9 @@ export const ModPacketTypes = {
   APPEAL_SUBMITTED: 'mod.appeal.submitted',
   APPEAL_LIST_RESULT: 'mod.appeal.list.result',
   APPEAL_REVIEWED: 'mod.appeal.reviewed',
+  AUTO_MUTE_NOTICE: 'mod.automute.notice',
+  AUTO_MUTE_HELP_ACK: 'mod.automute.help.ack',
+  AUTO_MUTE_ALERT: 'mod.automute.alert',
   ERROR: 'mod.error',
 } as const;
 
@@ -165,4 +170,63 @@ export interface ChatLogEntry {
   message: string;
   timestamp: string;
   type: 'chat' | 'shout' | 'whisper' | 'command';
+}
+
+/** Why the content policy stopped a message. */
+export type AutoMuteCategory =
+  | 'hate'
+  | 'threat'
+  | 'minor_safety'
+  | 'doxxing'
+  | 'self_harm'
+  | 'scam';
+
+/**
+ * Sent to a player the content policy has just muted.
+ *
+ * The category is deliberately coarse: telling somebody exactly which
+ * expression caught them is a manual for getting around it.
+ */
+export interface ModAutoMuteNoticePayload {
+  caseId: number;
+  category: AutoMuteCategory;
+  /** When the mute lifts on its own if nobody has reviewed it by then. */
+  expiresAt: string;
+  /** True when the player may ask for a person to look at it now. */
+  canAskForHelp: boolean;
+  message: string;
+}
+
+/** The player's own view of an automatic mute, and whether they may ask again. */
+export interface ModAutoMuteStatePayload {
+  muted: boolean;
+  automatic: boolean;
+  category?: AutoMuteCategory;
+  expiresAt?: string;
+  reason?: string;
+  canAskForHelp: boolean;
+  /** Seconds until another help request is allowed; zero when one is. */
+  secondsUntilHelpAllowed: number;
+}
+
+/** A muted player asking a staff member to look at why. */
+export interface ModAutoMuteHelpPayload {
+  message: string;
+}
+
+export interface ModAutoMuteHelpAckPayload {
+  sent: boolean;
+  /** Present when the request was refused for being too soon. */
+  secondsUntilHelpAllowed?: number;
+  message: string;
+}
+
+/** Raised to on-duty staff when the policy mutes somebody. */
+export interface ModAutoMuteAlertPayload {
+  caseId: number;
+  userId: number;
+  username: string;
+  category: AutoMuteCategory;
+  roomId: number | null;
+  pendingCases: number;
 }

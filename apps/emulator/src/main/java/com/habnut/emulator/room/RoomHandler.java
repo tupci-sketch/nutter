@@ -3,6 +3,7 @@ package com.habnut.emulator.room;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.habnut.emulator.auth.UserRepository;
 import com.habnut.emulator.metrics.MetricsRegistry;
+import com.habnut.emulator.moderation.ChatModerator;
 import com.habnut.emulator.net.PacketRouter;
 import com.habnut.emulator.net.RateLimiter;
 import com.habnut.emulator.net.WebSocketSession;
@@ -19,6 +20,16 @@ public final class RoomHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RoomHandler.class);
 
+    /**
+     * What a player is told when the content policy stops them.
+     *
+     * Deliberately says what happens next rather than which expression caught
+     * them: naming that would be a manual for getting around it.
+     */
+    private static final String MUTE_EXPLANATION =
+        "That message was stopped and you have been muted while a staff member reads it. "
+        + "You can ask for someone to look at it now.";
+
     private final RoomManager rooms;
     private final RoomRepository roomRepo;
     private final RoomModelRepository modelRepo;
@@ -26,13 +37,14 @@ public final class RoomHandler {
     private final PacketRouter router;
     private final MetricsRegistry metrics;
     private final RateLimiter rateLimiter;
+    private final ChatModerator chatModerator;
 
     private final Map<Long, Long> userCurrentRoom = new java.util.concurrent.ConcurrentHashMap<>();
 
     public RoomHandler(RoomManager rooms, RoomRepository roomRepo,
                        RoomModelRepository modelRepo, UserRepository userRepo,
                        PacketRouter router, MetricsRegistry metrics,
-                       RateLimiter rateLimiter) {
+                       RateLimiter rateLimiter, ChatModerator chatModerator) {
         this.rooms      = rooms;
         this.roomRepo   = roomRepo;
         this.modelRepo  = modelRepo;
@@ -40,6 +52,7 @@ public final class RoomHandler {
         this.router     = router;
         this.metrics    = metrics;
         this.rateLimiter = rateLimiter;
+        this.chatModerator = chatModerator;
     }
 
     public void register(PacketRouter router) {
@@ -242,16 +255,59 @@ public final class RoomHandler {
         String message = payload.path("message").asText("").trim();
         if (message.isBlank() || message.length() > 512) return;
 
+        String spoken = screen(session, userId, message, roomId);
+        if (spoken == null) return;
+
         rooms.get(roomId).ifPresent(room -> {
             RoomEntity entity = room.getEntityForUser(userId);
             if (entity == null) return;
             room.broadcast(PacketType.ROOM_USER_CHAT, Map.of(
                 "instanceId", entity.instanceId,
-                "message",    message,
+                "message",    spoken,
                 "colour",     payload.path("colour").asInt(0)
             ));
             metrics.incrementChatMessages();
         });
+    }
+
+    /**
+     * Puts a message through moderation, returning what should actually be said.
+     *
+     * Returns null when nothing should be: the player is muted, or the content
+     * policy stopped it. Either way the player is told why, so a message that
+     * simply never appears does not look like the hotel dropping it.
+     */
+    private String screen(WebSocketSession session, long userId, String message, Long roomId) {
+        ChatModerator.Decision decision = chatModerator.moderate(userId, message, roomId);
+
+        if (decision instanceof ChatModerator.Decision.Allow allow) {
+            return allow.message();
+        }
+
+        if (decision instanceof ChatModerator.Decision.Muted muted) {
+            Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("muted", true);
+            payload.put("automatic", muted.automatic());
+            payload.put("canAskForHelp", muted.canAskForHelp());
+            payload.put("reason", muted.reason());
+            payload.put("secondsUntilHelpAllowed", 0);
+            if (muted.expiresAt() != null) payload.put("expiresAt", muted.expiresAt().toString());
+            session.send(router.buildPacket(PacketType.MOD_AUTO_MUTE_STATE, payload));
+            return null;
+        }
+
+        if (decision instanceof ChatModerator.Decision.Stopped stopped) {
+            Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("category", stopped.category());
+            payload.put("message", MUTE_EXPLANATION);
+            if (stopped.notice() != null) {
+                payload.put("caseId", stopped.notice().caseId());
+                payload.put("canAskForHelp", stopped.notice().canAskForHelp());
+                payload.put("expiresAt", stopped.notice().expiresAt().toString());
+            }
+            session.send(router.buildPacket(PacketType.MOD_AUTO_MUTE_NOTICE, payload));
+        }
+        return null;
     }
 
     private void handleShout(WebSocketSession session, JsonNode payload) {
@@ -265,12 +321,15 @@ public final class RoomHandler {
         String message = payload.path("message").asText("").trim();
         if (message.isBlank() || message.length() > 512) return;
 
+        String spoken = screen(session, userId, message, roomId);
+        if (spoken == null) return;
+
         rooms.get(roomId).ifPresent(room -> {
             RoomEntity entity = room.getEntityForUser(userId);
             if (entity == null) return;
             room.broadcast(PacketType.ROOM_USER_SHOUT, Map.of(
                 "instanceId", entity.instanceId,
-                "message",    message
+                "message",    spoken
             ));
             metrics.incrementChatMessages();
         });
@@ -288,6 +347,11 @@ public final class RoomHandler {
         String message    = payload.path("message").asText("").trim();
         if (targetName == null || message.isBlank()) return;
 
+        // A whisper is still said to somebody, so it is screened like any other
+        // message. Harm delivered quietly is still harm.
+        String spoken = screen(session, userId, message, roomId);
+        if (spoken == null) return;
+
         rooms.get(roomId).ifPresent(room -> {
             RoomEntity senderEntity = room.getEntityForUser(userId);
             if (senderEntity == null) return;
@@ -298,7 +362,7 @@ public final class RoomHandler {
                     long targetId = (long) target.get("sourceId");
                     room.sendTo(targetId, PacketType.ROOM_USER_WHISPER, Map.of(
                         "instanceId", senderEntity.instanceId,
-                        "message",    message
+                        "message",    spoken
                     ));
                 });
         });

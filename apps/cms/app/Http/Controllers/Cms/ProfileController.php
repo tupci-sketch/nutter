@@ -105,7 +105,7 @@ class ProfileController extends Controller
             ->join('habnut_groups as g', 'g.id', '=', 'gm.group_id')
             ->where('gm.user_id', $user->id)
             ->whereIn('gm.rank', ['owner', 'admin', 'member'])
-            ->orderByRaw("FIELD(gm.`rank`, 'owner', 'admin', 'member')")
+            ->orderByRaw('CASE gm.`rank` WHEN \'owner\' THEN 1 WHEN \'admin\' THEN 2 ELSE 3 END')
             ->limit(6)
             ->get(['g.id', 'g.name', 'g.badge', 'gm.rank']);
     }

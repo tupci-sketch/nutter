@@ -127,13 +127,22 @@ public final class ServerBootstrap {
         new AuthHandler(ticketService, userRepo, banService, machineIdService,
             sessions, router, metrics, redis).register(router);
 
+        // Chat moderation. Built before the room domain because every spoken
+        // message passes through it: a mute that is only checked further along
+        // is not a mute.
+        WordFilter           wordFilter   = new WordFilter(db);
+        ContentPolicy        contentPolicy = new ContentPolicy(db);
+        AutoModerationService autoModeration = new AutoModerationService(db);
+        ChatModerator        chatModerator = new ChatModerator(
+            db, contentPolicy, autoModeration, wordFilter);
+
         // Room domain (Phase 5/6)
         RoomRepository roomRepo     = new RoomRepository(db);
         RoomModelRepository modelRepo = new RoomModelRepository(db);
         modelRepo.preloadAll();
         roomManager = new RoomManager(roomRepo, modelRepo, router, sessions, metrics);
         roomHandler = new RoomHandler(roomManager, roomRepo, modelRepo, userRepo,
-            router, metrics, networkLimiter);
+            router, metrics, networkLimiter, chatModerator);
         roomHandler.register(router);
 
         // Economy domain (Phase 8)
@@ -202,7 +211,8 @@ public final class ServerBootstrap {
         AuditService        auditService  = new AuditService(db);
         ChatLogService      chatLogService = new ChatLogService(db);
         ModerationService   modService    = new ModerationService(db, userRepo);
-        WordFilter          wordFilter    = new WordFilter(db);
+        new AutoModerationHandler(autoModeration, userRepo, sessions, router).register(router);
+
         StaffCommandDispatcher commandDisp = new StaffCommandDispatcher(
             modService, userRepo, roomManager, sessions, auditService, router);
         new ModerationHandler(modService, chatLogService, userRepo, roomManager,

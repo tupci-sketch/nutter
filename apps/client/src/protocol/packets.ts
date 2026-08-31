@@ -25,6 +25,13 @@ export const Packet = {
   ROOM_INFO: 'room.info',
   ROOM_INFO_RESULT: 'room.info.result',
 
+  // Automatic mutes: what a player is told when the content policy stops them,
+  // and how they ask for a person to look at it.
+  MOD_AUTO_MUTE_NOTICE: 'mod.automute.notice',
+  MOD_AUTO_MUTE_STATE: 'mod.automute.state',
+  MOD_AUTO_MUTE_HELP: 'mod.automute.help',
+  MOD_AUTO_MUTE_HELP_ACK: 'mod.automute.help.ack',
+
   // Navigator
   NAV_SEARCH: 'nav.search',
   NAV_SEARCH_RESULT: 'nav.search.result',

@@ -9,6 +9,7 @@ use App\Http\Controllers\Cms\HelpController;
 use App\Http\Controllers\Cms\HomeController;
 use App\Http\Controllers\Cms\NewsController;
 use App\Http\Controllers\Cms\ProfileController;
+use App\Http\Controllers\Dcc\DccAutoModerationController;
 use App\Http\Controllers\Dcc\DccCatalogueController;
 use App\Http\Controllers\Dcc\DccDashboardController;
 use App\Http\Controllers\Dcc\DccEconomyController;
@@ -101,6 +102,16 @@ Route::middleware(['auth', '2fa', 'dcc'])->prefix('dcc')->name('dcc.')->group(fu
         Route::post('/{id}/ticket', [DccUsersController::class, 'issueTicket'])->name('ticket');
         Route::get('/{id}/audit', [DccUsersController::class, 'auditLog'])->name('audit');
         Route::get('/{id}/transactions', [DccUsersController::class, 'transactions'])->name('transactions');
+    });
+
+    // Automated moderation
+    Route::prefix('automod')->name('automod.')->group(function () {
+        Route::get('/', [DccAutoModerationController::class, 'index'])->name('index');
+        Route::post('/{id}/review', [DccAutoModerationController::class, 'review'])->name('review');
+        Route::get('/rules', [DccAutoModerationController::class, 'rules'])->name('rules');
+        Route::post('/rules', [DccAutoModerationController::class, 'storeRule'])->name('rule.store');
+        Route::put('/rules/{id}', [DccAutoModerationController::class, 'updateRule'])->name('rule.update');
+        Route::post('/rules/{id}/toggle', [DccAutoModerationController::class, 'toggleRule'])->name('rule.toggle');
     });
 
     // Forums

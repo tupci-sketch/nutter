@@ -441,6 +441,14 @@ public final class PacketType {
     public static final String MOD_USER_INFO_RESULT = "mod.user.info.result";
     public static final String MOD_CHAT_LOGS_RESULT = "mod.chat.logs.result";
 
+    // Automated moderation. A player stopped by the content policy is told what
+    // happened and, when the mute was automatic, how to have a person look at it.
+    public static final String MOD_AUTO_MUTE_NOTICE   = "mod.automute.notice";
+    public static final String MOD_AUTO_MUTE_STATE    = "mod.automute.state";
+    public static final String MOD_AUTO_MUTE_HELP     = "mod.automute.help";
+    public static final String MOD_AUTO_MUTE_HELP_ACK = "mod.automute.help.ack";
+    public static final String MOD_AUTO_MUTE_ALERT    = "mod.automute.alert";
+
     // Camera / Photos
     public static final String CAM_TAKE     = "camera.take";
     public static final String CAM_PURCHASE = "camera.purchase";

@@ -48,6 +48,8 @@
         .badge { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 99px; font-size: 0.7rem; font-weight: 600; }
         .badge-green { background: rgba(76,175,80,0.2); color: var(--success); }
         .badge-red   { background: rgba(233,69,96,0.2); color: var(--danger); }
+        /* For states that need attention without being an outright failure. */
+        .badge-amber { background: rgba(240,160,64,0.2); color: #f0a040; }
         .badge-warn  { background: rgba(240,160,64,0.2); color: var(--warn); }
         .text-muted { color: var(--muted); }
         .pagination { display: flex; gap: 0.5rem; margin-top: 1rem; font-size: 0.85rem; }
@@ -97,6 +99,8 @@
         <a href="{{ route('dcc.moderation.bans') }}">Bans</a>
         <a href="{{ route('dcc.moderation.appeals') }}">Appeals</a>
         <a href="{{ route('dcc.moderation.wordfilter') }}">Word Filter</a>
+        <a href="{{ route('dcc.automod.index') }}">Automatic Mutes</a>
+        <a href="{{ route('dcc.automod.rules') }}">Content Rules</a>
         <a href="{{ route('dcc.moderation.chatlogs') }}">Chat Logs</a>
 
         <div class="section">Staff</div>
