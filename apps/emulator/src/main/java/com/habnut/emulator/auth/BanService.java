@@ -49,7 +49,7 @@ public final class BanService {
                     long issuedBy) throws SQLException {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "INSERT INTO habnut_bans (user_id, ban_type, reason, expires_at, issued_by_id) " +
+                 "INSERT INTO habnut_bans (user_id, ban_type, reason, expires_at, banned_by_id) " +
                  "VALUES (?, ?, ?, ?, ?)")) {
             ps.setLong(1, userId);
             ps.setString(2, banType);

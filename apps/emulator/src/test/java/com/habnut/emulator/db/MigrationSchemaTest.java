@@ -100,6 +100,50 @@ class MigrationSchemaTest {
                 + String.join("\n  ", distinct));
     }
 
+    @Test
+    @DisplayName("no service inserts into a column the schema does not define")
+    void noInsertDrift() throws IOException {
+        Map<String, Set<String>> schema = parseSchema();
+        List<String> problems = new ArrayList<>();
+
+        // An INSERT names its columns in a bare list rather than through an
+        // alias, so the check above never looked at one. Two tables had been
+        // written to for months with column names that did not exist; every
+        // repository catches its own exception and carries on, so the only
+        // symptom was a leaderboard that stayed empty forever.
+        Pattern insert = Pattern.compile(
+            "INSERT\\s+(?:IGNORE\\s+)?INTO\\s+(habnut_\\w+)\\s*\\(([^)]*)\\)",
+            Pattern.CASE_INSENSITIVE);
+
+        for (Path java : javaSources()) {
+            String sqlText = extractStringLiterals(Files.readString(java));
+
+            Matcher m = insert.matcher(sqlText);
+            while (m.find()) {
+                String table = m.group(1).toLowerCase();
+                Set<String> columns = schema.get(table);
+                if (columns == null) {
+                    problems.add(java.getFileName() + ": unknown table " + table);
+                    continue;
+                }
+
+                for (String named : m.group(2).split(",")) {
+                    String column = named.trim().toLowerCase().replace("`", "");
+                    if (column.isEmpty() || SQL_WORDS.contains(column)) continue;
+                    if (!columns.contains(column)) {
+                        problems.add(java.getFileName() + ": " + table
+                            + " has no column '" + column + "' (inserted into)");
+                    }
+                }
+            }
+        }
+
+        List<String> distinct = problems.stream().distinct().sorted().toList();
+        assertTrue(distinct.isEmpty(),
+            "service SQL inserts into columns the schema does not define:\n  "
+                + String.join("\n  ", distinct));
+    }
+
     // ─── helpers ────────────────────────────────────────────────────────────
 
     /** Migration files ordered by their numeric version, so V10 follows V9. */

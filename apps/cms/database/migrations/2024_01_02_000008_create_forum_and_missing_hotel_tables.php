@@ -22,6 +22,7 @@ return new class extends Migration
         $this->createSocialAndProgressionTables();
         $this->createModerationTables();
         $this->createHotelActivityTables();
+        $this->alignLeaderboards();
     }
 
     /**
@@ -306,6 +307,31 @@ return new class extends Migration
             $table->string('outcome', 32)->default('ok');
             $table->text('detail')->nullable();
             $table->timestamp('created_at')->useCurrent();
+        });
+    }
+
+    /**
+     * Aligns the leaderboard mirror with the hotel's own.
+     *
+     * The emulator was writing games_played and games_won into a table that has
+     * matches_played and wins, so no leaderboard row was ever recorded. The
+     * emulator is fixed; this brings the shape the CMS is tested against in
+     * line with it.
+     */
+    private function alignLeaderboards(): void
+    {
+        Schema::dropIfExists('habnut_leaderboards');
+
+        Schema::create('habnut_leaderboards', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('user_id');
+            $table->string('game_type', 32);
+            $table->string('period', 16)->default('all_time');
+            $table->bigInteger('total_score')->default(0);
+            $table->unsignedInteger('wins')->default(0);
+            $table->unsignedInteger('matches_played')->default(0);
+            $table->timestamp('updated_at')->useCurrent();
+            $table->unique(['user_id', 'game_type', 'period']);
         });
     }
 

@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TwoFactorController;
+use App\Http\Controllers\Cms\CommunityController;
 use App\Http\Controllers\Cms\ForumController;
 use App\Http\Controllers\Cms\HelpController;
 use App\Http\Controllers\Cms\HomeController;
@@ -33,6 +34,9 @@ Route::get('/news', [NewsController::class, 'index'])->name('news.index');
 Route::get('/news/{slug}', [NewsController::class, 'show'])->name('news.show');
 Route::get('/help', [HelpController::class, 'index'])->name('help.index');
 Route::get('/help/{slug}', [HelpController::class, 'show'])->name('help.show');
+Route::get('/staff', [CommunityController::class, 'staff'])->name('staff');
+Route::get('/stats', [CommunityController::class, 'stats'])->name('stats');
+
 // Forums. Reading is public where a board allows it; writing needs an account,
 // which the routes below enforce rather than the controller guessing.
 Route::get('/forum', [ForumController::class, 'index'])->name('forum.index');

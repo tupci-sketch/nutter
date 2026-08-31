@@ -197,6 +197,8 @@
             <a href="{{ route('news.index') }}">News</a>
             <a href="{{ route('hotel') }}">Hotel</a>
             <a href="{{ route('forum.index') }}">Forums</a>
+            <a href="{{ route('stats') }}">Stats</a>
+            <a href="{{ route('staff') }}">Team</a>
             <a href="{{ route('help.index') }}">Help</a>
         </nav>
 

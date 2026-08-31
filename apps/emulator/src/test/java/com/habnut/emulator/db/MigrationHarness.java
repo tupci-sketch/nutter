@@ -36,7 +36,7 @@ public final class MigrationHarness {
                     s.execute(stmt);
                 } catch (SQLException e) {
                     throw new SQLException(
-                        file.getFileName() + " failed on: " + stmt, e);
+                        file.getFileName() + " failed on: " + stmt + " — " + e.getMessage(), e);
                 }
             }
         }
