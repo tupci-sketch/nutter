@@ -30,6 +30,8 @@ public final class RpHandler {
     private final RpCraftingService   craftingService;
     private final RpCombatService     combatService;
     private final RpTurfService       turfService;
+    private final RpTreasuryService   treasuryService;
+    private final RpHeistService      heistService;
     private final SessionRegistry     sessions;
     private final PacketRouter        router;
 
@@ -40,6 +42,7 @@ public final class RpHandler {
                      RpPropertyService propertyService, RpGovernmentService govtService,
                      RpSceneService sceneService, RpCraftingService craftingService,
                      RpCombatService combatService, RpTurfService turfService,
+                     RpTreasuryService treasuryService, RpHeistService heistService,
                      SessionRegistry sessions, PacketRouter router) {
         this.charService     = charService;
         this.factionService  = factionService;
@@ -55,6 +58,8 @@ public final class RpHandler {
         this.craftingService = craftingService;
         this.combatService   = combatService;
         this.turfService     = turfService;
+        this.treasuryService = treasuryService;
+        this.heistService    = heistService;
         this.sessions        = sessions;
         this.router          = router;
     }
@@ -73,6 +78,18 @@ public final class RpHandler {
         router.register(PacketType.RP_TURF_LIST,          this::handleTurfList);
         router.register(PacketType.RP_TURF_CAPTURE_BEGIN, this::handleTurfCaptureBegin);
         router.register(PacketType.RP_TURF_CAPTURE_ABANDON, this::handleTurfCaptureAbandon);
+
+        router.register(PacketType.RP_TREASURY_VIEW,      this::handleTreasuryView);
+        router.register(PacketType.RP_TREASURY_DEPOSIT,   this::handleTreasuryDeposit);
+        router.register(PacketType.RP_TREASURY_WITHDRAW,  this::handleTreasuryWithdraw);
+
+        router.register(PacketType.RP_HEIST_TARGETS,      this::handleHeistTargets);
+        router.register(PacketType.RP_HEIST_PLAN,         this::handleHeistPlan);
+        router.register(PacketType.RP_HEIST_JOIN,         this::handleHeistJoin);
+        router.register(PacketType.RP_HEIST_LEAVE,        this::handleHeistLeave);
+        router.register(PacketType.RP_HEIST_START,        this::handleHeistStart);
+        router.register(PacketType.RP_HEIST_FOIL,         this::handleHeistFoil);
+        router.register(PacketType.RP_HEIST_ACTIVE,       this::handleHeistActive);
         // Factions
         router.register(PacketType.RP_FACTION_LIST,       this::handleFactionList);
         router.register(PacketType.RP_FACTION_JOIN,       this::handleFactionJoin);
@@ -1033,5 +1050,262 @@ public final class RpHandler {
 
     private void sendError(WebSocketSession session, String reason) {
         session.send(router.buildPacket("rp.error", Map.of("reason", reason)));
+    }
+
+    // ─── faction money ──────────────────────────────────────────────────────
+
+    /** A member's view of what their faction holds, and where it went. */
+    private void handleTreasuryView(WebSocketSession session, JsonNode p) {
+        withFaction(session, (ch, factionId) -> {
+            session.send(router.buildPacket(PacketType.RP_TREASURY_RESULT, Map.of(
+                "factionId", factionId,
+                "balance", treasuryService.balanceOf(factionId),
+                "history", treasuryService.history(factionId, 25).stream()
+                    .map(this::treasuryEntryToMap).collect(Collectors.toList()))));
+        });
+    }
+
+    /** Puts a character's own money into the faction's. */
+    private void handleTreasuryDeposit(WebSocketSession session, JsonNode p) {
+        withFaction(session, (ch, factionId) -> {
+            int amount = p.path("amount").asInt(0);
+            if (amount <= 0) { sendError(session, "amount_must_be_positive"); return; }
+
+            try {
+                // The character pays first: crediting the faction before taking
+                // the money would mint it if the withdrawal then failed.
+                RpBankService.TxResult taken = bankService.withdraw(ch.id(), amount);
+                if (!taken.ok()) { sendError(session, taken.reason()); return; }
+            } catch (SQLException e) {
+                log.error("RP treasury deposit error", e);
+                sendError(session, "server_error");
+                return;
+            }
+
+            RpTreasuryService.Result result = treasuryService.credit(factionId, amount,
+                RpTreasuryService.Kind.DEPOSIT, "Deposit by a member", ch.id());
+            broadcastTreasury(factionId, result.balance());
+        });
+    }
+
+    /**
+     * Takes money out of the faction's.
+     *
+     * Only whoever leads the faction can, because a treasury any member could
+     * empty is not a shared thing at all.
+     */
+    private void handleTreasuryWithdraw(WebSocketSession session, JsonNode p) {
+        withFaction(session, (ch, factionId) -> {
+            int amount = p.path("amount").asInt(0);
+            if (amount <= 0) { sendError(session, "amount_must_be_positive"); return; }
+
+            try {
+                if (!factionService.isLeader(factionId, ch.id())) {
+                    sendError(session, "only_the_leader_withdraws");
+                    return;
+                }
+
+                RpTreasuryService.Result result = treasuryService.debit(factionId, amount,
+                    RpTreasuryService.Kind.WITHDRAWAL, "Withdrawal by the leader", ch.id());
+                if (!result.ok()) { sendError(session, result.reason()); return; }
+
+                bankService.deposit(ch.id(), amount);
+                broadcastTreasury(factionId, result.balance());
+            } catch (SQLException e) {
+                log.error("RP treasury withdrawal error", e);
+                sendError(session, "server_error");
+            }
+        });
+    }
+
+    private Map<String, Object> treasuryEntryToMap(RpTreasuryService.Entry e) {
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", e.id());
+        map.put("amount", e.amount());
+        map.put("balanceAfter", e.balanceAfter());
+        map.put("kind", e.kind());
+        map.put("memo", e.memo());
+        map.put("actorCharacterId", e.actorCharacterId());
+        map.put("createdAt", e.createdAt());
+        return map;
+    }
+
+    /** Tells everybody in a faction that its money moved. */
+    private void broadcastTreasury(int factionId, long balance) {
+        String packet = router.buildPacket(PacketType.RP_TREASURY_RESULT, Map.of(
+            "factionId", factionId,
+            "balance", balance,
+            "history", treasuryService.history(factionId, 25).stream()
+                .map(this::treasuryEntryToMap).collect(Collectors.toList())));
+        sendToFaction(factionId, packet);
+    }
+
+    // ─── heists ─────────────────────────────────────────────────────────────
+
+    private void handleHeistTargets(WebSocketSession session, JsonNode p) {
+        session.send(router.buildPacket(PacketType.RP_HEIST_TARGETS_RESULT, Map.of(
+            "targets", heistService.targets(policeOnDuty()).stream()
+                .map(this::heistTargetToMap).collect(Collectors.toList()))));
+    }
+
+    private void handleHeistPlan(WebSocketSession session, JsonNode p) {
+        withFaction(session, (ch, factionId) -> {
+            RpHeistService.Result result = heistService.plan(
+                p.path("targetId").asInt(-1), factionId, ch.id(), policeOnDuty());
+            if (!result.ok()) { sendError(session, result.reason()); return; }
+            broadcastHeists();
+        });
+    }
+
+    private void handleHeistJoin(WebSocketSession session, JsonNode p) {
+        withCharacter(session, ch -> {
+            RpHeistService.Result result = heistService.join(p.path("heistId").asLong(-1), ch.id());
+            if (!result.ok()) { sendError(session, result.reason()); return; }
+            broadcastHeists();
+        });
+    }
+
+    private void handleHeistLeave(WebSocketSession session, JsonNode p) {
+        withCharacter(session, ch -> {
+            heistService.leave(p.path("heistId").asLong(-1), ch.id());
+            broadcastHeists();
+        });
+    }
+
+    /**
+     * Starts a job.
+     *
+     * The alarm goes out to police at the moment the server decides, not when a
+     * crew member's client gets round to telling anyone.
+     */
+    private void handleHeistStart(WebSocketSession session, JsonNode p) {
+        withCharacter(session, ch -> {
+            long heistId = p.path("heistId").asLong(-1);
+            RpHeistService.Result result = heistService.start(heistId, ch.id());
+            if (!result.ok()) { sendError(session, result.reason()); return; }
+            broadcastHeists();
+        });
+    }
+
+    private void handleHeistFoil(WebSocketSession session, JsonNode p) {
+        withCharacter(session, ch -> {
+            RpHeistService.Result result = heistService.foil(p.path("heistId").asLong(-1), ch.id());
+            if (!result.ok()) { sendError(session, result.reason()); return; }
+
+            session.send(router.buildPacket(PacketType.RP_HEIST_RESOLVED, Map.of(
+                "heistId", p.path("heistId").asLong(-1),
+                "outcome", "foiled",
+                "payout", 0,
+                "factionShare", 0,
+                "crewShare", 0)));
+            broadcastHeists();
+        });
+    }
+
+    private void handleHeistActive(WebSocketSession session, JsonNode p) {
+        session.send(router.buildPacket(PacketType.RP_HEIST_ACTIVE_RESULT, Map.of(
+            "heists", heistService.active().stream()
+                .map(this::heistToMap).collect(Collectors.toList()))));
+    }
+
+    private Map<String, Object> heistTargetToMap(RpHeistService.Target t) {
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", t.id());
+        map.put("code", t.code());
+        map.put("name", t.name());
+        map.put("description", t.description());
+        map.put("roomId", t.roomId());
+        map.put("minCrew", t.minCrew());
+        map.put("maxCrew", t.maxCrew());
+        map.put("durationSeconds", t.durationSeconds());
+        map.put("alarmSeconds", t.alarmSeconds());
+        map.put("payoutMin", t.payoutMin());
+        map.put("payoutMax", t.payoutMax());
+        map.put("policeRequired", t.policeRequired());
+        map.put("cooldownMinutes", t.cooldownMinutes());
+        map.put("available", t.available());
+        map.put("unavailableReason", t.unavailableReason());
+        return map;
+    }
+
+    private Map<String, Object> heistToMap(RpHeistService.Heist h) {
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", h.id());
+        map.put("targetId", h.targetId());
+        map.put("targetName", h.targetName());
+        map.put("factionId", h.factionId());
+        map.put("leaderCharacterId", h.leaderCharacterId());
+        map.put("state", h.state());
+        map.put("startedAt", h.startedAt());
+        map.put("alarmAt", h.alarmAt());
+        map.put("resolvesAt", h.resolvesAt());
+        map.put("payout", h.payout());
+        map.put("crewSize", h.crewSize());
+        return map;
+    }
+
+    /** Sends the current jobs to everybody, so police and crew see the same board. */
+    private void broadcastHeists() {
+        String packet = router.buildPacket(PacketType.RP_HEIST_ACTIVE_RESULT, Map.of(
+            "heists", heistService.active().stream()
+                .map(this::heistToMap).collect(Collectors.toList())));
+        sessions.all().stream().filter(WebSocketSession::isAuthenticated)
+            .forEach(s -> s.send(packet));
+    }
+
+    /**
+     * How many police are on duty right now.
+     *
+     * A target will not open unless enough of them are. A hotel with nobody
+     * policing should be a city where the banks are shut, not free money.
+     */
+    private int policeOnDuty() {
+        try {
+            return factionService.onlineMemberCount("police", sessions);
+        } catch (SQLException e) {
+            log.error("Failed to count police on duty", e);
+            // Erring toward "not enough" keeps a database problem from opening
+            // every vault in the city.
+            return 0;
+        }
+    }
+
+    // ─── shared plumbing ────────────────────────────────────────────────────
+
+    /** Runs an action with the session's character, or says why it cannot. */
+    private void withCharacter(WebSocketSession session,
+                               java.util.function.Consumer<RpCharacterService.Character> action) {
+        try {
+            RpCharacterService.Character ch = charService.findByUser(session.getUserId()).orElse(null);
+            if (ch == null) { sendError(session, "no_character"); return; }
+            action.accept(ch);
+        } catch (SQLException e) {
+            log.error("RP action failed", e);
+            sendError(session, "server_error");
+        }
+    }
+
+    /** Runs an action with the session's character and its faction. */
+    private void withFaction(WebSocketSession session, FactionAction action) {
+        withCharacter(session, ch -> {
+            if (ch.factionId() == null) { sendError(session, "no_faction"); return; }
+            action.run(ch, ch.factionId().intValue());
+        });
+    }
+
+    @FunctionalInterface
+    private interface FactionAction {
+        void run(RpCharacterService.Character character, int factionId);
+    }
+
+    /** Sends a packet to every online member of a faction. */
+    private void sendToFaction(int factionId, String packet) {
+        try {
+            for (long userId : factionService.onlineMemberUserIds(factionId)) {
+                sessions.byUserId(userId).ifPresent(s -> s.send(packet));
+            }
+        } catch (SQLException e) {
+            log.error("Failed to reach faction {}", factionId, e);
+        }
     }
 }

@@ -134,6 +134,26 @@ export const RpPacketTypes = {
   LICENCE_ACQUIRED: 'rp.licence.acquired',
   LICENCE_TEST_RESULT: 'rp.licence.test.result',
 
+  // Faction money: territory income, heist takings, wages and fines.
+  TREASURY_VIEW: 'rp.treasury.view',
+  TREASURY_RESULT: 'rp.treasury.result',
+  TREASURY_DEPOSIT: 'rp.treasury.deposit',
+  TREASURY_WITHDRAW: 'rp.treasury.withdraw',
+
+  // Heists: a crew, a target, an alarm, and whoever gets there first.
+  HEIST_TARGETS: 'rp.heist.targets',
+  HEIST_TARGETS_RESULT: 'rp.heist.targets.result',
+  HEIST_PLAN: 'rp.heist.plan',
+  HEIST_JOIN: 'rp.heist.join',
+  HEIST_LEAVE: 'rp.heist.leave',
+  HEIST_START: 'rp.heist.start',
+  HEIST_FOIL: 'rp.heist.foil',
+  HEIST_ACTIVE: 'rp.heist.active',
+  HEIST_ACTIVE_RESULT: 'rp.heist.active.result',
+  HEIST_UPDATED: 'rp.heist.updated',
+  HEIST_ALARM: 'rp.heist.alarm',
+  HEIST_RESOLVED: 'rp.heist.resolved',
+
   ERROR: 'rp.error',
 } as const;
 
@@ -235,4 +255,84 @@ export interface RpElectionVotePayload {
   electionId: number;
   candidateCharacterId: number;
   idempotencyKey: string;
+}
+
+/**
+ * Money a faction holds together.
+ *
+ * Territory income and heist takings land here; wages and fines come out. Every
+ * movement is recorded, because a faction's members will argue about where the
+ * money went and the answer should not depend on somebody's memory.
+ */
+export interface RpTreasuryEntry {
+  id: number;
+  /** Signed: a withdrawal is negative, so the entries sum to the balance. */
+  amount: number;
+  balanceAfter: number;
+  kind: 'turf_income' | 'heist' | 'deposit' | 'withdrawal' | 'fine' | 'payroll';
+  memo: string;
+  actorCharacterId: number | null;
+  createdAt: string;
+}
+
+export interface RpTreasuryResultPayload {
+  factionId: number;
+  balance: number;
+  history: RpTreasuryEntry[];
+}
+
+/** Something that can be robbed, and whether it can be robbed right now. */
+export interface RpHeistTarget {
+  id: number;
+  code: string;
+  name: string;
+  description: string;
+  roomId: number | null;
+  minCrew: number;
+  maxCrew: number;
+  durationSeconds: number;
+  /** How long into the job before the police hear about it. */
+  alarmSeconds: number;
+  payoutMin: number;
+  payoutMax: number;
+  /** Police who must be on duty before it will open at all. */
+  policeRequired: number;
+  cooldownMinutes: number;
+  available: boolean;
+  /** Why it cannot be attempted, when it cannot. */
+  unavailableReason: string | null;
+}
+
+export type RpHeistState = 'planning' | 'in_progress' | 'succeeded' | 'foiled' | 'abandoned';
+
+export interface RpHeist {
+  id: number;
+  targetId: number;
+  targetName: string;
+  factionId: number;
+  leaderCharacterId: number;
+  state: RpHeistState;
+  startedAt: string | null;
+  alarmAt: string | null;
+  resolvesAt: string | null;
+  payout: number;
+  crewSize: number;
+}
+
+/** Raised to police once a job's alarm has gone. */
+export interface RpHeistAlarmPayload {
+  heistId: number;
+  targetName: string;
+  roomId: number | null;
+  crewSize: number;
+  /** When the crew get away with it if nobody arrives. */
+  resolvesAt: string;
+}
+
+export interface RpHeistResolvedPayload {
+  heistId: number;
+  outcome: 'succeeded' | 'foiled';
+  payout: number;
+  factionShare: number;
+  crewShare: number;
 }

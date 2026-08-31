@@ -246,10 +246,12 @@ public final class ServerBootstrap {
         RpCraftingService   rpCraftingSvc  = new RpCraftingService(db);
         RpCombatService     rpCombatSvc    = new RpCombatService(db);
         RpTurfService       rpTurfSvc      = new RpTurfService(db);
+        RpTreasuryService   rpTreasurySvc  = new RpTreasuryService(db);
+        RpHeistService      rpHeistSvc     = new RpHeistService(db, rpTreasurySvc, rpCharService);
         new RpHandler(rpCharService, rpFactionSvc, rpJobSvc, rpBankSvc,
             rpCrimeSvc, rpCourtSvc, rpDispatchSvc, rpMedicalSvc, rpPropertySvc,
             rpGovtSvc, rpSceneSvc, rpCraftingSvc, rpCombatSvc, rpTurfSvc,
-            sessions, router).register(router);
+            rpTreasurySvc, rpHeistSvc, sessions, router).register(router);
 
         // Territory contests resolve on a timer so a capture completes even if
         // every character involved has disconnected.
@@ -264,6 +266,28 @@ public final class ServerBootstrap {
                 if (transferred > 0) log.info("Territory changed hands: {}", transferred);
             } catch (Exception e) {
                 log.error("Turf capture resolution failed", e);
+            }
+
+            // A heist that runs its course pays even if every member of the
+            // crew has disconnected, which is exactly when they would otherwise
+            // be cheated of it.
+            try {
+                var payouts = rpHeistSvc.resolveFinishedHeists();
+                for (var payout : payouts) {
+                    log.info("Heist {} paid {} to faction {}",
+                        payout.heistId(), payout.total(), payout.factionId());
+                }
+            } catch (Exception e) {
+                log.error("Heist resolution failed", e);
+            }
+
+            // Territory pays by the hour; each turf records when it last paid,
+            // so running this often is harmless and missing a run is not.
+            try {
+                long paid = rpTreasurySvc.payTerritoryIncome();
+                if (paid > 0) log.info("Territory income paid out: {}", paid);
+            } catch (Exception e) {
+                log.error("Territory income payout failed", e);
             }
         }, 30, 30, java.util.concurrent.TimeUnit.SECONDS);
 

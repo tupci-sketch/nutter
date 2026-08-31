@@ -335,6 +335,26 @@ public final class PacketType {
     public static final String RP_TURF_CAPTURE_ABANDON    = "rp.turf.capture.abandon";
     public static final String RP_TURF_CAPTURED           = "rp.turf.captured";
 
+    // Faction money: territory income, heist takings, wages and fines.
+    public static final String RP_TREASURY_VIEW           = "rp.treasury.view";
+    public static final String RP_TREASURY_RESULT         = "rp.treasury.result";
+    public static final String RP_TREASURY_DEPOSIT        = "rp.treasury.deposit";
+    public static final String RP_TREASURY_WITHDRAW       = "rp.treasury.withdraw";
+
+    // Heists: a crew, a target, an alarm, and whoever gets there first.
+    public static final String RP_HEIST_TARGETS           = "rp.heist.targets";
+    public static final String RP_HEIST_TARGETS_RESULT    = "rp.heist.targets.result";
+    public static final String RP_HEIST_PLAN              = "rp.heist.plan";
+    public static final String RP_HEIST_JOIN              = "rp.heist.join";
+    public static final String RP_HEIST_LEAVE             = "rp.heist.leave";
+    public static final String RP_HEIST_START             = "rp.heist.start";
+    public static final String RP_HEIST_FOIL              = "rp.heist.foil";
+    public static final String RP_HEIST_ACTIVE            = "rp.heist.active";
+    public static final String RP_HEIST_ACTIVE_RESULT     = "rp.heist.active.result";
+    public static final String RP_HEIST_UPDATED           = "rp.heist.updated";
+    public static final String RP_HEIST_ALARM             = "rp.heist.alarm";
+    public static final String RP_HEIST_RESOLVED          = "rp.heist.resolved";
+
     public static final String RP_CHARACTER_CREATE        = "rp.character.create";
     public static final String RP_CHARACTER_CREATED       = "rp.character.created";
     public static final String RP_CHARACTER_INFO          = "rp.character.info";
