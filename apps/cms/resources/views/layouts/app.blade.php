@@ -133,6 +133,14 @@
         .figure img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
         .figure-sm { width: 34px; height: 52px; font-size: 0.95rem; }
 
+        /* Visible to a screen reader, not to the eye: for labels the layout
+           already makes obvious but the markup still owes to assistive tech. */
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0;
+            margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0);
+            white-space: nowrap; border: 0;
+        }
+
         /* ── misc ───────────────────────────────────────────────────────── */
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         th, td { text-align: left; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--ridge); }
@@ -188,6 +196,7 @@
             <a href="{{ route('home') }}">Home</a>
             <a href="{{ route('news.index') }}">News</a>
             <a href="{{ route('hotel') }}">Hotel</a>
+            <a href="{{ route('forum.index') }}">Forums</a>
             <a href="{{ route('help.index') }}">Help</a>
         </nav>
 

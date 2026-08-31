@@ -172,7 +172,7 @@ public final class GroupService {
     public long createThread(long groupId, long authorId, String title) throws SQLException {
         try (Connection conn = db.getConnection();
              PreparedStatement ins = conn.prepareStatement(
-                 "INSERT INTO habnut_group_forum_threads (group_id, author_id, title) VALUES (?, ?, ?)",
+                 "INSERT INTO habnut_forum_threads (group_id, author_id, title) VALUES (?, ?, ?)",
                  Statement.RETURN_GENERATED_KEYS)) {
             ins.setLong(1, groupId); ins.setLong(2, authorId); ins.setString(3, title);
             ins.executeUpdate();
@@ -188,7 +188,7 @@ public final class GroupService {
             conn.setAutoCommit(false);
             long postId;
             try (PreparedStatement ins = conn.prepareStatement(
-                "INSERT INTO habnut_group_forum_posts (thread_id, author_id, body) VALUES (?, ?, ?)",
+                "INSERT INTO habnut_forum_posts (thread_id, author_id, body) VALUES (?, ?, ?)",
                 Statement.RETURN_GENERATED_KEYS)) {
                 ins.setLong(1, threadId); ins.setLong(2, authorId); ins.setString(3, body);
                 ins.executeUpdate();
@@ -198,7 +198,7 @@ public final class GroupService {
                 }
             }
             try (PreparedStatement upd = conn.prepareStatement(
-                "UPDATE habnut_group_forum_threads SET reply_count = reply_count + 1, " +
+                "UPDATE habnut_forum_threads SET reply_count = reply_count + 1, " +
                 "last_reply_at = NOW() WHERE id = ?")) {
                 upd.setLong(1, threadId); upd.executeUpdate();
             }
@@ -212,7 +212,7 @@ public final class GroupService {
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT t.id, t.group_id, t.author_id, u.username as author_username, t.title, " +
                  "t.pinned, t.locked, t.reply_count, t.created_at, t.last_reply_at " +
-                 "FROM habnut_group_forum_threads t JOIN habnut_users u ON u.id = t.author_id " +
+                 "FROM habnut_forum_threads t JOIN habnut_users u ON u.id = t.author_id " +
                  "WHERE t.group_id = ? AND t.hidden = 0 " +
                  "ORDER BY t.pinned DESC, t.last_reply_at DESC LIMIT ? OFFSET ?")) {
             ps.setLong(1, groupId); ps.setInt(2, limit); ps.setInt(3, offset);
@@ -228,7 +228,7 @@ public final class GroupService {
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT p.id, p.thread_id, p.author_id, u.username as author_username, " +
                  "p.body, p.hidden, p.created_at " +
-                 "FROM habnut_group_forum_posts p JOIN habnut_users u ON u.id = p.author_id " +
+                 "FROM habnut_forum_posts p JOIN habnut_users u ON u.id = p.author_id " +
                  "WHERE p.thread_id = ? ORDER BY p.created_at ASC LIMIT ? OFFSET ?")) {
             ps.setLong(1, threadId); ps.setInt(2, limit); ps.setInt(3, offset);
             return mapPosts(ps);

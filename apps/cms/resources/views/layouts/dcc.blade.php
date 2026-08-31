@@ -78,6 +78,8 @@
         <div class="section">World</div>
         <a href="{{ route('dcc.rooms.index') }}">Rooms</a>
         <a href="{{ route('dcc.groups.index') }}">Groups</a>
+        <a href="{{ route('dcc.forum.index') }}">Forums</a>
+        <a href="{{ route('dcc.forum.reports') }}">Forum Reports</a>
         <a href="{{ route('dcc.wired.index') }}">Wired</a>
         <a href="{{ route('dcc.games.index') }}">Games</a>
         <a href="{{ route('dcc.garden.index') }}">Garden</a>

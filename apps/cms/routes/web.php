@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TwoFactorController;
+use App\Http\Controllers\Cms\ForumController;
 use App\Http\Controllers\Cms\HelpController;
 use App\Http\Controllers\Cms\HomeController;
 use App\Http\Controllers\Cms\NewsController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Cms\ProfileController;
 use App\Http\Controllers\Dcc\DccCatalogueController;
 use App\Http\Controllers\Dcc\DccDashboardController;
 use App\Http\Controllers\Dcc\DccEconomyController;
+use App\Http\Controllers\Dcc\DccForumController;
 use App\Http\Controllers\Dcc\DccGamesController;
 use App\Http\Controllers\Dcc\DccGardenController;
 use App\Http\Controllers\Dcc\DccGroupsController;
@@ -30,6 +32,13 @@ Route::get('/news', [NewsController::class, 'index'])->name('news.index');
 Route::get('/news/{slug}', [NewsController::class, 'show'])->name('news.show');
 Route::get('/help', [HelpController::class, 'index'])->name('help.index');
 Route::get('/help/{slug}', [HelpController::class, 'show'])->name('help.show');
+// Forums. Reading is public where a board allows it; writing needs an account,
+// which the routes below enforce rather than the controller guessing.
+Route::get('/forum', [ForumController::class, 'index'])->name('forum.index');
+Route::get('/forum/board/{slug}', [ForumController::class, 'category'])->name('forum.category');
+Route::get('/forum/thread/{id}', [ForumController::class, 'thread'])->name('forum.thread');
+Route::get('/forum/group/{group}', [ForumController::class, 'groupForum'])->name('forum.group');
+
 Route::view('/privacy', 'cms.privacy')->name('privacy');
 Route::view('/terms', 'cms.terms')->name('terms');
 
@@ -62,6 +71,15 @@ Route::middleware(['auth', '2fa'])->group(function () {
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/motto', [ProfileController::class, 'updateMotto'])->name('profile.motto');
     Route::get('/profile/{username}', [ProfileController::class, 'view'])->name('profile.view');
+
+    // Forum writing and moderation
+    Route::post('/forum/board/{slug}/thread', [ForumController::class, 'storeThread'])->name('forum.thread.store');
+    Route::post('/forum/group/{group}/thread', [ForumController::class, 'storeGroupThread'])->name('forum.group.thread.store');
+    Route::post('/forum/thread/{id}/reply', [ForumController::class, 'storePost'])->name('forum.post.store');
+    Route::put('/forum/post/{id}', [ForumController::class, 'updatePost'])->name('forum.post.update');
+    Route::post('/forum/post/{id}/report', [ForumController::class, 'report'])->name('forum.post.report');
+    Route::post('/forum/thread/{id}/moderate', [ForumController::class, 'moderateThread'])->name('forum.thread.moderate');
+    Route::post('/forum/post/{id}/moderate', [ForumController::class, 'moderatePost'])->name('forum.post.moderate');
 });
 
 // DCC (staff only)
@@ -83,6 +101,18 @@ Route::middleware(['auth', '2fa', 'dcc'])->prefix('dcc')->name('dcc.')->group(fu
         Route::post('/{id}/ticket', [DccUsersController::class, 'issueTicket'])->name('ticket');
         Route::get('/{id}/audit', [DccUsersController::class, 'auditLog'])->name('audit');
         Route::get('/{id}/transactions', [DccUsersController::class, 'transactions'])->name('transactions');
+    });
+
+    // Forums
+    Route::prefix('forum')->name('forum.')->group(function () {
+        Route::get('/', [DccForumController::class, 'index'])->name('index');
+        Route::post('/category', [DccForumController::class, 'storeCategory'])->name('category.store');
+        Route::put('/category/{id}', [DccForumController::class, 'updateCategory'])->name('category.update');
+        Route::post('/role', [DccForumController::class, 'grantRole'])->name('role.grant');
+        Route::delete('/role/{id}', [DccForumController::class, 'revokeRole'])->name('role.revoke');
+        Route::get('/reports', [DccForumController::class, 'reports'])->name('reports');
+        Route::post('/reports/{id}', [DccForumController::class, 'resolveReport'])->name('report.resolve');
+        Route::post('/post/{id}/restore', [DccForumController::class, 'restorePost'])->name('post.restore');
     });
 
     // Economy (DCC-008 to DCC-013)

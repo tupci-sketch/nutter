@@ -135,8 +135,8 @@ class MigrationSchemaTest {
     }
 
     /**
-     * Builds table → column names by replaying CREATE TABLE and the ADD/CHANGE
-     * COLUMN clauses of every ALTER TABLE, in migration order.
+     * Builds table → column names by replaying CREATE TABLE, RENAME TO, and the
+     * ADD/CHANGE COLUMN clauses of every ALTER TABLE, in migration order.
      */
     private static Map<String, Set<String>> parseSchema() throws IOException {
         Map<String, Set<String>> schema = new HashMap<>();
@@ -149,6 +149,7 @@ class MigrationSchemaTest {
             Pattern.CASE_INSENSITIVE);
         Pattern addCol    = Pattern.compile("ADD COLUMN\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
         Pattern changeCol = Pattern.compile("CHANGE COLUMN\\s+(\\w+)\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        Pattern renameTo  = Pattern.compile("^\\s*RENAME TO\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
 
         for (Path file : migrationFiles()) {
             String sql = Files.readString(file);
@@ -165,7 +166,18 @@ class MigrationSchemaTest {
 
             Matcher a = alter.matcher(sql);
             while (a.find()) {
-                Set<String> cols = schema.get(a.group(1).toLowerCase());
+                String table = a.group(1).toLowerCase();
+
+                // A renamed table keeps its columns under the new name, and the
+                // old name stops existing — so SQL still using it is drift.
+                Matcher rename = renameTo.matcher(a.group(2));
+                if (rename.find()) {
+                    Set<String> moved = schema.remove(table);
+                    if (moved != null) schema.put(rename.group(1).toLowerCase(), moved);
+                    continue;
+                }
+
+                Set<String> cols = schema.get(table);
                 if (cols == null) continue;
                 Matcher add = addCol.matcher(a.group(2));
                 while (add.find()) cols.add(add.group(1).toLowerCase());
