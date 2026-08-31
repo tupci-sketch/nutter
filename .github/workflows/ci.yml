@@ -1,0 +1,370 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**", "feature/**", "fix/**"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "22"
+  GO_VERSION: "1.24"
+  PHP_VERSION: "8.3"
+
+jobs:
+  # ── 1 · Placeholder scan ──────────────────────────────────────────────────
+  # Gates everything else: no unfinished-work markers or hard-coded credentials.
+  placeholder-scan:
+    name: "1 · Placeholder Scan"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: source/tools/placeholder-scan/go.mod
+      # Each tool is its own Go module, so the build runs from inside it.
+      - name: Build scanner
+        working-directory: source/tools/placeholder-scan
+        run: go build -o /tmp/placeholder-scan .
+      - name: Run scan
+        run: /tmp/placeholder-scan source
+
+  # ── 2 · Asset validator ───────────────────────────────────────────────────
+  asset-validate:
+    name: "2 · Asset Validator"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: source/tools/asset-validator/go.mod
+      - name: Build validator
+        working-directory: source/tools/asset-validator
+        run: go build -o /tmp/asset-validator .
+      - name: Vet
+        working-directory: source/tools/asset-validator
+        run: go vet ./...
+      - name: Validate pack manifest schema
+        run: python3 -c "import json; json.load(open('source/infra/swf/PACK_MANIFEST.json')); print('Manifest JSON valid')"
+
+  # ── 3 · Emulator ──────────────────────────────────────────────────────────
+  # Unit tests plus the schema guard, which applies every migration and checks
+  # each column the services select against the columns the migrations define.
+  emulator:
+    name: "3 · Emulator (Java)"
+    runs-on: ubuntu-24.04
+    needs: [placeholder-scan]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test
+        working-directory: source
+        run: ./gradlew :emulator:test --no-daemon
+      - name: Coverage floor
+        working-directory: source
+        run: ./gradlew :emulator:jacocoTestCoverageVerification --no-daemon
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-reports
+          path: |
+            source/apps/emulator/build/reports/tests/
+            source/apps/emulator/build/reports/jacoco/
+
+  # ── 4 · Wired conformance ─────────────────────────────────────────────────
+  # Chapter 59.1 gate. Gradle fails the task on any test failure, so a green
+  # job is a 100% pass rate by construction.
+  wired-conformance:
+    name: "4 · Wired Conformance (100%)"
+    runs-on: ubuntu-24.04
+    needs: [emulator]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run conformance suite
+        working-directory: source
+        run: ./gradlew :wired-conformance:test --no-daemon
+      - name: Coverage floor
+        working-directory: source
+        run: ./gradlew :wired-conformance:jacocoTestCoverageVerification --no-daemon
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wired-conformance-reports
+          path: source/tests/wired-conformance/build/reports/
+
+  # ── 5 · Client lint and types ─────────────────────────────────────────────
+  client-lint:
+    name: "5 · Client Lint + Types"
+    runs-on: ubuntu-24.04
+    needs: [placeholder-scan]
+    steps:
+      - uses: actions/checkout@v4
+      # Version comes from the packageManager field in package.json; passing
+      # it here as well makes the action fail with a conflict.
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
+      - name: Install
+        working-directory: source
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        working-directory: source
+        run: pnpm --filter @habnut/client run typecheck
+      - name: Lint
+        working-directory: source
+        run: pnpm --filter @habnut/client run lint
+
+  # ── 6 · Client tests ──────────────────────────────────────────────────────
+  client-test:
+    name: "6 · Client Unit Tests"
+    runs-on: ubuntu-24.04
+    needs: [client-lint]
+    steps:
+      - uses: actions/checkout@v4
+      # Version comes from the packageManager field in package.json; passing
+      # it here as well makes the action fail with a conflict.
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
+      - name: Install
+        working-directory: source
+        run: pnpm install --frozen-lockfile
+      - name: Test
+        working-directory: source
+        run: pnpm --filter @habnut/client run test
+
+  # ── 7 · Client build ──────────────────────────────────────────────────────
+  client-build:
+    name: "7 · Client Build"
+    runs-on: ubuntu-24.04
+    needs: [client-test]
+    steps:
+      - uses: actions/checkout@v4
+      # Version comes from the packageManager field in package.json; passing
+      # it here as well makes the action fail with a conflict.
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
+      - name: Install
+        working-directory: source
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        working-directory: source
+        run: pnpm --filter @habnut/client run build
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: source/apps/client/dist/
+
+  # ── 8 · CMS lint ──────────────────────────────────────────────────────────
+  cms-lint:
+    name: "8 · CMS Lint"
+    runs-on: ubuntu-24.04
+    needs: [placeholder-scan]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, gd
+          coverage: none
+      - name: Install
+        working-directory: source/apps/cms
+        run: composer install --prefer-dist --no-progress --no-interaction
+      - name: Lint
+        working-directory: source/apps/cms
+        run: vendor/bin/pint --test
+
+  # ── 9 · CMS tests ─────────────────────────────────────────────────────────
+  # phpunit.xml pins the suite to an in-memory SQLite database, so no service
+  # container is needed and every run starts from a known-empty schema.
+  cms-test:
+    name: "9 · CMS Tests"
+    runs-on: ubuntu-24.04
+    needs: [cms-lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, gd
+          coverage: none
+      - name: Install
+        working-directory: source/apps/cms
+        run: composer install --prefer-dist --no-progress --no-interaction
+      - name: Test
+        working-directory: source/apps/cms
+        run: vendor/bin/phpunit
+      - name: Dependency audit
+        working-directory: source/apps/cms
+        run: composer audit --no-interaction
+
+  # ── 10 · Launcher ─────────────────────────────────────────────────────────
+  # Built for both targets it ships to. The payload package is exercised in
+  # its unbundled form here; a release build is produced by
+  # source/scripts/build-launcher.sh, which needs the other components present.
+  launcher:
+    name: "10 · Launcher (Go)"
+    runs-on: ubuntu-24.04
+    needs: [placeholder-scan]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: source/apps/launcher/go.sum
+      - name: Vet
+        working-directory: source/apps/launcher
+        run: go vet ./...
+      - name: Test
+        working-directory: source/apps/launcher
+        run: go test ./...
+      - name: Build for Linux
+        working-directory: source/apps/launcher
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/habnutctl-linux .
+      - name: Build for Windows
+        working-directory: source/apps/launcher
+        run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o /tmp/habnutctl.exe .
+      - name: Vet Windows build
+        working-directory: source/apps/launcher
+        run: GOOS=windows go vet ./...
+
+  # ── 11 · Prometheus rules ─────────────────────────────────────────────────
+  prometheus-lint:
+    name: "11 · Prometheus Rules"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install promtool
+        run: |
+          VERSION=2.53.2
+          curl -fsSL -o prometheus.tar.gz \
+            "https://github.com/prometheus/prometheus/releases/download/v${VERSION}/prometheus-${VERSION}.linux-amd64.tar.gz"
+          tar xzf prometheus.tar.gz
+          sudo mv "prometheus-${VERSION}.linux-amd64/promtool" /usr/local/bin/
+      - name: Check rules
+        run: promtool check rules source/infra/prometheus/rules/habnut.yml
+      - name: Check config
+        run: promtool check config source/infra/prometheus/prometheus.yml
+
+  # ── 12 · Nginx config ─────────────────────────────────────────────────────
+  nginx-config:
+    name: "12 · Nginx Config"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # habnut.conf is a template: it carries a ${HABNUT_DOMAIN} placeholder and
+      # points at certificate paths that only exist once Certbot has run. Both
+      # are supplied here so nginx -t validates the real syntax rather than
+      # being waved through.
+      - name: Render template and generate a certificate
+        run: |
+          mkdir -p rendered/certs
+          sed 's/${HABNUT_DOMAIN}/ci.habnut.test/g' source/infra/nginx/habnut.conf > rendered/habnut.conf
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -keyout rendered/certs/privkey.pem \
+            -out rendered/certs/fullchain.pem \
+            -subj "/CN=ci.habnut.test" 2>/dev/null
+      - name: Test config syntax
+        run: |
+          # proxy_pass and fastcgi_pass name Docker Compose services, which
+          # nginx resolves at start-up. They are mapped to loopback so the
+          # check validates syntax rather than failing on DNS.
+          docker run --rm \
+            --add-host emulator:127.0.0.1 \
+            --add-host cms:127.0.0.1 \
+            --add-host imager:127.0.0.1 \
+            -v "$PWD/rendered/habnut.conf:/etc/nginx/conf.d/habnut.conf:ro" \
+            -v "$PWD/rendered/certs:/etc/letsencrypt/live/ci.habnut.test:ro" \
+            nginx:1.27-alpine nginx -t
+
+  # ── 13 · Docker Compose ───────────────────────────────────────────────────
+  docker-compose:
+    name: "13 · Docker Compose Validate"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate
+        run: docker compose -f source/infra/docker/docker-compose.yml config --quiet
+
+  # ── 14 · Release binaries ─────────────────────────────────────────────────
+  # Proves the shipping artefact still assembles: the emulator JAR, the client
+  # bundle and the CMS tree packed into one executable per platform.
+  release-binaries:
+    name: "14 · Release Binaries"
+    runs-on: ubuntu-24.04
+    needs: [emulator, client-build, cms-test, launcher]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v4
+      # Version comes from the packageManager field in package.json; passing
+      # it here as well makes the action fail with a conflict.
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: source/apps/launcher/go.sum
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, gd
+          coverage: none
+      - name: Install client dependencies
+        working-directory: source
+        run: pnpm install --frozen-lockfile
+      - name: Build release binaries
+        run: source/scripts/build-launcher.sh
+      - name: Verify the payload extracts
+        working-directory: source/apps/launcher
+        run: go test -tags bundled ./internal/payload/
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: habnutctl
+          path: bin/habnutctl-*
+          retention-days: 14

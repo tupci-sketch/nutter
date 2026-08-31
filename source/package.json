@@ -1,0 +1,28 @@
+{
+  "name": "habnut",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "dev": "turbo run dev",
+    "clean": "turbo run clean",
+    "placeholder-scan": "node tools/placeholder-scan/index.js",
+    "asset-validate": "node tools/asset-validator/index.js"
+  },
+  "devDependencies": {
+    "turbo": "^1.10.16",
+    "typescript": "^5.1.6",
+    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "@typescript-eslint/parser": "^6.7.4",
+    "eslint": "^8.51.0",
+    "prettier": "^3.0.3"
+  },
+  "packageManager": "pnpm@8.10.0"
+}
