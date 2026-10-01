@@ -187,6 +187,16 @@ public final class RoomHandler {
             return;
         }
 
+        // A room belongs to one world. Reaching one from the other — by an old
+        // link, or a room id guessed by hand — would put a hotel guest in the
+        // roleplay city with none of its rules applied to them.
+        String world = worldOf(session);
+        String roomWorld = room.getSettings().worldId();
+        if (roomWorld != null && !roomWorld.isBlank() && !roomWorld.equals(world)) {
+            sendError(session, ErrorCode.ROOM_NOT_FOUND, "That room is not in this world");
+            return;
+        }
+
         if (room.isBanned(userId)) {
             sendError(session, ErrorCode.ROOM_BANNED, "You are banned from this room");
             return;
@@ -441,7 +451,7 @@ public final class RoomHandler {
     private void handleNavSearch(WebSocketSession session, JsonNode payload) {
         if (!session.isAuthenticated()) return;
         String query = payload.path("query").asText("").trim();
-        List<Map<String, Object>> results = roomRepo.searchPublic(query, 40)
+        List<Map<String, Object>> results = roomRepo.searchPublic(query, worldOf(session), 40)
             .stream().map(this::toNavEntry).collect(Collectors.toList());
         session.send(router.buildPacket(PacketType.ROOM_NAV_SEARCH_RESULT,
             Map.of("query", query, "rooms", results)));
@@ -449,7 +459,7 @@ public final class RoomHandler {
 
     private void handleNavMyRooms(WebSocketSession session, JsonNode payload) {
         if (!session.isAuthenticated()) return;
-        List<Map<String, Object>> results = roomRepo.findByOwner(session.getUserId())
+        List<Map<String, Object>> results = roomRepo.findByOwner(session.getUserId(), worldOf(session))
             .stream().map(this::toNavEntry).collect(Collectors.toList());
         session.send(router.buildPacket(PacketType.ROOM_NAV_MY_ROOMS_RESULT,
             Map.of("rooms", results)));
@@ -457,10 +467,22 @@ public final class RoomHandler {
 
     private void handleNavPopular(WebSocketSession session, JsonNode payload) {
         if (!session.isAuthenticated()) return;
-        List<Map<String, Object>> results = roomRepo.getPopular(40)
+        List<Map<String, Object>> results = roomRepo.getPopular(worldOf(session), 40)
             .stream().map(this::toNavEntry).collect(Collectors.toList());
         session.send(router.buildPacket(PacketType.ROOM_NAV_POPULAR_RESULT,
             Map.of("rooms", results)));
+    }
+
+    /**
+     * Which world this session is in.
+     *
+     * Falls back to the hotel rather than to nothing: a session with no world
+     * recorded is a bug, and showing it an empty navigator would hide the bug
+     * while looking like a hotel with no rooms.
+     */
+    private static String worldOf(WebSocketSession session) {
+        String world = session.getWorldId();
+        return world != null && !world.isBlank() ? world : "classic";
     }
 
     private Map<String, Object> toNavEntry(RoomSettings r) {

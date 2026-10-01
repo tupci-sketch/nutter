@@ -64,9 +64,12 @@ behaviour the room engine knows about — something to sit on, something to stan
 on, a gate that opens, a lamp with three settings, dice, a teleport pad, a
 roller — and a catalogue with all of it in it, in six pages.
 
-**Only locally:** four accounts, four furnished rooms (a lobby, a grand hall,
-somebody's front room, a pool), friendships between the accounts, items in
-`tupci`'s inventory, and a thread on the forum.
+**Only locally:** four accounts, seven furnished rooms, friendships between the
+accounts, items in `tupci`'s inventory, and a thread on the forum. Four of the
+rooms are in the hotel (a lobby, a grand hall, somebody's front room, a pool)
+and three in the roleplay city (a city hall, a precinct, a pawn shop), because
+a room belongs to one world and the navigator only shows the world you are in
+— so `--rp` needs its own.
 
 The demo accounts all share one password and exist only on a hotel running on
 your own machine. `habnutctl install` never creates them.
@@ -159,6 +162,10 @@ Give them names and ports:
 habnutctl dev up --name classic --port 8088
 habnutctl dev up --name rp --port 8089 --rp
 ```
+
+Both come up seeded for their own world: the hotel's navigator and catalogue
+show the hotel's rooms and furniture, the city's show the city's, and a page
+or room marked for both appears in both.
 
 Each gets its own directory, its own database and its own Compose project, so
 neither adopts the other's containers.

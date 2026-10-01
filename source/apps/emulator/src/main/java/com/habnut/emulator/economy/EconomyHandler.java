@@ -71,7 +71,7 @@ public final class EconomyHandler {
     private void handleCatPages(WebSocketSession session, JsonNode payload) {
         if (!session.isAuthenticated()) return;
         int rank = rankForSession(session);
-        List<CatalogueService.CatPage> pages = catalogue.getPages(rank);
+        List<CatalogueService.CatPage> pages = catalogue.getPages(rank, worldOf(session));
         List<Map<String, Object>> mapped = pages.stream().map(p -> Map.<String, Object>of(
             "id", p.id(), "name", p.name(), "layout", p.layout()
         )).collect(Collectors.toList());
@@ -83,7 +83,7 @@ public final class EconomyHandler {
         long pageId = payload.path("pageId").asLong(-1);
         if (pageId < 1) return;
         int rank = rankForSession(session);
-        CatalogueService.CatPage page = catalogue.getPage(pageId, rank);
+        CatalogueService.CatPage page = catalogue.getPage(pageId, rank, worldOf(session));
         if (page == null) {
             sendError(session, ErrorCode.GENERIC_NOT_FOUND, "Page not found");
             return;
@@ -110,7 +110,7 @@ public final class EconomyHandler {
         if (itemId < 1) { sendError(session, ErrorCode.GENERIC_INVALID_PAYLOAD, "Invalid itemId"); return; }
 
         int rank = rankForSession(session);
-        CatalogueService.PurchaseResult result = catalogue.purchase(userId, itemId, rank);
+        CatalogueService.PurchaseResult result = catalogue.purchase(userId, itemId, rank, worldOf(session));
 
         if (!result.success()) {
             session.send(router.buildPacket(PacketType.CAT_PURCHASE_ERROR,
@@ -126,6 +126,17 @@ public final class EconomyHandler {
         metrics.incrementEconomyTransactions();
         log.info("Catalogue purchase: userId={} itemId={} invId={}",
             userId, itemId, result.inventoryItemId());
+    }
+
+    /**
+     * Which world this session is in, defaulting to the hotel.
+     *
+     * A session with no world recorded is a bug; showing it an empty catalogue
+     * would hide the bug behind what looks like a hotel that sells nothing.
+     */
+    private static String worldOf(WebSocketSession session) {
+        String world = session.getWorldId();
+        return world != null && !world.isBlank() ? world : "classic";
     }
 
     private int rankForSession(WebSocketSession session) {
