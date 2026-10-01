@@ -64,7 +64,6 @@ class UserModelTest extends TestCase
 
         Ban::factory()->create([
             'user_id' => $tupci->id,
-            'active' => true,
             'expires_at' => now()->addDays(7),
             'reason' => 'Test ban',
         ]);
@@ -79,7 +78,6 @@ class UserModelTest extends TestCase
 
         Ban::factory()->create([
             'user_id' => $tupci->id,
-            'active' => true,
             'expires_at' => now()->subMinutes(1),
             'reason' => 'Expired ban',
         ]);

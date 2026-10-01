@@ -11,7 +11,7 @@
         <td><a href="{{ route('dcc.users.show', $b->user->id) }}">{{ $b->user->username }}</a></td>
         <td class="text-muted">{{ $b->staff->username ?? '—' }}</td>
         <td>{{ \Illuminate\Support\Str::limit($b->reason, 50) }}</td>
-        <td>{{ $b->type }}</td>
+        <td>{{ $b->ban_type }}</td>
         <td class="text-muted">{{ $b->expires_at ? \Carbon\Carbon::parse($b->expires_at)->format('Y-m-d') : 'Never' }}</td>
         <td>
             <form method="POST" action="{{ route('dcc.moderation.bans.lift', $b->id) }}" style="display:inline;">

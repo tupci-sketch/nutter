@@ -46,6 +46,7 @@ func main() {
 		cmdImager(),
 		cmdDoctor(),
 		cmdMigrate(),
+		cmdDev(),
 		cmdVersion(),
 	)
 

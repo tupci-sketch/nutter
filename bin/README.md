@@ -8,7 +8,21 @@ The whole hotel, as one file per platform.
 | `habnutctl-windows-amd64.exe` | A Windows server, 64-bit |
 
 Each carries the emulator, the client bundle and the CMS inside it, so a fresh
-machine needs nothing installed beforehand:
+machine needs nothing installed beforehand.
+
+## On your own computer
+
+```bash
+chmod +x habnutctl-linux-amd64
+./habnutctl-linux-amd64 dev up
+```
+
+Brings the whole hotel up on `127.0.0.1`, seeded with rooms, furniture and four
+accounts, and prints where to find it. No root, no domain, no certificate.
+Docker is the only thing it needs that is not in the binary.
+`../source/docs/LOCAL.md` has the rest.
+
+## On a server
 
 ```bash
 chmod +x habnutctl-linux-amd64
@@ -21,6 +35,8 @@ hotel running. Afterwards the same binary is how you run it:
 
 | Command | Does |
 |---------|------|
+| `dev up` / `dev down` | A hotel on this computer, for looking at |
+| `dev status` / `dev logs` / `dev reset` / `dev seed` / `dev db` | Running it |
 | `install` | Set up a hotel on a fresh machine |
 | `update` | Update in place, rolling back on failure |
 | `start` / `stop` / `restart` / `status` | The services |

@@ -156,8 +156,7 @@ class HotelHandoffTest extends TestCase
         $user = $this->tupci();
         $user->bans()->create([
             'reason' => 'Being unpleasant in the lobby',
-            'staff_id' => $user->id,
-            'active' => true,
+            'banned_by_id' => $user->id,
             'expires_at' => null,
         ]);
 
@@ -197,8 +196,7 @@ class HotelHandoffTest extends TestCase
         $user = $this->tupci();
         $user->bans()->create([
             'reason' => 'Suspended',
-            'staff_id' => $user->id,
-            'active' => true,
+            'banned_by_id' => $user->id,
             'expires_at' => null,
         ]);
 

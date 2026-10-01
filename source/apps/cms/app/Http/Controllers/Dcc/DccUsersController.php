@@ -144,10 +144,9 @@ class DccUsersController extends Controller
 
         Ban::create([
             'user_id' => $id,
-            'staff_id' => $actor->id,
+            'banned_by_id' => $actor->id,
             'reason' => $request->reason,
-            'type' => $request->type,
-            'active' => true,
+            'ban_type' => $request->type === 'temporary' ? 'account' : $request->type,
             'expires_at' => $request->type === 'temporary' ? $request->expires_at : null,
         ]);
 
@@ -160,7 +159,8 @@ class DccUsersController extends Controller
     {
         $actor = $request->user();
 
-        Ban::where('user_id', $id)->where('active', true)->update(['active' => false]);
+        Ban::where('user_id', $id)->active()
+            ->update(['lifted_at' => now(), 'lifted_by_id' => $actor->id]);
 
         $this->audit->log($actor->id, 'unban', 'user', $id, []);
 

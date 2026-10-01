@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/habnut/launcher/internal/payload"
+	"github.com/habnut/launcher/internal/seed"
 	"github.com/habnut/launcher/internal/state"
 )
 
@@ -205,12 +207,63 @@ func stepCmsKey(cfg *Config) error {
 	return run(phpBin(), filepath.Join(cfg.cmsDir(), "artisan"), "key:generate", "--force")
 }
 
+// stepSeedData puts the content a hotel needs into the database.
+//
+// A freshly migrated hotel has no room shapes, no furniture and an empty
+// catalogue, so no room can be created, nothing can be put down and there is
+// nothing to buy. This used to call a Laravel seeder named InitialSeeder,
+// which does not exist and never has, so every install finished with an empty
+// hotel.
+//
+// The seed is applied through the database client rather than through Laravel
+// because the content belongs to the hotel, not to the website, and the hotel
+// has no PHP in it.
 func stepSeedData(cfg *Config) error {
-	artisan := filepath.Join(cfg.cmsDir(), "artisan")
-	if err := run(phpBin(), artisan, "db:seed", "--force", "--class=InitialSeeder"); err != nil {
+	if err := applySeed(cfg, "base", seed.Base()); err != nil {
 		return err
 	}
-	return run(phpBin(), artisan, "config:cache")
+	return run(phpBin(), filepath.Join(cfg.cmsDir(), "artisan"), "config:cache")
+}
+
+// applySeed feeds one seed file to the database.
+//
+// Each statement is sent separately so a failure names the statement that
+// failed rather than the whole file.
+func applySeed(cfg *Config, name, sql string) error {
+	statements := seed.Statements(sql)
+	if len(statements) == 0 {
+		return fmt.Errorf("the %s seed is empty", name)
+	}
+
+	for i, statement := range statements {
+		cmd := exec.Command(mysqlBin(),
+			"-h", cfg.DbHost, "-u", cfg.DbUser, "-p"+cfg.DbPass, cfg.DbName)
+		cmd.Stdin = strings.NewReader(statement)
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("%s seed, statement %d of %d: %w\n%s",
+				name, i+1, len(statements), err, firstLine(statement))
+		}
+	}
+	return nil
+}
+
+// firstLine is enough of a statement to recognise it in an error.
+func firstLine(statement string) string {
+	if idx := strings.IndexByte(statement, '\n'); idx > 0 {
+		return statement[:idx] + " ..."
+	}
+	return statement
+}
+
+// mysqlBin is the client to pipe SQL through. MariaDB renamed it; both names
+// are around, so try the current one first and fall back.
+func mysqlBin() string {
+	if have("mariadb") {
+		return "mariadb"
+	}
+	return "mysql"
 }
 
 func stepHealthCheck(_ *Config) error {

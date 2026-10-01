@@ -174,10 +174,6 @@ class User extends Authenticatable
 
     public function activeBan(): ?Ban
     {
-        return $this->bans()
-            ->where('active', true)
-            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
-            ->latest()
-            ->first();
+        return $this->bans()->active()->latest('created_at')->first();
     }
 }

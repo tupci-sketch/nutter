@@ -76,7 +76,15 @@ printf '  emulator : %s\n' "$(du -h "$DATA/habnut-emulator.jar" | cut -f1)"
 printf '  client   : %s\n' "$(du -h "$DATA/client.tar.gz"       | cut -f1)"
 printf '  cms      : %s\n' "$(du -h "$DATA/cms.tar.gz"          | cut -f1)"
 
-# ── 5. cross-compile ────────────────────────────────────────────────────────
+# ── 5. check the payload is really in there ─────────────────────────────────
+say "Verifying the embedded payload"
+# Compiled with the same tag the releases use, so this tests the archives that
+# are about to ship rather than the ones in the source tree. It unpacks each
+# component and checks it is what it claims to be: an empty or truncated embed
+# otherwise only fails when somebody tries to start the hotel.
+( cd "$ROOT/apps/launcher" && go test -tags bundled ./internal/payload/ )
+
+# ── 6. cross-compile ────────────────────────────────────────────────────────
 mkdir -p "$DIST"
 LDFLAGS="-s -w -X main.version=$VERSION"
 

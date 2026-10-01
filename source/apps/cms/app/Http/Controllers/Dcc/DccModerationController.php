@@ -15,7 +15,7 @@ class DccModerationController extends Controller
     public function index()
     {
         $openReports = DB::table('habnut_reports')->where('status', 'open')->count();
-        $activeBans = Ban::where('active', true)->count();
+        $activeBans = Ban::active()->count();
         $openAppeals = DB::table('habnut_ban_appeals')->where('status', 'pending')->count();
 
         return view('dcc.moderation.index', compact('openReports', 'activeBans', 'openAppeals'));
@@ -79,7 +79,7 @@ class DccModerationController extends Controller
 
     public function bans(Request $request)
     {
-        $query = Ban::with(['user', 'staff'])->where('active', true);
+        $query = Ban::with(['user', 'staff'])->active();
 
         if ($request->filled('q')) {
             $query->whereHas('user', fn ($q) => $q->where('username', 'like', '%'.$request->q.'%'));
@@ -92,7 +92,7 @@ class DccModerationController extends Controller
 
     public function liftBan(Request $request, int $id)
     {
-        Ban::where('id', $id)->update(['active' => false]);
+        Ban::findOrFail($id)->lift($request->user()->id);
         $this->audit->log($request->user()->id, 'ban_lift', 'ban', $id, []);
 
         return back()->with('success', 'Ban lifted.');
@@ -115,7 +115,8 @@ class DccModerationController extends Controller
     public function acceptAppeal(Request $request, int $id)
     {
         $appeal = DB::table('habnut_ban_appeals')->where('id', $id)->firstOrFail();
-        DB::table('habnut_bans')->where('id', $appeal->ban_id)->update(['active' => false]);
+        Ban::where('id', $appeal->ban_id)
+            ->update(['lifted_at' => now(), 'lifted_by_id' => $request->user()->id]);
         DB::table('habnut_ban_appeals')->where('id', $id)->update(['status' => 'accepted', 'resolved_at' => now(), 'resolver_id' => $request->user()->id]);
         $this->audit->log($request->user()->id, 'appeal_accept', 'appeal', $id, []);
 

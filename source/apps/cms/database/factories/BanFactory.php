@@ -14,10 +14,11 @@ class BanFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
+            'banned_by_id' => null,
             'reason' => fake()->sentence(),
-            'banned_by_username' => 'admin',
-            'active' => true,
+            'ban_type' => 'account',
             'expires_at' => now()->addDays(7),
+            'lifted_at' => null,
         ];
     }
 
@@ -29,5 +30,11 @@ class BanFactory extends Factory
     public function expired(): static
     {
         return $this->state(['expires_at' => now()->subDay()]);
+    }
+
+    /** A ban a moderator has since lifted. */
+    public function lifted(): static
+    {
+        return $this->state(['lifted_at' => now()->subHour()]);
     }
 }

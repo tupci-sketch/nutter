@@ -85,8 +85,8 @@
                 @foreach($bans->take(5) as $b)
                 <tr>
                     <td>{{ $b->reason }}</td>
-                    <td>{{ $b->type }}</td>
-                    <td><span class="badge {{ $b->active ? 'badge-red' : 'badge-green' }}">{{ $b->active ? 'Yes' : 'No' }}</span></td>
+                    <td>{{ $b->ban_type }}</td>
+                    <td><span class="badge {{ $b->isActive() ? 'badge-red' : 'badge-green' }}">{{ $b->isActive() ? 'Yes' : 'No' }}</span></td>
                     <td>{{ \Carbon\Carbon::parse($b->created_at)->format('Y-m-d') }}</td>
                 </tr>
                 @endforeach

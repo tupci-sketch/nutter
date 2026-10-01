@@ -71,7 +71,6 @@ class AuthTest extends TestCase
 
         Ban::factory()->create([
             'user_id' => $tupci->id,
-            'active' => true,
             'expires_at' => now()->addDays(30),
             'reason' => 'Testing ban enforcement',
         ]);
