@@ -167,6 +167,11 @@ Both come up seeded for their own world: the hotel's navigator and catalogue
 show the hotel's rooms and furniture, the city's show the city's, and a page
 or room marked for both appears in both.
 
+`--rp` sets the world on both halves — the hotel runs as the city and the site
+issues tickets for it — because the world travels on the handover ticket, so
+setting it on only one would run the city and send everybody to the hotel. A
+player can still ask for the other by name: `/hotel?world=classic`.
+
 Each gets its own directory, its own database and its own Compose project, so
 neither adopts the other's containers.
 
