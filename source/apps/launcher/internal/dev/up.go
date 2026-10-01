@@ -52,6 +52,7 @@ func Steps() []Step {
 		{"Fill the hotel with people", stepSeedDemo},
 		{"Start the hotel and the website", stepStartApps},
 		{"Wait for the hotel to answer", stepWaitReady},
+		{"Check the hotel is really there", stepVerifyHotel},
 	}
 }
 
@@ -254,4 +255,28 @@ func stepWaitReady(ctx context.Context, s *Session) error {
 		return err
 	}
 	return waitForHTTP(ctx, s.Env.URL(), 2*time.Minute)
+}
+
+// stepVerifyHotel makes sure the game server is actually answering.
+//
+// The website and the hotel are separate programs, and the website comes up
+// perfectly well without one. Reporting success at that point would hand
+// somebody a site that looks right, a Play button that opens a client, and a
+// client that can never connect — with nothing to say which of the two was
+// wrong.
+//
+// The check goes through the web server rather than straight at the hotel,
+// because that is the path the game client takes: it proves the hotel is up
+// *and* that the proxy in front of it is pointed at the right place.
+func stepVerifyHotel(ctx context.Context, s *Session) error {
+	if err := s.Docker.WaitHealthy(ctx, "emulator", 2*time.Minute); err != nil {
+		return fmt.Errorf("the hotel did not come up: %w", err)
+	}
+
+	health := s.Env.URL() + "/emulator/health"
+	if err := waitForHTTP(ctx, health, time.Minute); err != nil {
+		return fmt.Errorf("the hotel is running but the website cannot reach it: %w\n"+
+			"Run `habnutctl dev logs emulator` to see what it is doing", err)
+	}
+	return nil
 }
