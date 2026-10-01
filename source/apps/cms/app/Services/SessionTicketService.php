@@ -85,12 +85,31 @@ class SessionTicketService
         return max(30, (int) config('habnut.ticket_ttl_minutes', 5) * 60);
     }
 
-    /** An unknown world name falls back to the hotel rather than failing. */
+    /**
+     * An unknown or absent world falls back to this hotel's own, not failing.
+     *
+     * Which world that is comes from configuration, because a stack running the
+     * roleplay city has to issue tickets for the city: the world travels on the
+     * ticket, so a hard-coded fallback here would run the city and put everybody
+     * in the hotel.
+     */
     public function normaliseWorld(?string $world): string
     {
         $world = strtolower(trim((string) $world));
 
-        return in_array($world, self::WORLDS, true) ? $world : self::WORLDS[0];
+        if (in_array($world, self::WORLDS, true)) {
+            return $world;
+        }
+
+        return $this->defaultWorld();
+    }
+
+    /** The world this hotel puts a player in when they do not ask. */
+    public function defaultWorld(): string
+    {
+        $configured = strtolower(trim((string) config('habnut.default_world', 'classic')));
+
+        return in_array($configured, self::WORLDS, true) ? $configured : self::WORLDS[0];
     }
 
     /**

@@ -140,6 +140,59 @@ class HotelHandoffTest extends TestCase
         $this->assertSame("{$user->id}:nutropolis", $captured);
     }
 
+    /**
+     * A stack running the roleplay city issues tickets for the city.
+     *
+     * The world travels on the ticket, so this is the only thing that decides
+     * which world a player lands in. A hard-coded fallback would have run the
+     * city and sent everybody to the hotel — which is exactly what
+     * `habnutctl dev up --rp` did before this.
+     *
+     * @test
+     */
+    public function a_roleplay_hotel_sends_players_to_the_roleplay_world(): void
+    {
+        config(['habnut.default_world' => 'nutropolis']);
+        $tickets = app(SessionTicketService::class);
+
+        $this->assertSame('nutropolis', $tickets->defaultWorld());
+        $this->assertSame('nutropolis', $tickets->normaliseWorld(null));
+        $this->assertSame('nutropolis', $tickets->normaliseWorld('something-else'));
+
+        // Somebody who asks for the hotel by name still gets the hotel.
+        $this->assertSame('classic', $tickets->normaliseWorld('classic'));
+    }
+
+    /** @test */
+    public function an_unknown_configured_world_falls_back_to_the_hotel(): void
+    {
+        config(['habnut.default_world' => 'atlantis']);
+
+        $this->assertSame('classic', app(SessionTicketService::class)->defaultWorld());
+    }
+
+    /** @test */
+    public function clicking_play_on_a_roleplay_hotel_writes_a_roleplay_ticket(): void
+    {
+        config(['habnut.default_world' => 'nutropolis']);
+        $user = $this->tupci();
+
+        $captured = null;
+        Redis::shouldReceive('setex')
+            ->once()
+            ->andReturnUsing(function ($key, $ttl, $value) use (&$captured) {
+                $captured = $value;
+
+                return true;
+            });
+
+        $response = $this->actingAs($user)->get('/hotel');
+
+        $response->assertRedirect();
+        $this->assertStringContainsString('world=nutropolis', $response->headers->get('Location'));
+        $this->assertSame("{$user->id}:nutropolis", $captured);
+    }
+
     /** @test */
     public function a_signed_out_visitor_is_asked_to_make_an_account_rather_than_given_a_ticket(): void
     {

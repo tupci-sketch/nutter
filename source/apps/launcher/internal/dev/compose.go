@@ -259,6 +259,11 @@ EMULATOR_PORT={{.APIPort}}
 # The game client is served from this same host, under /client/.
 CLIENT_URL=/client/
 
+# Which world this hotel puts a player in. The world travels on the handover
+# ticket, so this is what --rp changes: without it the stack would run the
+# roleplay city and the site would still send everybody to the hotel.
+HABNUT_WORLD={{.WorldID}}
+
 # No imager runs in a local stack, and there is no asset pack for one to draw
 # from, so this is left empty and the site shows a monogram instead of asking
 # for pictures nothing is serving. Install a pack with 'habnutctl swf install',

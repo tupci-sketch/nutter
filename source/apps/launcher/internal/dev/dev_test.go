@@ -418,3 +418,53 @@ func serviceBlock(compose, service string) string {
 	}
 	return strings.Join(out, "\n")
 }
+
+func TestRunningTheCityActuallyPutsYouInTheCity(t *testing.T) {
+	env := New(t.TempDir(), "test")
+	env.RP = true
+	if err := env.Create(); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := env.WriteStack("base64:test", true); err != nil {
+		t.Fatalf("WriteStack: %v", err)
+	}
+
+	settings, err := os.ReadFile(filepath.Join(env.CMSDir(), ".env"))
+	if err != nil {
+		t.Fatalf("reading the website settings: %v", err)
+	}
+
+	// The world travels on the handover ticket, so the website is what decides
+	// which world a player lands in. Without this, --rp ran the city and the
+	// site still sent everybody to the hotel.
+	if !strings.Contains(string(settings), "HABNUT_WORLD=nutropolis") {
+		t.Error("--rp did not tell the website to issue roleplay tickets, so players " +
+			"would land in the hotel")
+	}
+
+	compose, err := os.ReadFile(env.ComposeFile())
+	if err != nil {
+		t.Fatalf("reading the compose file: %v", err)
+	}
+	if !strings.Contains(string(compose), `WORLD_ID: "nutropolis"`) {
+		t.Error("--rp did not configure the hotel as the roleplay world")
+	}
+}
+
+func TestTheDefaultHotelIsTheHotel(t *testing.T) {
+	env := New(t.TempDir(), "test")
+	if err := env.Create(); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := env.WriteStack("base64:test", true); err != nil {
+		t.Fatalf("WriteStack: %v", err)
+	}
+
+	settings, err := os.ReadFile(filepath.Join(env.CMSDir(), ".env"))
+	if err != nil {
+		t.Fatalf("reading the website settings: %v", err)
+	}
+	if !strings.Contains(string(settings), "HABNUT_WORLD=classic") {
+		t.Error("a hotel started without --rp should be the hotel")
+	}
+}
