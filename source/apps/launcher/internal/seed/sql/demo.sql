@@ -128,6 +128,37 @@ FROM habnut_users u
 WHERE u.username = 'tupci'
   AND NOT EXISTS (SELECT 1 FROM habnut_rooms WHERE name = 'The Pool');
 
+-- The roleplay city has its own rooms. A room belongs to one world and the
+-- navigator only shows the world you are in, so without these `dev up --rp`
+-- comes up in a city with nowhere to go.
+
+INSERT INTO habnut_rooms
+  (name, description, owner_id, model_id, category_id, world_id, access_type,
+   max_visitors, is_promoted, wallpaper, floor_pattern, landscape_colour)
+SELECT 'Nutropolis City Hall', 'Where the paperwork happens.', u.id, 'model_lobby', 1, 'nutropolis', 0,
+       50, 1, '108', '208', '1.2'
+FROM habnut_users u
+WHERE u.username = 'tupci'
+  AND NOT EXISTS (SELECT 1 FROM habnut_rooms WHERE name = 'Nutropolis City Hall');
+
+INSERT INTO habnut_rooms
+  (name, description, owner_id, model_id, category_id, world_id, access_type,
+   max_visitors, is_promoted, wallpaper, floor_pattern, landscape_colour)
+SELECT 'Downtown Precinct', 'Cells at the back.', u.id, 'model_hall', 1, 'nutropolis', 0,
+       40, 1, '101', '201', '1.1'
+FROM habnut_users u
+WHERE u.username = 'tupci'
+  AND NOT EXISTS (SELECT 1 FROM habnut_rooms WHERE name = 'Downtown Precinct');
+
+INSERT INTO habnut_rooms
+  (name, description, owner_id, model_id, category_id, world_id, access_type,
+   max_visitors, is_promoted, wallpaper, floor_pattern, landscape_colour)
+SELECT 'The Pawn Shop', 'Cash for most things.', u.id, 'model_a', 1, 'nutropolis', 0,
+       25, 1, '304', '105', '1.3'
+FROM habnut_users u
+WHERE u.username = 'Marnie'
+  AND NOT EXISTS (SELECT 1 FROM habnut_rooms WHERE name = 'The Pawn Shop');
+
 -- ─── Furniture, already standing in the rooms ───────────────────────────────
 --
 -- One statement per piece, naming the room and the tile. Longer than a staging
@@ -334,6 +365,86 @@ JOIN habnut_items_base b ON b.sprite_id = 'roller_blue'
 WHERE r.name = 'The Pool'
   AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
                   WHERE existing.room_id = r.id AND existing.x = 1 AND existing.y = 7);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 7, 4, 0, 2, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'table_wood'
+WHERE r.name = 'Nutropolis City Hall'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 7 AND existing.y = 4);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 6, 4, 0, 4, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'chair_basic'
+WHERE r.name = 'Nutropolis City Hall'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 6 AND existing.y = 4);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 8, 4, 0, 4, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'chair_basic'
+WHERE r.name = 'Nutropolis City Hall'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 8 AND existing.y = 4);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 3, 2, 0, 2, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'plant_fern'
+WHERE r.name = 'Nutropolis City Hall'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 3 AND existing.y = 2);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 4, 3, 0, 2, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'table_small'
+WHERE r.name = 'Downtown Precinct'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 4 AND existing.y = 3);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 4, 2, 0, 4, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'chair_plasto'
+WHERE r.name = 'Downtown Precinct'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 4 AND existing.y = 2);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 11, 5, 0, 2, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'gate_wood'
+WHERE r.name = 'Downtown Precinct'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 11 AND existing.y = 5);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 3, 3, 0, 2, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'table_wood'
+WHERE r.name = 'The Pawn Shop'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 3 AND existing.y = 3);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 2, 2, 0, 2, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'lamp_standing'
+WHERE r.name = 'The Pawn Shop'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 2 AND existing.y = 2);
+
+INSERT INTO habnut_floor_items (base_id, room_id, owner_id, x, y, z, rotation, state)
+SELECT b.id, r.id, r.owner_id, 5, 5, 0, 4, 0
+FROM habnut_rooms r
+JOIN habnut_items_base b ON b.sprite_id = 'sofa_red'
+WHERE r.name = 'The Pawn Shop'
+  AND NOT EXISTS (SELECT 1 FROM habnut_floor_items existing
+                  WHERE existing.room_id = r.id AND existing.x = 5 AND existing.y = 5);
 
 -- A poster for the lobby wall, so wall items are visible too.
 INSERT INTO habnut_wall_items

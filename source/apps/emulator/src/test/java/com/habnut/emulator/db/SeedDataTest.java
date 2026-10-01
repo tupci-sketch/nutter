@@ -266,6 +266,44 @@ class SeedDataTest {
     }
 
     @Test
+    @DisplayName("both worlds have somewhere to go")
+    void bothWorldsHaveRooms() throws Exception {
+        apply("base.sql");
+        apply("demo.sql");
+
+        // A room belongs to one world and the navigator only shows the world
+        // the player is in, so a city with no rooms of its own is a city with
+        // nowhere to go — which is what `dev up --rp` used to come up as.
+        for (String world : List.of("classic", "nutropolis")) {
+            try (Statement st = conn.createStatement();
+                 ResultSet rs = st.executeQuery(
+                     "SELECT COUNT(*) FROM habnut_rooms WHERE world_id = '" + world + "'")) {
+                rs.next();
+                assertTrue(rs.getInt(1) >= 3,
+                    world + " has fewer than three rooms, so the navigator looks broken there");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("every room in either world has furniture in it")
+    void everyWorldsRoomsAreFurnished() throws Exception {
+        apply("base.sql");
+        apply("demo.sql");
+
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                 "SELECT r.name FROM habnut_rooms r " +
+                 "LEFT JOIN habnut_floor_items f ON f.room_id = r.id " +
+                 "GROUP BY r.id, r.name HAVING COUNT(f.id) = 0")) {
+            List<String> empty = new ArrayList<>();
+            while (rs.next()) empty.add(rs.getString("name"));
+            assertTrue(empty.isEmpty(),
+                "these demo rooms have nothing in them: " + String.join(", ", empty));
+        }
+    }
+
+    @Test
     @DisplayName("the demo world gives you friends, inventory and a forum post")
     void demoGivesTheRest() throws Exception {
         apply("base.sql");

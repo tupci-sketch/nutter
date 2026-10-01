@@ -12,6 +12,9 @@ public record RoomSettings(
     // plain the next time anyone walked in.
     String wallpaper,
     String floorPattern,
+    // Which world this room is in. Set since the first migration and read by
+    // nothing, so the hotel and the roleplay city listed each other's rooms.
+    String worldId,
     int accessType,        // 0=open 1=doorbell 2=password 3=invisible
     String passwordHash,
     int maxVisitors,

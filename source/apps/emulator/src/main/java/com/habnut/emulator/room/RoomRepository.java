@@ -22,7 +22,8 @@ public final class RoomRepository {
 
     private static final String SELECT =
         "SELECT r.id, r.owner_id, u.username AS owner_name, r.name, r.description, " +
-        "r.model_id, r.wallpaper, r.floor_pattern, r.access_type, r.password_hash, r.max_visitors, " +
+        "r.model_id, r.wallpaper, r.floor_pattern, r.world_id, " +
+        "r.access_type, r.password_hash, r.max_visitors, " +
         "r.allow_pets, r.allow_pets_eat, r.allow_walkthrough, r.hide_walls, " +
         "r.wall_height, r.floor_thickness, r.wall_thickness, " +
         "r.background_colour, r.landscape_colour, r.score, r.is_promoted, r.category " +
@@ -39,40 +40,52 @@ public final class RoomRepository {
         }
     }
 
-    public List<RoomSettings> findByOwner(long ownerId) {
+    /**
+     * The rooms a player owns in the world they are in.
+     *
+     * Every one of these queries takes a world. The column was on the table
+     * and populated from the start, and nothing read it: a player in the hotel
+     * saw the roleplay city's rooms in their navigator and could walk into
+     * them, which made the two worlds one world wearing two names.
+     */
+    public List<RoomSettings> findByOwner(long ownerId, String worldId) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 SELECT + "WHERE r.owner_id = ? ORDER BY r.name")) {
+                 SELECT + "WHERE r.owner_id = ? AND r.world_id = ? ORDER BY r.name")) {
             ps.setLong(1, ownerId);
+            ps.setString(2, worldId);
             return queryList(ps);
         } catch (SQLException e) {
-            log.error("findByOwner failed for user {}", ownerId, e);
+            log.error("findByOwner failed for user {} in {}", ownerId, worldId, e);
             return List.of();
         }
     }
 
-    public List<RoomSettings> searchPublic(String query, int limit) {
+    public List<RoomSettings> searchPublic(String query, String worldId, int limit) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 SELECT + "WHERE r.access_type < 3 AND r.name LIKE ? " +
+                 SELECT + "WHERE r.access_type < 3 AND r.world_id = ? AND r.name LIKE ? " +
                  "ORDER BY r.score DESC LIMIT ?")) {
-            ps.setString(1, "%" + query + "%");
+            ps.setString(1, worldId);
+            ps.setString(2, "%" + query + "%");
+            ps.setInt(3, limit);
+            return queryList(ps);
+        } catch (SQLException e) {
+            log.error("searchPublic failed for query '{}' in {}", query, worldId, e);
+            return List.of();
+        }
+    }
+
+    public List<RoomSettings> getPopular(String worldId, int limit) {
+        try (Connection conn = db.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 SELECT + "WHERE r.access_type < 3 AND r.world_id = ? " +
+                 "ORDER BY r.score DESC LIMIT ?")) {
+            ps.setString(1, worldId);
             ps.setInt(2, limit);
             return queryList(ps);
         } catch (SQLException e) {
-            log.error("searchPublic failed for query '{}'", query, e);
-            return List.of();
-        }
-    }
-
-    public List<RoomSettings> getPopular(int limit) {
-        try (Connection conn = db.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                 SELECT + "WHERE r.access_type < 3 ORDER BY r.score DESC LIMIT ?")) {
-            ps.setInt(1, limit);
-            return queryList(ps);
-        } catch (SQLException e) {
-            log.error("getPopular failed", e);
+            log.error("getPopular failed for {}", worldId, e);
             return List.of();
         }
     }
@@ -169,6 +182,7 @@ public final class RoomRepository {
             rs.getString("model_id"),
             rs.getString("wallpaper"),
             rs.getString("floor_pattern"),
+            rs.getString("world_id"),
             rs.getInt("access_type"),
             rs.getString("password_hash"),
             rs.getInt("max_visitors"),

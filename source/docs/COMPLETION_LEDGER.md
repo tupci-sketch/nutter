@@ -13,7 +13,7 @@ Verified green:
 
 | Check | Result |
 |-------|--------|
-| Emulator unit tests | 205 passing |
+| Emulator unit tests | 214 passing |
 | Wired 2.0 conformance | 254 passing, the Chapter 59.1 gate met |
 | Wired 2.0 registry | 21 triggers · 56 actions · 37 conditions · 22 selectors |
 | Client tests | 120 passing; typecheck and lint clean |
@@ -47,6 +47,7 @@ reach measures as complete.
 | A fresh hotel came up with no room shapes, no furniture and an empty catalogue | The install step called a Laravel seeder that does not exist, and the installer had no tests. |
 | The website had no `public/index.php`, so every page would 404 behind a web server | The test suite boots the application directly rather than through a front controller. |
 | A ban applied on the website was invisible to the hotel, which checks a different table | Both halves' tests passed against their own table. |
+| The hotel and the roleplay city were one world wearing two names: `world_id` was on the rooms, the categories and the catalogue pages from the first migration and every service ignored it, so each world listed the other's rooms and sold the other's furniture | Nothing asked what a listing was supposed to contain, only that it returned rows. |
 
 Each now has a test that fails the build rather than emptying the hotel.
 

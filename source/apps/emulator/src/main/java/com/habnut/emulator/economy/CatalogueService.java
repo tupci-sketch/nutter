@@ -31,13 +31,23 @@ public final class CatalogueService {
         this.inventory    = inventory;
     }
 
-    public List<CatPage> getPages(int minRank) {
+    /**
+     * The catalogue, as one world sees it.
+     *
+     * A page belongs to the hotel, to the roleplay city, or to both. The
+     * column said so from the first migration and nothing read it, so a hotel
+     * guest was offered the city's furniture and a citizen the hotel's — and
+     * could buy either.
+     */
+    public List<CatPage> getPages(int minRank, String worldId) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT id, name, layout, min_rank, visible " +
                  "FROM habnut_catalogue_pages WHERE visible = 1 AND min_rank <= ? " +
+                 "AND (world_id = ? OR world_id = 'both') " +
                  "ORDER BY min_rank, name")) {
             ps.setInt(1, minRank);
+            ps.setString(2, worldId);
             List<CatPage> pages = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -54,13 +64,13 @@ public final class CatalogueService {
         }
     }
 
-    public CatPage getPage(long pageId, int minRank) {
+    public CatPage getPage(long pageId, int minRank, String worldId) {
         try (Connection conn = db.getConnection()) {
             CatPage page;
             try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT id, name, layout, min_rank, visible FROM habnut_catalogue_pages " +
-                "WHERE id = ? AND min_rank <= ?")) {
-                ps.setLong(1, pageId); ps.setInt(2, minRank);
+                "WHERE id = ? AND min_rank <= ? AND (world_id = ? OR world_id = 'both')")) {
+                ps.setLong(1, pageId); ps.setInt(2, minRank); ps.setString(3, worldId);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) return null;
                     page = new CatPage(rs.getLong("id"), rs.getString("name"),
@@ -96,12 +106,16 @@ public final class CatalogueService {
     public record PurchaseResult(boolean success, String error, long inventoryItemId,
                                  long newCredits, long newDiamonds) {}
 
-    public PurchaseResult purchase(long userId, long catalogueItemId, int userRank) {
+    public PurchaseResult purchase(long userId, long catalogueItemId, int userRank,
+                                   String worldId) {
         try (Connection conn = db.getConnection()) {
             CatItem item = findItem(conn, catalogueItemId);
             if (item == null) return fail("Item not found");
 
-            CatPage page = findPageForItem(conn, item.pageId());
+            // Checked here as well as when the page is listed: an item id is
+            // just a number, and a page you cannot see is a page you cannot
+            // buy from however you came by one.
+            CatPage page = findPageForItem(conn, item.pageId(), worldId);
             if (page == null || page.minRank() > userRank) return fail("Access denied");
 
             if (item.limitedTotal() > 0) {
@@ -153,10 +167,13 @@ public final class CatalogueService {
         }
     }
 
-    private CatPage findPageForItem(Connection conn, long pageId) throws SQLException {
+    private CatPage findPageForItem(Connection conn, long pageId, String worldId)
+            throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-            "SELECT id, name, layout, min_rank, visible FROM habnut_catalogue_pages WHERE id = ?")) {
+            "SELECT id, name, layout, min_rank, visible FROM habnut_catalogue_pages " +
+            "WHERE id = ? AND (world_id = ? OR world_id = 'both')")) {
             ps.setLong(1, pageId);
+            ps.setString(2, worldId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;
                 return new CatPage(rs.getLong("id"), rs.getString("name"),
