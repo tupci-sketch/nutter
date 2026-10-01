@@ -106,16 +106,17 @@ func DefaultRoot() (string, error) {
 
 // Paths inside the hotel's directory.
 
-func (e *Env) ComposeFile() string { return filepath.Join(e.Root, "docker-compose.yml") }
-func (e *Env) EnvFile() string     { return filepath.Join(e.Root, ".env") }
-func (e *Env) EmulatorJar() string { return filepath.Join(e.Root, "emulator", "habnut-emulator.jar") }
-func (e *Env) CMSDir() string      { return filepath.Join(e.Root, "cms") }
-func (e *Env) ClientDir() string   { return filepath.Join(e.Root, "client") }
-func (e *Env) AssetsDir() string   { return filepath.Join(e.Root, "assets") }
-func (e *Env) NginxConf() string   { return filepath.Join(e.Root, "nginx.conf") }
-func (e *Env) StateFile() string   { return filepath.Join(e.Root, "state.json") }
-func (e *Env) SeedDir() string     { return filepath.Join(e.Root, "seed") }
-func (e *Env) LogDir() string      { return filepath.Join(e.Root, "logs") }
+func (e *Env) ComposeFile() string   { return filepath.Join(e.Root, "docker-compose.yml") }
+func (e *Env) EnvFile() string       { return filepath.Join(e.Root, ".env") }
+func (e *Env) EmulatorJar() string   { return filepath.Join(e.Root, "emulator", "habnut-emulator.jar") }
+func (e *Env) CMSDir() string        { return filepath.Join(e.Root, "cms") }
+func (e *Env) ClientDir() string     { return filepath.Join(e.Root, "client") }
+func (e *Env) AssetsDir() string     { return filepath.Join(e.Root, "assets") }
+func (e *Env) NginxConf() string     { return filepath.Join(e.Root, "nginx.conf") }
+func (e *Env) CMSDockerfile() string { return filepath.Join(e.Root, "Dockerfile.cms") }
+func (e *Env) StateFile() string     { return filepath.Join(e.Root, "state.json") }
+func (e *Env) SeedDir() string       { return filepath.Join(e.Root, "seed") }
+func (e *Env) LogDir() string        { return filepath.Join(e.Root, "logs") }
 
 // URL is where to point a browser once the hotel is up.
 func (e *Env) URL() string {

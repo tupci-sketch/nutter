@@ -220,3 +220,107 @@ func TestTheHotelIsReachableAtThePortItWasGiven(t *testing.T) {
 		t.Errorf("URL() = %q, want %q", got, want)
 	}
 }
+
+func TestTheWebsitesImageCarriesWhatTheWebsiteNeeds(t *testing.T) {
+	env := New(t.TempDir(), "test")
+	if err := env.Create(); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := env.WriteStack("base64:test", true); err != nil {
+		t.Fatalf("WriteStack: %v", err)
+	}
+
+	body, err := os.ReadFile(env.CMSDockerfile())
+	if err != nil {
+		t.Fatalf("the website has no Dockerfile: %v", err)
+	}
+	dockerfile := string(body)
+
+	// pdo_mysql is how the website reaches the database and is not in the
+	// official images; bcmath and pcntl are declared requirements of packages
+	// it ships with. Compiling any of them needs the build tools those images
+	// drop, so they are installed and removed in the same layer.
+	for _, want := range []string{
+		"pdo_mysql", "bcmath", "pcntl",
+		"$PHPIZE_DEPS", // without this the extensions cannot be compiled
+		"apk del .build-deps",
+	} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("the website's Dockerfile is missing %q", want)
+		}
+	}
+
+	if !strings.Contains(dockerfile, "display_errors=On") {
+		t.Error("a local hotel should show its errors; that is the point of running one")
+	}
+}
+
+func TestNothingInstallsAnExtensionAtContainerStart(t *testing.T) {
+	env := New(t.TempDir(), "test")
+	if err := env.Create(); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := env.WriteStack("base64:test", true); err != nil {
+		t.Fatalf("WriteStack: %v", err)
+	}
+
+	body, err := os.ReadFile(filepath.Join(env.CMSDir(), "dev-entrypoint.sh"))
+	if err != nil {
+		t.Fatalf("reading the entrypoint: %v", err)
+	}
+
+	// Compiling an extension on every container start needs a compiler
+	// installed every time, which is slow and fails outright with no network.
+	// It belongs in the image.
+	if strings.Contains(string(body), "docker-php-ext-install") {
+		t.Error("the entrypoint compiles a PHP extension; that belongs in the Dockerfile")
+	}
+}
+
+func TestEveryServiceEitherPullsOrBuilds(t *testing.T) {
+	env := New(t.TempDir(), "test")
+	if err := env.Create(); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := env.WriteStack("base64:test", true); err != nil {
+		t.Fatalf("WriteStack: %v", err)
+	}
+
+	body, err := os.ReadFile(env.ComposeFile())
+	if err != nil {
+		t.Fatalf("reading the compose file: %v", err)
+	}
+
+	// A service with neither cannot start, and compose reports it in a way
+	// that does not name the service.
+	var current string
+	services := map[string]bool{}
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ") &&
+			strings.HasSuffix(strings.TrimSpace(line), ":") &&
+			!strings.HasPrefix(strings.TrimSpace(line), "#") {
+			current = strings.TrimSuffix(strings.TrimSpace(line), ":")
+			if current != "" {
+				services[current] = false
+			}
+			continue
+		}
+		trimmed := strings.TrimSpace(line)
+		if current != "" && (strings.HasPrefix(trimmed, "image:") || trimmed == "build:") {
+			services[current] = true
+		}
+	}
+
+	for name, ok := range services {
+		if name == "db_data" {
+			continue // a volume, not a service
+		}
+		if !ok {
+			t.Errorf("service %q has neither an image to pull nor a Dockerfile to build", name)
+		}
+	}
+
+	if len(services) < 5 {
+		t.Errorf("only found %d services; the parser is wrong, not the file", len(services))
+	}
+}

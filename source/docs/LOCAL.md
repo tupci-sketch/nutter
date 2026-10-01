@@ -31,8 +31,8 @@ agree with each other is exactly the work this is meant to save you.
 habnutctl dev up
 ```
 
-The first run fetches container images and builds the database, which takes a
-few minutes. After that it is seconds. When it finishes it prints where
+The first run fetches container images, builds the website's image and builds
+the database, which takes a few minutes. After that it is seconds. When it finishes it prints where
 everything is:
 
 ```
@@ -120,6 +120,7 @@ Set `HABNUT_DEV_HOME` or pass `--dir` to put it somewhere else. Inside:
 
 ```
 docker-compose.yml   the stack — yours to edit
+Dockerfile.cms       the website's image
 nginx.conf           the web server
 app.key              this hotel's signing key
 cms/                 the website, with its .env
@@ -128,6 +129,12 @@ emulator/            habnut-emulator.jar
 seed/                base.sql and demo.sql — yours to edit
 logs/
 ```
+
+The website's image is built rather than pulled: the official PHP images do
+not carry `pdo_mysql`, and the tools to compile it are dropped from them, so
+installing it at container start would mean fetching a compiler on every
+start — slow, and it fails outright with no network. It is built once on the
+first run and cached after that.
 
 The generated files are yours once they exist: `habnutctl dev up` will not
 overwrite a compose file you have added a service to. Pass `--recreate` when
@@ -163,6 +170,10 @@ Desktop and wait for it to say it is running.
 
 **A port is already in use.** `--port` moves the website. The others move with
 `--name`, which gives the whole hotel its own set.
+
+**Building the website's image failed.** It compiles PHP extensions, so it
+needs network on the first run. Build it by hand to see the error in full:
+`docker compose -f ~/.habnut/dev/docker-compose.yml build cms`.
 
 **The database never came up.** `habnutctl dev logs db`. On a first run it
 builds its data directory, which can take a minute on a slow disk; the start-up
