@@ -27,7 +27,7 @@ class DccStaffController extends Controller
     public function actions()
     {
         $actions = DB::table('habnut_audit_logs')
-            ->join('users', 'users.id', '=', 'habnut_audit_logs.actor_user_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_audit_logs.actor_user_id')
             ->select('habnut_audit_logs.*', 'users.username as actor_name')
             ->where('users.rank', '>=', 4)
             ->latest('habnut_audit_logs.created_at')
@@ -39,7 +39,7 @@ class DccStaffController extends Controller
     public function commands()
     {
         $commands = DB::table('habnut_audit_logs')
-            ->join('users', 'users.id', '=', 'habnut_audit_logs.actor_user_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_audit_logs.actor_user_id')
             ->select('habnut_audit_logs.*', 'users.username as actor_name')
             ->where('habnut_audit_logs.action', 'like', 'cmd_%')
             ->latest('habnut_audit_logs.created_at')

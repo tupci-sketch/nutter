@@ -128,6 +128,6 @@ public final class ProgressionHandler {
     }
 
     private void sendError(WebSocketSession session, String code, String msg) {
-        session.send(router.buildPacket("progression.error", Map.of("code", code, "message", msg)));
+        session.send(router.buildPacket(PacketType.PROGRESSION_ERROR, Map.of("code", code, "message", msg)));
     }
 }

@@ -1049,7 +1049,7 @@ public final class RpHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("rp.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.RP_ERROR, Map.of("reason", reason)));
     }
 
     // ─── faction money ──────────────────────────────────────────────────────

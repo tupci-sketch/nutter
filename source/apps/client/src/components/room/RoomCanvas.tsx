@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { RoomRenderer } from '@/renderer/RoomRenderer';
 import { useRoomStore } from '@/stores/roomStore';
 import { useA11yStore } from '@/stores/a11yStore';
-import { useAuthStore } from '@/stores/authStore';
 import { describeMove, describePosition, describeRoom } from '@/a11y/roomDescription';
 
 /**
@@ -23,11 +22,13 @@ const ZOOM_STEP = 1.15;
 export function RoomCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<RoomRenderer | null>(null);
-  const users = useRoomStore((s) => s.users);
-  const furni = useRoomStore((s) => s.furni);
+  const entities = useRoomStore((s) => s.entities);
+  const floorItems = useRoomStore((s) => s.floorItems);
   const room = useRoomStore((s) => s.currentRoom);
-  const { move } = useRoomStore();
-  const selfId = useAuthStore((s) => s.userId);
+  const move = useRoomStore((s) => s.move);
+  // Our own figure in this room, which is not the same as our user id: the
+  // room keys everything by instance, since pets and bots stand here too.
+  const selfInstanceId = useRoomStore((s) => s.selfInstanceId);
   const announce = useA11yStore((s) => s.announce);
   const announcement = useA11yStore((s) => s.announcement);
 
@@ -60,12 +61,12 @@ export function RoomCanvas() {
   }, [move, announce]);
 
   useEffect(() => {
-    rendererRef.current?.updateUsers(users);
-  }, [users]);
+    rendererRef.current?.updateUsers(entities);
+  }, [entities]);
 
   useEffect(() => {
-    rendererRef.current?.updateFurni(furni);
-  }, [furni]);
+    rendererRef.current?.updateFurni(floorItems);
+  }, [floorItems]);
 
   /**
    * Walking, zooming and recentring from the keyboard.
@@ -77,7 +78,7 @@ export function RoomCanvas() {
     const renderer = rendererRef.current;
     if (!renderer) return;
 
-    const me = selfId === null ? undefined : users.get(selfId);
+    const me = selfInstanceId === null ? undefined : entities.get(selfInstanceId);
 
     const step: Record<string, [number, number]> = {
       ArrowUp: [0, -1],
@@ -116,9 +117,9 @@ export function RoomCanvas() {
         event.preventDefault();
         announce(describeRoom({
           room,
-          users: [...users.values()],
-          furni: [...furni.values()],
-          selfId,
+          users: [...entities.values()],
+          furni: [...floorItems.values()],
+          selfInstanceId,
         }));
         break;
       case 'p':

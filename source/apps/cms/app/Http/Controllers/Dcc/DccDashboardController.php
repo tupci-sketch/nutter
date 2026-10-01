@@ -18,7 +18,7 @@ class DccDashboardController extends Controller
             'active_bans' => DB::table('habnut_bans')->where('active', true)->count(),
         ];
 
-        $recent_registrations = User::latest()->take(10)->get(['id', 'username', 'email', 'rank', 'created_at']);
+        $recent_registrations = User::latest()->take(10)->get(['id', 'username', 'email', 'rank', 'member_since']);
 
         return view('dcc.dashboard', compact('stats', 'recent_registrations'));
     }

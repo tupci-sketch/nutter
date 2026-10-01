@@ -3,7 +3,7 @@ import { toScreen, TILE_W, TILE_H, FLOOR_COLOUR, FLOOR_DARK, WALL_COLOUR } from 
 import { AssetLoader } from './AssetLoader';
 import { FurniSprite } from './FurniSprite';
 import { AvatarFigure } from './AvatarFigure';
-import type { RoomUser, RoomFurni } from '@/stores/roomStore';
+import type { RoomEntity, FloorItem } from '@/stores/roomStore';
 
 interface TileMap {
   width: number;
@@ -28,8 +28,8 @@ export class RoomRenderer {
 
   // The last state pushed in, kept so the room can be rebuilt from scratch when
   // the artwork changes underneath it.
-  private lastUsers: Map<number, RoomUser> = new Map();
-  private lastFurni: Map<number, RoomFurni> = new Map();
+  private lastUsers: Map<number, RoomEntity> = new Map();
+  private lastFurni: Map<number, FloorItem> = new Map();
 
   private stopEraWatch: (() => void) | null = null;
 
@@ -155,7 +155,7 @@ export class RoomRenderer {
 
   // ─── furniture ───────────────────────────────────────────────────────────
 
-  updateFurni(furni: Map<number, RoomFurni>): void {
+  updateFurni(furni: Map<number, FloorItem>): void {
     this.lastFurni = furni;
     const seen = new Set<number>();
 
@@ -195,17 +195,17 @@ export class RoomRenderer {
 
   // ─── avatars ─────────────────────────────────────────────────────────────
 
-  updateUsers(users: Map<number, RoomUser>): void {
+  updateUsers(users: Map<number, RoomEntity>): void {
     this.lastUsers = users;
     const seen = new Set<number>();
 
     users.forEach(user => {
-      seen.add(user.userId);
-      let figure = this.avatarMap.get(user.userId);
+      seen.add(user.instanceId);
+      let figure = this.avatarMap.get(user.instanceId);
 
       if (!figure) {
         figure = new AvatarFigure(user);
-        this.avatarMap.set(user.userId, figure);
+        this.avatarMap.set(user.instanceId, figure);
         this.avatarLayer.addChild(figure);
       } else {
         figure.update(user);

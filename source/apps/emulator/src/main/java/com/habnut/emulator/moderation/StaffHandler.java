@@ -143,7 +143,7 @@ public final class StaffHandler {
             null, null, Map.of("enabled", enabled),
             null, null, "system");
 
-        sessions.all().forEach(s -> s.send(router.buildPacket("system.feature_flag",
+        sessions.all().forEach(s -> s.send(router.buildPacket(PacketType.SYSTEM_FEATURE_FLAG_CHANGED,
             Map.of("flag", flagName, "enabled", enabled))));
     }
 
@@ -186,6 +186,6 @@ public final class StaffHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("staff.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.STAFF_ERROR, Map.of("reason", reason)));
     }
 }

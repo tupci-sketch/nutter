@@ -1,7 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { AssetLoader } from './AssetLoader';
 import { TILE_W, TILE_H, WALL_COLOUR } from './iso';
-import type { RoomFurni } from '@/stores/roomStore';
+import type { FloorItem } from '@/stores/roomStore';
 
 // Direction cycle for rotate-right / rotate-left.
 const DIR_CYCLE = [0, 2, 4, 6];
@@ -15,14 +15,14 @@ const DIR_CYCLE = [0, 2, 4, 6];
  * regardless of whether a SWF pack has been installed.
  */
 export class FurniSprite extends PIXI.Container {
-  private furni: RoomFurni;
+  private furni: FloorItem;
   private layerSprites: PIXI.Sprite[] = [];
   private frameTimer: ReturnType<typeof setInterval> | null = null;
   private currentFrame = 0;
   private frameCount = 1;
   private size = 64;
 
-  constructor(furni: RoomFurni) {
+  constructor(furni: FloorItem) {
     super();
     this.furni = furni;
     this.sortableChildren = false;
@@ -31,21 +31,21 @@ export class FurniSprite extends PIXI.Container {
 
   // ─── public API ───────────────────────────────────────────────────────────
 
-  update(furni: RoomFurni): void {
-    const dirChanged   = furni.dir !== this.furni.dir;
+  update(furni: FloorItem): void {
+    const dirChanged   = furni.rotation !== this.furni.rotation;
     const stateChanged = furni.state !== this.furni.state;
     this.furni = furni;
     if (dirChanged || stateChanged) this.rebuild();
   }
 
   setDirection(dir: number): void {
-    if (this.furni.dir === dir) return;
-    this.furni = { ...this.furni, dir };
+    if (this.furni.rotation === dir) return;
+    this.furni = { ...this.furni, rotation: dir };
     this.rebuild();
   }
 
   rotateRight(): void {
-    const i = DIR_CYCLE.indexOf(this.furni.dir);
+    const i = DIR_CYCLE.indexOf(this.furni.rotation);
     this.setDirection(DIR_CYCLE[(i + 1) % DIR_CYCLE.length]);
   }
 
@@ -69,7 +69,7 @@ export class FurniSprite extends PIXI.Container {
   }
 
   private async buildFromSprites(): Promise<void> {
-    const { baseItem, dir } = this.furni;
+    const { spriteId: baseItem, rotation: dir } = this.furni;
     const layers = AssetLoader.furniLayers(baseItem, dir, this.size);
 
     if (layers.length === 0) {
@@ -159,7 +159,7 @@ export class FurniSprite extends PIXI.Container {
 
   private async advanceFrame(): Promise<void> {
     this.currentFrame = (this.currentFrame + 1) % this.frameCount;
-    const { baseItem, dir } = this.furni;
+    const { spriteId: baseItem, rotation: dir } = this.furni;
 
     await Promise.all(
       this.layerSprites.map(async (sprite, i) => {

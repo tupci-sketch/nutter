@@ -51,7 +51,7 @@ class ForumController extends Controller
 
         $threads = $category->threads()
             ->listed()
-            ->with(['author:id,username,look', 'lastPoster:id,username'])
+            ->with(['author:id,username,figure', 'lastPoster:id,username'])
             ->paginate(self::THREADS_PER_PAGE);
 
         return view('cms.forum.category', [
@@ -75,7 +75,7 @@ class ForumController extends Controller
         // mistake without going to the database for it.
         $posts = $thread->posts()
             ->when(! $canModerate, fn ($q) => $q->where('hidden', false))
-            ->with(['author:id,username,look,motto,rank,created_at', 'editor:id,username'])
+            ->with(['author:id,username,figure,motto,rank,member_since', 'editor:id,username'])
             ->orderBy('created_at')
             ->paginate(self::POSTS_PER_PAGE);
 
@@ -101,7 +101,7 @@ class ForumController extends Controller
 
         $threads = ForumThread::where('group_id', $groupId)
             ->listed()
-            ->with(['author:id,username,look', 'lastPoster:id,username'])
+            ->with(['author:id,username,figure', 'lastPoster:id,username'])
             ->paginate(self::THREADS_PER_PAGE);
 
         return view('cms.forum.group', [

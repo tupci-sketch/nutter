@@ -9,7 +9,7 @@ class TwoFactorController extends Controller
 {
     public function show()
     {
-        if (! auth()->user()->two_factor_enabled) {
+        if (! auth()->user()->two_fa_enabled) {
             return redirect()->route('home');
         }
 
@@ -23,7 +23,7 @@ class TwoFactorController extends Controller
         $user = $request->user();
         $google2fa = app('pragmarx.google2fa');
 
-        if (! $google2fa->verifyKey($user->two_factor_secret, $request->code)) {
+        if (! $google2fa->verifyKey($user->two_fa_secret, $request->code)) {
             return back()->withErrors(['code' => 'Invalid authentication code.']);
         }
 
@@ -37,15 +37,15 @@ class TwoFactorController extends Controller
         $user = $request->user();
         $google2fa = app('pragmarx.google2fa');
 
-        if (! $user->two_factor_secret) {
+        if (! $user->two_fa_secret) {
             $secret = $google2fa->generateSecretKey();
-            $user->update(['two_factor_secret' => $secret]);
+            $user->update(['two_fa_secret' => $secret]);
         }
 
-        $qrUrl = $google2fa->getQRCodeUrl('Habnut', $user->email, $user->two_factor_secret);
+        $qrUrl = $google2fa->getQRCodeUrl('Habnut', $user->email, $user->two_fa_secret);
 
         return view('auth.two-factor-setup', [
-            'secret' => $user->two_factor_secret,
+            'secret' => $user->two_fa_secret,
             'qrUrl' => $qrUrl,
         ]);
     }
@@ -57,11 +57,11 @@ class TwoFactorController extends Controller
         $user = $request->user();
         $google2fa = app('pragmarx.google2fa');
 
-        if (! $google2fa->verifyKey($user->two_factor_secret, $request->code)) {
+        if (! $google2fa->verifyKey($user->two_fa_secret, $request->code)) {
             return back()->withErrors(['code' => 'Invalid code. Please try again.']);
         }
 
-        $user->update(['two_factor_enabled' => true]);
+        $user->update(['two_fa_enabled' => true]);
         session(['2fa_verified' => true]);
 
         return redirect()->route('profile.show')->with('success', 'Two-factor authentication enabled.');
@@ -72,8 +72,8 @@ class TwoFactorController extends Controller
         $request->validate(['password' => ['required', 'current_password']]);
 
         $request->user()->update([
-            'two_factor_enabled' => false,
-            'two_factor_secret' => null,
+            'two_fa_enabled' => false,
+            'two_fa_secret' => null,
         ]);
 
         session()->forget('2fa_verified');

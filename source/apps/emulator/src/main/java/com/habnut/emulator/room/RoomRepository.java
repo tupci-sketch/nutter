@@ -22,7 +22,7 @@ public final class RoomRepository {
 
     private static final String SELECT =
         "SELECT r.id, r.owner_id, u.username AS owner_name, r.name, r.description, " +
-        "r.model_id, r.access_type, r.password_hash, r.max_visitors, " +
+        "r.model_id, r.wallpaper, r.floor_pattern, r.access_type, r.password_hash, r.max_visitors, " +
         "r.allow_pets, r.allow_pets_eat, r.allow_walkthrough, r.hide_walls, " +
         "r.wall_height, r.floor_thickness, r.wall_thickness, " +
         "r.background_colour, r.landscape_colour, r.score, r.is_promoted, r.category " +
@@ -167,6 +167,8 @@ public final class RoomRepository {
             rs.getString("name"),
             rs.getString("description"),
             rs.getString("model_id"),
+            rs.getString("wallpaper"),
+            rs.getString("floor_pattern"),
             rs.getInt("access_type"),
             rs.getString("password_hash"),
             rs.getInt("max_visitors"),

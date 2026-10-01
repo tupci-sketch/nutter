@@ -37,7 +37,7 @@ public final class UserRepository {
     public UserRow findByUsername(String username) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT id, username, email, password_hash, figure_string, rank_id, " +
+                 "SELECT id, username, email, password_hash, figure, rank, " +
                  "credits, diamonds, nut_points, email_verified, last_login, last_ip " +
                  "FROM habnut_users WHERE username = ? LIMIT 1")) {
             ps.setString(1, username);
@@ -51,7 +51,7 @@ public final class UserRepository {
     public UserRow findById(long id) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT id, username, email, password_hash, figure_string, rank_id, " +
+                 "SELECT id, username, email, password_hash, figure, rank, " +
                  "credits, diamonds, nut_points, email_verified, last_login, last_ip " +
                  "FROM habnut_users WHERE id = ? LIMIT 1")) {
             ps.setLong(1, id);

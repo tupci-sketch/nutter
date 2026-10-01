@@ -113,14 +113,14 @@ class HomePageTest extends TestCase
     {
         config(['habnut.imager_url' => null]);
 
-        $this->assertNull(User::factory()->make(['look' => 'hd-180-1'])->avatarUrl());
+        $this->assertNull(User::factory()->make(['figure' => 'hd-180-1'])->avatarUrl());
     }
 
     public function test_avatar_url_uses_the_imager_when_configured(): void
     {
         config(['habnut.imager_url' => 'https://imager.example/render/']);
 
-        $url = User::factory()->make(['look' => 'hd-180-1.ch-255-62'])->avatarUrl('l');
+        $url = User::factory()->make(['figure' => 'hd-180-1.ch-255-62'])->avatarUrl('l');
 
         $this->assertStringStartsWith('https://imager.example/render/avatar.png?', $url);
         $this->assertStringContainsString('figure=hd-180-1.ch-255-62', urldecode($url));
@@ -133,7 +133,7 @@ class HomePageTest extends TestCase
     {
         config(['habnut.imager_url' => '/imager']);
 
-        $url = User::factory()->make(['look' => 'hd-180-1'])->avatarUrl('s');
+        $url = User::factory()->make(['figure' => 'hd-180-1'])->avatarUrl('s');
 
         $this->assertStringContainsString('headonly=1', $url);
         $this->assertStringContainsString('size=s', $url);
@@ -143,7 +143,7 @@ class HomePageTest extends TestCase
     {
         config(['habnut.imager_url' => '/imager']);
 
-        $url = User::factory()->make(['look' => 'hd-180-1'])->avatarUrl('m', 4);
+        $url = User::factory()->make(['figure' => 'hd-180-1'])->avatarUrl('m', 4);
 
         $this->assertStringContainsString('direction=4', $url);
         $this->assertStringContainsString('head_direction=4', $url);
@@ -155,13 +155,13 @@ class HomePageTest extends TestCase
 
         // Rendering an empty figure produces nothing, so the view is told to
         // draw its own fallback rather than to request a picture.
-        $this->assertNull(User::factory()->make(['look' => ''])->avatarUrl());
+        $this->assertNull(User::factory()->make(['figure' => ''])->avatarUrl());
     }
 
     public function test_badge_urls_cover_named_badges_and_group_codes(): void
     {
         config(['habnut.imager_url' => '/imager']);
-        $user = User::factory()->make(['look' => 'hd-180-1']);
+        $user = User::factory()->make(['figure' => 'hd-180-1']);
 
         $this->assertSame('/imager/badge/ACH_Login1.png', $user->badgeUrl('ACH_Login1'));
         $this->assertSame('/imager/badge/b03120s13181.png', $user->badgeUrl('b03120s13181'));

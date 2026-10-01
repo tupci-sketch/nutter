@@ -115,6 +115,6 @@ public final class CameraHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("camera.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.CAMERA_ERROR, Map.of("reason", reason)));
     }
 }

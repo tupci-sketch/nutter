@@ -23,7 +23,7 @@ class CommunityController extends Controller
         $staff = User::where('rank', '>=', User::RANK_HELPER)
             ->orderByDesc('rank')
             ->orderBy('username')
-            ->get(['id', 'username', 'motto', 'look', 'rank', 'online', 'created_at']);
+            ->get(['id', 'username', 'motto', 'figure', 'rank', 'online', 'member_since']);
 
         return view('cms.community.staff', [
             'groups' => $staff->groupBy(fn (User $u) => $u->rankName()),
@@ -44,7 +44,7 @@ class CommunityController extends Controller
             'online' => User::where('online', true)->count(),
             'rooms' => DB::table('habnut_rooms')->count(),
             'groups' => DB::table('habnut_groups')->count(),
-            'joinedToday' => User::whereDate('created_at', today())->count(),
+            'joinedToday' => User::whereDate('member_since', today())->count(),
         ]);
 
         return view('cms.community.stats', [
@@ -62,14 +62,14 @@ class CommunityController extends Controller
             ->where('achievement_score', '>', 0)
             ->orderByDesc('achievement_score')
             ->limit(10)
-            ->get(['id', 'username', 'look', 'motto', 'achievement_score']));
+            ->get(['id', 'username', 'figure', 'motto', 'achievement_score']));
     }
 
     /** Rooms with the most visitors right now. */
     private function busiestRooms()
     {
         return cache()->remember('hotel-busiest-rooms', self::CACHE_SECONDS, fn () => DB::table('habnut_rooms')
-            ->leftJoin('users', 'users.id', '=', 'habnut_rooms.owner_id')
+            ->leftJoin('habnut_users as users', 'users.id', '=', 'habnut_rooms.owner_id')
             ->orderByDesc('habnut_rooms.user_count')
             ->limit(10)
             ->get([
@@ -84,7 +84,7 @@ class CommunityController extends Controller
     {
         return cache()->remember('hotel-leaderboards', self::CACHE_SECONDS, function () {
             return DB::table('habnut_leaderboards as l')
-                ->join('users as u', 'u.id', '=', 'l.user_id')
+                ->join('habnut_users as u', 'u.id', '=', 'l.user_id')
                 ->where('l.period', 'all_time')
                 ->orderBy('l.game_type')
                 ->orderByDesc('l.wins')

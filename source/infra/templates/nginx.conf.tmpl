@@ -1,5 +1,17 @@
 # Nginx server block template — rendered by habnutctl install
 # Variables: {{.Domain}}, {{.CertPath}}
+#
+# One host serves the whole hotel:
+#
+#   /          the website (Laravel), which owns sign-in and the session cookie
+#   /client/   the game client, a static bundle built with base=/client/
+#   /ws        the websocket the client talks to the hotel over
+#   /imager/   avatar and badge pictures, rendered from the installed assets
+#
+# Same origin throughout, which is what lets the site hand a signed-in player
+# straight into the game: the ticket, the cookie, the pictures and the socket
+# are all on one host, so nothing has to be opened up for them to reach each
+# other.
 
 server {
     listen 80;
@@ -31,11 +43,19 @@ server {
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' wss://{{.Domain}}; frame-ancestors 'none';" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://{{.Domain}}; frame-ancestors 'none';" always;
 
-    root /usr/share/nginx/html;
-    index index.html;
+    # The website's front controller. The game client is served from a
+    # directory inside it, so one root covers both.
+    root /var/www/cms/public;
+    index index.php;
 
+    client_max_body_size 50M;
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+    gzip_min_length 256;
+
+    # The hotel itself.
     location /ws {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
@@ -54,40 +74,50 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    location /api/ {
-        try_files $uri /index.php?$query_string;
+    # Avatar and badge pictures. The most repeated request the site makes, and
+    # every input that changes the picture is in the URL, so they are cached
+    # hard at the edge as well as inside the imager.
+    location /imager/ {
+        proxy_pass http://127.0.0.1:8081/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_cache_valid 200 24h;
+        add_header Cache-Control "public, max-age=86400" always;
     }
+
+    # The game client: a single page, so anything it does not have on disk
+    # falls back to its own index rather than the website's.
+    location /client/ {
+        alias /var/www/client/;
+        try_files $uri $uri/ /client/index.html;
+    }
+
+    # Its bundles are content-hashed, so they can be cached indefinitely. A
+    # prefix location rather than a regex one, because an alias in a regex
+    # location has to carry the captures and this needs none.
+    location /client/assets/ {
+        alias /var/www/client/assets/;
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+    }
+
+    # Everything else is the website, whose router decides what exists.
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
     location ~ \.php$ {
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;
         fastcgi_index index.php;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
         include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME /var/www/cms/public$fastcgi_script_name;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_param PATH_INFO $fastcgi_path_info;
-    }
-
-    location ~ ^/(login|register|logout|2fa|profile|password|news|help|privacy|terms|dcc) {
-        try_files $uri /cms-index.php?$query_string;
-        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME /var/www/cms/public/index.php;
-    }
-
-    location / {
-        try_files $uri /index.html;
-    }
-
-    location ~* \.(js|css|png|svg|ico|woff2|woff|ttf)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        try_files $uri =404;
+        fastcgi_read_timeout 60s;
     }
 
     location ~ /\. {
         deny all;
     }
-
-    client_max_body_size 50M;
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
-    gzip_min_length 256;
 }

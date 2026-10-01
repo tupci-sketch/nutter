@@ -16,15 +16,15 @@ class UserFactory extends Factory
         return [
             'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
-            'password' => Hash::make('password'),
+            'password_hash' => Hash::make('password'),
             'rank' => 1,
             'motto' => fake()->sentence(4),
-            'look' => 'hd-180-1.ch-210-66.lg-270-110',
+            'figure' => 'hd-180-1.ch-210-66.lg-270-110',
             'credits' => fake()->numberBetween(0, 1000),
             'diamonds' => fake()->numberBetween(0, 50),
             'nut_points' => fake()->numberBetween(0, 500),
             'seasonal_currency' => 0,
-            'two_factor_enabled' => false,
+            'two_fa_enabled' => false,
             'email_verified_at' => now(),
             'remember_token' => Str::random(10),
         ];

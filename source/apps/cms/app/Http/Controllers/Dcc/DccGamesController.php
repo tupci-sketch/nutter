@@ -28,7 +28,7 @@ class DccGamesController extends Controller
     public function leaderboards()
     {
         $leaderboards = DB::table('habnut_leaderboards')
-            ->join('users', 'users.id', '=', 'habnut_leaderboards.user_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_leaderboards.user_id')
             ->select('habnut_leaderboards.*', 'users.username')
             ->orderByDesc('score')
             ->paginate(25);

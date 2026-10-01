@@ -16,9 +16,9 @@ class DccAccessTest extends TestCase
         return User::factory()->create([
             'username' => "tupci{$suffix}",
             'email' => "tupci{$suffix}@test.com",
-            'password' => Hash::make('password'),
+            'password_hash' => Hash::make('password'),
             'rank' => $rank,
-            'two_factor_enabled' => false,
+            'two_fa_enabled' => false,
             'email_verified_at' => now(),
         ]);
     }

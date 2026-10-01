@@ -6,6 +6,7 @@ use App\Models\Ban;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -17,12 +18,12 @@ class AuthTest extends TestCase
         return User::factory()->create(array_merge([
             'username' => 'tupci',
             'email' => 'tupci@icloud.com',
-            'password' => Hash::make('testpassword123'),
+            'password_hash' => Hash::make('testpassword123'),
             'rank' => 1,
             'credits' => 500,
             'diamonds' => 10,
             'nut_points' => 250,
-            'two_factor_enabled' => false,
+            'two_fa_enabled' => false,
             'email_verified_at' => now(),
         ], $overrides));
     }
@@ -88,8 +89,8 @@ class AuthTest extends TestCase
     public function tupci_with_2fa_enabled_redirects_to_2fa_after_login(): void
     {
         $this->createTupci([
-            'two_factor_enabled' => true,
-            'two_factor_secret' => 'TESTSECRET123456',
+            'two_fa_enabled' => true,
+            'two_fa_secret' => 'TESTSECRET123456',
         ]);
 
         $response = $this->post(route('login'), [
@@ -122,26 +123,43 @@ class AuthTest extends TestCase
     /** @test */
     public function tupci_can_obtain_a_session_ticket(): void
     {
+        Redis::shouldReceive('setex')->once()->andReturn(true);
+
         $tupci = $this->createTupci();
         $this->actingAs($tupci, 'sanctum');
 
         $response = $this->postJson(route('api.ticket'));
 
         $response->assertOk();
-        $response->assertJsonStructure(['ticket']);
-        $this->assertStringStartsWith('HNT-', $response->json('ticket'));
+        $response->assertJsonStructure(['ticket', 'world', 'expiresIn']);
+        $this->assertNotEmpty($response->json('ticket'));
     }
 
-    /** @test */
-    public function session_ticket_is_stored_in_cache(): void
+    /**
+     * Where the ticket goes is the hotel's business, not the cache's.
+     *
+     * Covered in detail by HotelHandoffTest, which asserts the exact key and
+     * value the hotel reads; this is only here to show the endpoint writes one.
+     *
+     * @test
+     */
+    public function session_ticket_is_handed_to_the_hotel(): void
     {
+        $written = false;
+        Redis::shouldReceive('setex')
+            ->once()
+            ->andReturnUsing(function () use (&$written) {
+                $written = true;
+
+                return true;
+            });
+
         $tupci = $this->createTupci();
         $this->actingAs($tupci, 'sanctum');
 
-        $response = $this->postJson(route('api.ticket'));
-        $ticket = $response->json('ticket');
+        $this->postJson(route('api.ticket'))->assertOk();
 
-        $this->assertEquals($tupci->id, cache()->get("ticket:{$ticket}"));
+        $this->assertTrue($written, 'The ticket was never written anywhere the hotel can see it.');
     }
 
     /** @test */
@@ -162,7 +180,7 @@ class AuthTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseHas('habnut_users', [
             'username' => 'tupci',
             'email' => 'tupci@icloud.com',
         ]);

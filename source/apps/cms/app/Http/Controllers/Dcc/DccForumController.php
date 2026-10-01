@@ -90,7 +90,7 @@ class DccForumController extends Controller
     public function grantRole(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'username' => ['required', 'string', 'exists:users,username'],
+            'username' => ['required', 'string', 'exists:habnut_users,username'],
             'scope' => ['required', Rule::in([
                 ForumModerator::SCOPE_GLOBAL,
                 ForumModerator::SCOPE_CATEGORY,
@@ -108,7 +108,7 @@ class DccForumController extends Controller
             return back()->withErrors(['scope_id' => 'Choose which board or group this covers.']);
         }
 
-        $userId = DB::table('users')->where('username', $data['username'])->value('id');
+        $userId = DB::table('habnut_users as users')->where('username', $data['username'])->value('id');
 
         ForumModerator::updateOrCreate(
             [

@@ -23,7 +23,7 @@ class DccRpController extends Controller
     public function characters(Request $request)
     {
         $query = DB::table('habnut_rp_characters')
-            ->join('users', 'users.id', '=', 'habnut_rp_characters.user_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_rp_characters.user_id')
             ->select('habnut_rp_characters.*', 'users.username');
 
         if ($request->filled('q')) {
@@ -39,7 +39,7 @@ class DccRpController extends Controller
     public function character(int $id)
     {
         $character = DB::table('habnut_rp_characters')
-            ->join('users', 'users.id', '=', 'habnut_rp_characters.user_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_rp_characters.user_id')
             ->select('habnut_rp_characters.*', 'users.username')
             ->where('habnut_rp_characters.id', $id)
             ->firstOrFail();

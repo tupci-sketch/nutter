@@ -7,6 +7,11 @@ public record RoomSettings(
     String name,
     String description,
     String modelId,
+    // The two surfaces a player picks when they redecorate. Both were already
+    // being saved; neither was ever read back, so a redecorated room came back
+    // plain the next time anyone walked in.
+    String wallpaper,
+    String floorPattern,
     int accessType,        // 0=open 1=doorbell 2=password 3=invisible
     String passwordHash,
     int maxVisitors,

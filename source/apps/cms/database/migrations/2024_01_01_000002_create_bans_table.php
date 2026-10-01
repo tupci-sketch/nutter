@@ -17,7 +17,7 @@ return new class extends Migration
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 
-            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
+            $table->foreign('user_id')->references('id')->on('habnut_users')->cascadeOnDelete();
             $table->index(['user_id', 'active']);
         });
     }

@@ -221,6 +221,6 @@ public final class GameHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("game.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.GAME_ERROR, Map.of("reason", reason)));
     }
 }
