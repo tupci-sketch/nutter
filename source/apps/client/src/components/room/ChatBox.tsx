@@ -35,8 +35,8 @@ export function ChatBox() {
       <div style={styles.log}>
         {chatLog.map((entry, i) => (
           <div key={i} style={styles.line}>
-            <span style={styles.name}>{entry.username}: </span>
-            <span>{entry.message}</span>
+            <span style={styles.name}>{entry.name}{entry.kind === 'whisper' ? ' whispers' : ''}: </span>
+            <span style={entry.kind === 'shout' ? styles.shout : undefined}>{entry.message}</span>
           </div>
         ))}
         <div ref={endRef} />
@@ -118,6 +118,7 @@ const styles: Record<string, React.CSSProperties> = {
     maxHeight: 150,
   },
   line: { marginBottom: 2 },
+  shout: { fontWeight: 'bold' },
   name: { color: '#f0a040', fontWeight: 'bold' },
   form: { display: 'flex', borderTop: '1px solid #333' },
   muteBanner: {

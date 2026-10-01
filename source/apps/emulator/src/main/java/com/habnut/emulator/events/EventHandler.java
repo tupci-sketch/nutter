@@ -303,6 +303,6 @@ public final class EventHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("event.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.EVENT_ERROR, Map.of("reason", reason)));
     }
 }

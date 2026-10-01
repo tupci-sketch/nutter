@@ -4,6 +4,10 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  // The hotel is served under /client/ on the same host as the website, so a
+  // ticket cookie and a websocket both stay same-origin and the site can hand
+  // a signed-in player straight through without a second login.
+  base: '/client/',
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

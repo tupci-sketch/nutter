@@ -2,7 +2,7 @@ import * as PIXI from 'pixi.js';
 import { AssetLoader } from './AssetLoader';
 import { motionIsReduced } from '@/stores/a11yStore';
 import { ACTION, type FigureAction } from './figure/AvatarComposer';
-import type { RoomUser } from '@/stores/roomStore';
+import type { RoomEntity } from '@/stores/roomStore';
 
 /**
  * One user, pet or bot drawn in a room.
@@ -13,7 +13,7 @@ import type { RoomUser } from '@/stores/roomStore';
  * back to a simple silhouette so a room still renders during setup.
  */
 export class AvatarFigure extends PIXI.Container {
-  private user: RoomUser;
+  private user: RoomEntity;
   private partSprites: PIXI.Sprite[] = [];
   private label: PIXI.Text | null = null;
 
@@ -27,7 +27,7 @@ export class AvatarFigure extends PIXI.Container {
   private static readonly WALK_FRAME_MS = 160;
   private static readonly WALK_FRAMES = 4;
 
-  constructor(user: RoomUser) {
+  constructor(user: RoomEntity) {
     super();
     this.user = user;
     this.sortableChildren = true;
@@ -36,15 +36,15 @@ export class AvatarFigure extends PIXI.Container {
 
   // ─── public API ───────────────────────────────────────────────────────────
 
-  update(user: RoomUser): void {
+  update(user: RoomEntity): void {
     const previous = this.user;
     this.user = user;
 
     const moved = user.x !== previous.x || user.y !== previous.y;
     const changed =
-      user.dir !== previous.dir ||
-      user.figure !== previous.figure ||
-      user.username !== previous.username;
+      user.rotation !== previous.rotation ||
+      user.figureString !== previous.figureString ||
+      user.name !== previous.name;
 
     if (moved) {
       this.startWalking();
@@ -95,8 +95,8 @@ export class AvatarFigure extends PIXI.Container {
 
   private async buildFromPack(token: number): Promise<void> {
     const layers = AssetLoader.composer.compose({
-      figure: this.user.figure ?? '',
-      direction: this.user.dir ?? 2,
+      figure: this.user.figureString ?? '',
+      direction: this.user.rotation ?? 2,
       action: this.action,
       frame: this.frame,
     });
@@ -163,7 +163,7 @@ export class AvatarFigure extends PIXI.Container {
 
   private addUsernameLabel(): void {
     if (this.label) return;
-    const label = new PIXI.Text(this.user.username, {
+    const label = new PIXI.Text(this.user.name, {
       fontSize: 10,
       fill: 0xffffff,
       fontFamily: 'monospace',

@@ -8,7 +8,7 @@ import {
   facing,
   readAsList,
 } from '../roomDescription';
-import type { RoomFurni, RoomInfo, RoomUser } from '@/stores/roomStore';
+import type { FloorItem, RoomEntity, RoomInfo } from '@/stores/roomStore';
 
 /**
  * What the room sounds like.
@@ -22,18 +22,38 @@ const room: RoomInfo = {
   id: 1,
   name: 'The White House',
   description: 'A grand place',
+  modelId: 'model_a',
+  heightmap: 'xxxx\nxxxx',
+  doorX: 0,
+  doorY: 0,
+  doorRotation: 2,
+  maxVisitors: 25,
   ownerId: 7,
   ownerName: 'tupci',
-  modelId: 'model_a',
-  maxUsers: 25,
+  wallpaper: '0.0',
+  floorPattern: '0.0',
+  landscape: '0.0',
+  background: '0.0',
+  hideWalls: false,
+  wallHeight: 0,
+  wallThickness: '0',
+  floorThickness: '0',
 };
 
-function user(userId: number, username: string, over: Partial<RoomUser> = {}): RoomUser {
-  return { userId, username, x: 3, y: 4, z: 0, dir: 2, figure: 'hd-180-1', ...over };
+function user(instanceId: number, name: string, over: Partial<RoomEntity> = {}): RoomEntity {
+  return {
+    instanceId,
+    type: 'player',
+    sourceId: instanceId,
+    name,
+    figureString: 'hd-180-1',
+    x: 3, y: 4, z: 0, rotation: 2,
+    ...over,
+  };
 }
 
-function furni(id: number, baseItem: string): RoomFurni {
-  return { id, baseId: id, baseItem, x: 0, y: 0, z: 0, dir: 0, state: '0' };
+function furni(id: number, spriteId: string): FloorItem {
+  return { id, baseId: id, spriteId, x: 0, y: 0, z: 0, rotation: 0, state: 0, extra: '' };
 }
 
 describe('facing', () => {
@@ -69,7 +89,7 @@ describe('countPeople', () => {
 
 describe('describeRoom', () => {
   it('names the room and its owner', () => {
-    const text = describeRoom({ room, users: [], furni: [], selfId: null });
+    const text = describeRoom({ room, users: [], furni: [], selfInstanceId: null });
     expect(text).toContain('The White House');
     expect(text).toContain('tupci');
   });
@@ -79,7 +99,7 @@ describe('describeRoom', () => {
       room,
       users: [user(7, 'tupci'), user(9, 'ana')],
       furni: [],
-      selfId: 7,
+      selfInstanceId: 7,
     });
     expect(text).toContain('1 other person is here');
     expect(text).toContain('ana');
@@ -91,14 +111,14 @@ describe('describeRoom', () => {
       room,
       users: [user(1, 'ana'), user(2, 'jo')],
       furni: [],
-      selfId: null,
+      selfInstanceId: null,
     });
     expect(text).toContain('ana and jo');
   });
 
   it('stops naming people once the list would be unbearable', () => {
     const crowd = Array.from({ length: 20 }, (_, i) => user(i, `player${i}`));
-    const text = describeRoom({ room, users: crowd, furni: [], selfId: null });
+    const text = describeRoom({ room, users: crowd, furni: [], selfInstanceId: null });
 
     expect(text).toContain('20 other people are here');
     expect(text).not.toContain('player7');
@@ -109,31 +129,31 @@ describe('describeRoom', () => {
       room,
       users: [],
       furni: [furni(1, 'chair'), furni(2, 'chair'), furni(3, 'table')],
-      selfId: null,
+      selfInstanceId: null,
     });
     expect(text).toContain('3 pieces of furniture');
     expect(text).toContain('2 kinds');
   });
 
   it('gets the singular right for one piece', () => {
-    const text = describeRoom({ room, users: [], furni: [furni(1, 'chair')], selfId: null });
+    const text = describeRoom({ room, users: [], furni: [furni(1, 'chair')], selfInstanceId: null });
     expect(text).toContain('one piece of furniture');
   });
 
   it('says nothing about furniture in an empty room', () => {
-    const text = describeRoom({ room, users: [], furni: [], selfId: null });
+    const text = describeRoom({ room, users: [], furni: [], selfInstanceId: null });
     expect(text).not.toContain('furniture');
   });
 
   it('says so plainly when there is no room', () => {
-    expect(describeRoom({ room: null, users: [], furni: [], selfId: null }))
+    expect(describeRoom({ room: null, users: [], furni: [], selfInstanceId: null }))
       .toBe('No room loaded.');
   });
 });
 
 describe('describePosition', () => {
   it('says where you are and which way you are looking', () => {
-    expect(describePosition(user(1, 'tupci', { x: 5, y: 9, dir: 4 })))
+    expect(describePosition(user(1, 'tupci', { x: 5, y: 9, rotation: 4 })))
       .toBe('You are at 5, 9, facing south.');
   });
 

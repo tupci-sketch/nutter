@@ -53,21 +53,23 @@ return new class extends Migration
 
     private function createForumTables(): void
     {
-        Schema::create('habnut_forum_categories', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('slug', 64)->unique();
-            $table->string('name', 96);
-            $table->string('description', 512)->default('');
-            $table->unsignedTinyInteger('min_read_rank')->default(0);
-            $table->unsignedTinyInteger('min_post_rank')->default(1);
-            $table->unsignedSmallInteger('sort_order')->default(0);
-            $table->boolean('locked')->default(false);
-            $table->unsignedInteger('thread_count')->default(0);
-            $table->unsignedInteger('post_count')->default(0);
-            $table->unsignedBigInteger('last_thread_id')->nullable();
-            $table->timestamp('last_post_at')->nullable();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('habnut_forum_categories')) {
+            Schema::create('habnut_forum_categories', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('slug', 64)->unique();
+                $table->string('name', 96);
+                $table->string('description', 512)->default('');
+                $table->unsignedTinyInteger('min_read_rank')->default(0);
+                $table->unsignedTinyInteger('min_post_rank')->default(1);
+                $table->unsignedSmallInteger('sort_order')->default(0);
+                $table->boolean('locked')->default(false);
+                $table->unsignedInteger('thread_count')->default(0);
+                $table->unsignedInteger('post_count')->default(0);
+                $table->unsignedBigInteger('last_thread_id')->nullable();
+                $table->timestamp('last_post_at')->nullable();
+                $table->timestamps();
+            });
+        }
 
         Schema::create('habnut_forum_threads', function (Blueprint $table) {
             $table->bigIncrements('id');
@@ -104,210 +106,250 @@ return new class extends Migration
             $table->index(['thread_id', 'hidden', 'created_at']);
         });
 
-        Schema::create('habnut_forum_moderators', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('user_id');
-            $table->string('scope', 16)->default('category');
-            $table->unsignedBigInteger('scope_id')->nullable();
-            $table->string('role', 16)->default('moderator');
-            $table->unsignedBigInteger('granted_by_id');
-            $table->timestamp('granted_at')->useCurrent();
-            $table->unique(['user_id', 'scope', 'scope_id']);
-        });
+        if (! Schema::hasTable('habnut_forum_moderators')) {
+            Schema::create('habnut_forum_moderators', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('user_id');
+                $table->string('scope', 16)->default('category');
+                $table->unsignedBigInteger('scope_id')->nullable();
+                $table->string('role', 16)->default('moderator');
+                $table->unsignedBigInteger('granted_by_id');
+                $table->timestamp('granted_at')->useCurrent();
+                $table->unique(['user_id', 'scope', 'scope_id']);
+            });
+        }
 
-        Schema::create('habnut_forum_reports', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('post_id');
-            $table->unsignedBigInteger('reporter_id');
-            $table->string('reason', 512);
-            $table->string('status', 16)->default('open');
-            $table->unsignedBigInteger('handled_by_id')->nullable();
-            $table->timestamp('handled_at')->nullable();
-            $table->string('notes', 512)->nullable();
-            $table->timestamp('created_at')->useCurrent();
-            $table->unique(['post_id', 'reporter_id']);
-        });
+        if (! Schema::hasTable('habnut_forum_reports')) {
+            Schema::create('habnut_forum_reports', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('post_id');
+                $table->unsignedBigInteger('reporter_id');
+                $table->string('reason', 512);
+                $table->string('status', 16)->default('open');
+                $table->unsignedBigInteger('handled_by_id')->nullable();
+                $table->timestamp('handled_at')->nullable();
+                $table->string('notes', 512)->nullable();
+                $table->timestamp('created_at')->useCurrent();
+                $table->unique(['post_id', 'reporter_id']);
+            });
+        }
 
-        Schema::create('habnut_forum_subscriptions', function (Blueprint $table) {
-            $table->unsignedBigInteger('thread_id');
-            $table->unsignedBigInteger('user_id');
-            $table->timestamp('last_read_at')->useCurrent();
-            $table->boolean('notify')->default(true);
-            $table->timestamp('created_at')->useCurrent();
-            $table->primary(['thread_id', 'user_id']);
-        });
+        if (! Schema::hasTable('habnut_forum_subscriptions')) {
+            Schema::create('habnut_forum_subscriptions', function (Blueprint $table) {
+                $table->unsignedBigInteger('thread_id');
+                $table->unsignedBigInteger('user_id');
+                $table->timestamp('last_read_at')->useCurrent();
+                $table->boolean('notify')->default(true);
+                $table->timestamp('created_at')->useCurrent();
+                $table->primary(['thread_id', 'user_id']);
+            });
+        }
     }
 
     private function createSocialAndProgressionTables(): void
     {
-        Schema::create('habnut_friends', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('user_a');
-            $table->unsignedBigInteger('user_b');
-            $table->boolean('accepted')->default(true);
-            $table->timestamp('created_at')->useCurrent();
-            $table->unique(['user_a', 'user_b']);
-        });
+        if (! Schema::hasTable('habnut_friends')) {
+            Schema::create('habnut_friends', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('user_a');
+                $table->unsignedBigInteger('user_b');
+                $table->boolean('accepted')->default(true);
+                $table->timestamp('created_at')->useCurrent();
+                $table->unique(['user_a', 'user_b']);
+            });
+        }
 
-        Schema::create('habnut_badges', function (Blueprint $table) {
-            $table->string('id', 32)->primary();
-            $table->string('code', 64)->unique();
-            $table->string('name', 128);
-            $table->string('description', 512)->default('');
-            $table->string('sprite_id', 128)->default('');
-            $table->string('image_url', 512)->default('');
-            $table->string('category', 32)->default('general');
-            $table->boolean('is_achievement_badge')->default(false);
-        });
+        if (! Schema::hasTable('habnut_badges')) {
+            Schema::create('habnut_badges', function (Blueprint $table) {
+                $table->string('id', 32)->primary();
+                $table->string('code', 64)->unique();
+                $table->string('name', 128);
+                $table->string('description', 512)->default('');
+                $table->string('sprite_id', 128)->default('');
+                $table->string('image_url', 512)->default('');
+                $table->string('category', 32)->default('general');
+                $table->boolean('is_achievement_badge')->default(false);
+            });
+        }
 
-        Schema::create('habnut_user_badges', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('user_id');
-            $table->string('badge_code', 64);
-            $table->unsignedTinyInteger('slot_index')->nullable();
-            $table->boolean('equipped')->default(false);
-            $table->timestamp('earned_at')->useCurrent();
-            $table->unique(['user_id', 'badge_code']);
-        });
+        if (! Schema::hasTable('habnut_user_badges')) {
+            Schema::create('habnut_user_badges', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('user_id');
+                $table->string('badge_code', 64);
+                $table->unsignedTinyInteger('slot_index')->nullable();
+                $table->boolean('equipped')->default(false);
+                $table->timestamp('earned_at')->useCurrent();
+                $table->unique(['user_id', 'badge_code']);
+            });
+        }
 
-        Schema::create('habnut_user_achievements', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('user_id');
-            $table->string('achievement_id', 64);
-            $table->unsignedTinyInteger('current_level')->default(0);
-            $table->unsignedInteger('current_progress')->default(0);
-            $table->timestamp('completed_at')->nullable();
-            $table->unique(['user_id', 'achievement_id']);
-        });
+        if (! Schema::hasTable('habnut_user_achievements')) {
+            Schema::create('habnut_user_achievements', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('user_id');
+                $table->string('achievement_id', 64);
+                $table->unsignedTinyInteger('current_level')->default(0);
+                $table->unsignedInteger('current_progress')->default(0);
+                $table->timestamp('completed_at')->nullable();
+                $table->unique(['user_id', 'achievement_id']);
+            });
+        }
     }
 
     private function createModerationTables(): void
     {
-        Schema::create('habnut_mutes', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('user_id');
-            $table->unsignedBigInteger('muted_by_id');
-            $table->string('reason', 255);
-            $table->unsignedBigInteger('room_id')->nullable();
-            $table->timestamp('expires_at');
-            $table->timestamp('lifted_at')->nullable();
-            $table->unsignedBigInteger('lifted_by_id')->nullable();
-            $table->timestamp('created_at')->useCurrent();
-            $table->index(['user_id', 'lifted_at', 'expires_at']);
-        });
+        if (! Schema::hasTable('habnut_mutes')) {
+            Schema::create('habnut_mutes', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('user_id');
+                $table->unsignedBigInteger('muted_by_id');
+                $table->string('reason', 255);
+                $table->unsignedBigInteger('room_id')->nullable();
+                $table->timestamp('expires_at');
+                $table->timestamp('lifted_at')->nullable();
+                $table->unsignedBigInteger('lifted_by_id')->nullable();
+                $table->timestamp('created_at')->useCurrent();
+                $table->index(['user_id', 'lifted_at', 'expires_at']);
+            });
+        }
     }
 
     private function createHotelActivityTables(): void
     {
-        Schema::create('habnut_game_matches', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('game_type', 32);
-            $table->unsignedBigInteger('room_id')->nullable();
-            $table->string('state', 16)->default('waiting');
-            $table->unsignedInteger('player_count')->default(0);
-            $table->timestamp('started_at')->nullable();
-            $table->timestamp('ended_at')->nullable();
-        });
+        if (! Schema::hasTable('habnut_game_matches')) {
+            Schema::create('habnut_game_matches', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('game_type', 32);
+                $table->unsignedBigInteger('room_id')->nullable();
+                $table->string('state', 16)->default('waiting');
+                $table->unsignedInteger('player_count')->default(0);
+                $table->timestamp('started_at')->nullable();
+                $table->timestamp('ended_at')->nullable();
+            });
+        }
 
-        Schema::create('habnut_tournaments', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('name', 128);
-            $table->string('game_type', 32);
-            $table->string('state', 16)->default('scheduled');
-            $table->unsignedInteger('entrant_count')->default(0);
-            $table->timestamp('starts_at')->nullable();
-            $table->timestamp('ends_at')->nullable();
-        });
+        if (! Schema::hasTable('habnut_tournaments')) {
+            Schema::create('habnut_tournaments', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('name', 128);
+                $table->string('game_type', 32);
+                $table->string('state', 16)->default('scheduled');
+                $table->unsignedInteger('entrant_count')->default(0);
+                $table->timestamp('starts_at')->nullable();
+                $table->timestamp('ends_at')->nullable();
+            });
+        }
 
-        Schema::create('habnut_garden_seasons', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('name', 64);
-            $table->boolean('active')->default(false);
-            $table->timestamp('starts_at')->nullable();
-            $table->timestamp('ends_at')->nullable();
-        });
+        if (! Schema::hasTable('habnut_garden_seasons')) {
+            Schema::create('habnut_garden_seasons', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('name', 64);
+                $table->boolean('active')->default(false);
+                $table->timestamp('starts_at')->nullable();
+                $table->timestamp('ends_at')->nullable();
+            });
+        }
 
-        Schema::create('habnut_garden_goals', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('season_id')->nullable();
-            $table->string('name', 128);
-            $table->unsignedInteger('target')->default(0);
-            $table->unsignedInteger('progress')->default(0);
-            $table->timestamp('completed_at')->nullable();
-        });
+        if (! Schema::hasTable('habnut_garden_goals')) {
+            Schema::create('habnut_garden_goals', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('season_id')->nullable();
+                $table->string('name', 128);
+                $table->unsignedInteger('target')->default(0);
+                $table->unsignedInteger('progress')->default(0);
+                $table->timestamp('completed_at')->nullable();
+            });
+        }
 
-        Schema::create('habnut_garden_plants', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('plot_id');
-            $table->string('species', 64);
-            $table->unsignedTinyInteger('growth_stage')->default(0);
-            $table->timestamp('planted_at')->useCurrent();
-            $table->timestamp('watered_at')->nullable();
-        });
+        if (! Schema::hasTable('habnut_garden_plants')) {
+            Schema::create('habnut_garden_plants', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('plot_id');
+                $table->string('species', 64);
+                $table->unsignedTinyInteger('growth_stage')->default(0);
+                $table->timestamp('planted_at')->useCurrent();
+                $table->timestamp('watered_at')->nullable();
+            });
+        }
 
-        Schema::create('habnut_rp_factions', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('name', 96);
-            $table->string('kind', 32)->default('civilian');
-            $table->unsignedInteger('member_count')->default(0);
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('habnut_rp_factions')) {
+            Schema::create('habnut_rp_factions', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('name', 96);
+                $table->string('kind', 32)->default('civilian');
+                $table->unsignedInteger('member_count')->default(0);
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('habnut_rp_laws', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('code', 32)->unique();
-            $table->string('title', 128);
-            $table->string('description', 512)->default('');
-            $table->unsignedInteger('fine')->default(0);
-            $table->unsignedInteger('prison_minutes')->default(0);
-        });
+        if (! Schema::hasTable('habnut_rp_laws')) {
+            Schema::create('habnut_rp_laws', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('code', 32)->unique();
+                $table->string('title', 128);
+                $table->string('description', 512)->default('');
+                $table->unsignedInteger('fine')->default(0);
+                $table->unsignedInteger('prison_minutes')->default(0);
+            });
+        }
 
-        Schema::create('habnut_rp_prison', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('character_id');
-            $table->string('reason', 255)->default('');
-            $table->timestamp('released_at')->nullable();
-            $table->timestamp('created_at')->useCurrent();
-        });
+        if (! Schema::hasTable('habnut_rp_prison')) {
+            Schema::create('habnut_rp_prison', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('character_id');
+                $table->string('reason', 255)->default('');
+                $table->timestamp('released_at')->nullable();
+                $table->timestamp('created_at')->useCurrent();
+            });
+        }
 
-        Schema::create('habnut_rp_dispatch_calls', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('service', 32)->default('police');
-            $table->string('summary', 255)->default('');
-            $table->string('state', 16)->default('open');
-            $table->unsignedBigInteger('reported_by')->nullable();
-            $table->timestamp('created_at')->useCurrent();
-            $table->timestamp('closed_at')->nullable();
-        });
+        if (! Schema::hasTable('habnut_rp_dispatch_calls')) {
+            Schema::create('habnut_rp_dispatch_calls', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('service', 32)->default('police');
+                $table->string('summary', 255)->default('');
+                $table->string('state', 16)->default('open');
+                $table->unsignedBigInteger('reported_by')->nullable();
+                $table->timestamp('created_at')->useCurrent();
+                $table->timestamp('closed_at')->nullable();
+            });
+        }
 
-        Schema::create('habnut_rp_bank_transactions', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('character_id');
-            $table->bigInteger('amount');
-            $table->string('kind', 32)->default('transfer');
-            $table->string('memo', 255)->default('');
-            $table->timestamp('created_at')->useCurrent();
-        });
+        if (! Schema::hasTable('habnut_rp_bank_transactions')) {
+            Schema::create('habnut_rp_bank_transactions', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('character_id');
+                $table->bigInteger('amount');
+                $table->string('kind', 32)->default('transfer');
+                $table->string('memo', 255)->default('');
+                $table->timestamp('created_at')->useCurrent();
+            });
+        }
 
-        Schema::create('habnut_wired_variables', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('scope', 16)->default('room');
-            $table->unsignedBigInteger('scope_id')->nullable();
-            $table->string('name', 64);
-            $table->string('type', 16)->default('number');
-            $table->text('value')->nullable();
-            $table->timestamp('updated_at')->useCurrent();
-        });
+        if (! Schema::hasTable('habnut_wired_variables')) {
+            Schema::create('habnut_wired_variables', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('scope', 16)->default('room');
+                $table->unsignedBigInteger('scope_id')->nullable();
+                $table->string('name', 64);
+                $table->string('type', 16)->default('number');
+                $table->text('value')->nullable();
+                $table->timestamp('updated_at')->useCurrent();
+            });
+        }
 
-        Schema::create('habnut_wired_execution_log', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('room_id')->nullable();
-            $table->unsignedBigInteger('item_id')->nullable();
-            $table->string('trigger_type', 64)->default('');
-            $table->string('outcome', 32)->default('ok');
-            $table->text('detail')->nullable();
-            $table->timestamp('created_at')->useCurrent();
-        });
+        if (! Schema::hasTable('habnut_wired_execution_log')) {
+            Schema::create('habnut_wired_execution_log', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('room_id')->nullable();
+                $table->unsignedBigInteger('item_id')->nullable();
+                $table->string('trigger_type', 64)->default('');
+                $table->string('outcome', 32)->default('ok');
+                $table->text('detail')->nullable();
+                $table->timestamp('created_at')->useCurrent();
+            });
+        }
     }
 
     /**
@@ -322,17 +364,19 @@ return new class extends Migration
     {
         Schema::dropIfExists('habnut_leaderboards');
 
-        Schema::create('habnut_leaderboards', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('user_id');
-            $table->string('game_type', 32);
-            $table->string('period', 16)->default('all_time');
-            $table->bigInteger('total_score')->default(0);
-            $table->unsignedInteger('wins')->default(0);
-            $table->unsignedInteger('matches_played')->default(0);
-            $table->timestamp('updated_at')->useCurrent();
-            $table->unique(['user_id', 'game_type', 'period']);
-        });
+        if (! Schema::hasTable('habnut_leaderboards')) {
+            Schema::create('habnut_leaderboards', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('user_id');
+                $table->string('game_type', 32);
+                $table->string('period', 16)->default('all_time');
+                $table->bigInteger('total_score')->default(0);
+                $table->unsignedInteger('wins')->default(0);
+                $table->unsignedInteger('matches_played')->default(0);
+                $table->timestamp('updated_at')->useCurrent();
+                $table->unique(['user_id', 'game_type', 'period']);
+            });
+        }
     }
 
     public function down(): void

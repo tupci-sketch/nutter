@@ -64,7 +64,6 @@ class UserModelTest extends TestCase
 
         Ban::factory()->create([
             'user_id' => $tupci->id,
-            'active' => true,
             'expires_at' => now()->addDays(7),
             'reason' => 'Test ban',
         ]);
@@ -79,7 +78,6 @@ class UserModelTest extends TestCase
 
         Ban::factory()->create([
             'user_id' => $tupci->id,
-            'active' => true,
             'expires_at' => now()->subMinutes(1),
             'reason' => 'Expired ban',
         ]);
@@ -100,7 +98,7 @@ class UserModelTest extends TestCase
     /** @test */
     public function two_factor_enabled_casts_to_boolean(): void
     {
-        $tupci = $this->makeTupci(['two_factor_enabled' => false]);
-        $this->assertIsBool($tupci->two_factor_enabled);
+        $tupci = $this->makeTupci(['two_fa_enabled' => false]);
+        $this->assertIsBool($tupci->two_fa_enabled);
     }
 }

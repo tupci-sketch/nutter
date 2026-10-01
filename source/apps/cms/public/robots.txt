@@ -1,0 +1,6 @@
+# The staff pages and the API are nobody's business but the hotel's.
+User-agent: *
+Disallow: /dcc
+Disallow: /api
+Disallow: /client
+Allow: /

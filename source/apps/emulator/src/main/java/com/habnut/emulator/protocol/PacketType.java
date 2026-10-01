@@ -548,4 +548,34 @@ public final class PacketType {
     public static final String SEA_CLAIM_REWARDS     = "season.claim.rewards";
     public static final String SEA_REWARDS_CLAIMED   = "season.rewards.claimed";
     public static final String SEA_CHANGED           = "season.changed";
+
+    // Errors, and the handful of replies that were written as bare strings.
+    //
+    // Every name on the wire belongs here: the client's table is generated from
+    // this file, so a packet declared only as a literal somewhere in a handler
+    // is one the client has no name for and will never listen to.
+    public static final String SYSTEM_ERROR          = "system.error";
+    public static final String BOT_ERROR             = "bot.error";
+    public static final String CAMERA_ERROR          = "camera.error";
+    public static final String EVENT_ERROR           = "event.error";
+    public static final String GAME_ERROR            = "game.error";
+    public static final String GARDEN_ERROR          = "garden.error";
+    public static final String MARKETPLACE_ERROR     = "marketplace.error";
+    public static final String MOD_ERROR             = "mod.error";
+    public static final String PET_ERROR             = "pet.error";
+    public static final String PROGRESSION_ERROR     = "progression.error";
+    public static final String RP_ERROR              = "rp.error";
+    public static final String SOCIAL_ERROR          = "social.error";
+    public static final String SOUND_ERROR           = "sound.error";
+    public static final String STAFF_ERROR           = "staff.error";
+    public static final String WIRED_ERROR           = "wired.error";
+
+    public static final String SOCIAL_FRIEND_REQUEST_SENT = "social.friend.request.sent";
+    public static final String SOCIAL_MSG_SENT            = "social.msg.sent";
+    public static final String SOCIAL_MSG_LIST_RESULT     = "social.msg.list.result";
+    public static final String GROUP_SEARCH_RESULT        = "group.search.result";
+    public static final String GROUP_FORUM_THREAD_CREATED = "group.forum.thread.created";
+    public static final String GROUP_FORUM_POST_CREATED   = "group.forum.post.created";
+    public static final String STAFF_COMMAND_RESPONSE     = "staff.command.response";
+    public static final String SYSTEM_FEATURE_FLAG_CHANGED = "system.feature_flag.changed";
 }

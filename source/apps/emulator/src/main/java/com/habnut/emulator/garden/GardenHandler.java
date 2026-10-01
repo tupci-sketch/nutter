@@ -170,6 +170,6 @@ public final class GardenHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("garden.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.GARDEN_ERROR, Map.of("reason", reason)));
     }
 }

@@ -1,5 +1,6 @@
 package com.habnut.emulator;
 
+import com.habnut.emulator.protocol.PacketType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.habnut.emulator.auth.*;
@@ -114,8 +115,8 @@ public final class ServerBootstrap {
         PacketRouter router = new PacketRouter(mapper);
 
         // System ping for basic connectivity checks
-        router.register("system.ping", (session, payload) ->
-            session.send(router.buildPacket("system.pong",
+        router.register(PacketType.SYSTEM_PING, (session, payload) ->
+            session.send(router.buildPacket(PacketType.SYSTEM_PONG,
                 java.util.Map.of("ts", System.currentTimeMillis()))));
 
         // Auth domain (Phase 4)
@@ -157,6 +158,9 @@ public final class ServerBootstrap {
         furniBaseRepo.preloadAll();
         FurniHandler furniHandler = new FurniHandler(roomManager, furniBaseRepo, db, router, networkLimiter);
         furniHandler.register(router);
+        // A player walking into a room is sent what is standing in it, which
+        // only the furniture handler knows.
+        roomHandler.setFurnitureSupplier(furniHandler::roomContents);
 
         // Trade domain (Phase 9)
         TradeService tradeService = new TradeService(db);
@@ -170,7 +174,7 @@ public final class ServerBootstrap {
         FriendService  friendService  = new FriendService(db);
         MessageService messageService = new MessageService(db);
         GroupService   groupService   = new GroupService(db);
-        new SocialHandler(friendService, messageService, groupService, sessions, router)
+        new SocialHandler(friendService, messageService, groupService, sessions, router, userRepo)
             .register(router);
 
         // Progression domain (Phase 11)

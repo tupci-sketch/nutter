@@ -30,10 +30,10 @@ class DccAutoModerationController extends Controller
         $status = $request->query('status', 'pending_review');
 
         $cases = DB::table('habnut_auto_mutes as c')
-            ->leftJoin('users as u', 'u.id', '=', 'c.user_id')
+            ->leftJoin('habnut_users as u', 'u.id', '=', 'c.user_id')
             ->leftJoin('habnut_content_rules as r', 'r.id', '=', 'c.rule_id')
             ->leftJoin('habnut_mutes as m', 'm.id', '=', 'c.mute_id')
-            ->leftJoin('users as s', 's.id', '=', 'c.reviewed_by_id')
+            ->leftJoin('habnut_users as s', 's.id', '=', 'c.reviewed_by_id')
             // Named explicitly: without a select list the joined tables' own id
             // columns overwrite the case's, and every row then links to the
             // wrong case.

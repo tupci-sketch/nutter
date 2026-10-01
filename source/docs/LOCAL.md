@@ -1,0 +1,198 @@
+# Running a hotel on your own computer
+
+`habnutctl dev` brings a whole hotel up on `127.0.0.1` — the website, the game,
+the staff pages, the database — already filled with rooms, furniture and people
+to sign in as. Nothing is installed system-wide, nothing needs root, nothing
+listens anywhere but your own machine, and one command removes every trace of
+it again.
+
+It exists because the alternative was a server. `habnutctl install` wants root,
+a domain, a certificate and system packages; none of that is reasonable when
+the question is just "does this work?".
+
+## What you need
+
+Docker, and nothing else. The hotel, the website, the game client and the seed
+data are all inside the `habnutctl` binary.
+
+- **Windows / macOS** — [Docker Desktop](https://docs.docker.com/desktop/). It
+  has to be *running*, not just installed.
+- **Linux** — [Docker Engine](https://docs.docker.com/engine/install/), and add
+  yourself to the `docker` group so this does not need `sudo`:
+  `sudo usermod -aG docker $USER`, then log out and back in.
+
+Docker is the one thing that cannot be shipped in a binary. A database, a
+cache, PHP and a JVM are four separate installs otherwise, and getting them to
+agree with each other is exactly the work this is meant to save you.
+
+## Starting it
+
+```
+habnutctl dev up
+```
+
+The first run fetches container images and builds the database, which takes a
+few minutes. After that it is seconds. When it finishes it prints where
+everything is:
+
+```
+The hotel is up.
+
+  The hotel      http://127.0.0.1:8088
+  The game       http://127.0.0.1:8088/hotel
+  Staff pages    http://127.0.0.1:8088/dcc
+  Mail it sends  http://127.0.0.1:8025
+
+  Sign in with any of these. The password is: password
+    tupci    Administrator  owns the public rooms and can open the staff pages
+    Hal      Moderator      can see the moderation queue
+    Marnie   VIP            owns a furnished room of her own
+    Robbie   Member         an ordinary account, to see what a new player sees
+```
+
+Open the first URL, sign in as `tupci`, and click through to the hotel. You
+will not be asked for a ticket: signing in on the website is what gets you into
+the game.
+
+## What is in it
+
+The hotel comes up seeded, because an empty hotel tells you nothing about
+whether it works.
+
+**Everywhere:** seven room shapes, eighteen pieces of furniture covering every
+behaviour the room engine knows about — something to sit on, something to stand
+on, a gate that opens, a lamp with three settings, dice, a teleport pad, a
+roller — and a catalogue with all of it in it, in six pages.
+
+**Only locally:** four accounts, four furnished rooms (a lobby, a grand hall,
+somebody's front room, a pool), friendships between the accounts, items in
+`tupci`'s inventory, and a thread on the forum.
+
+The demo accounts all share one password and exist only on a hotel running on
+your own machine. `habnutctl install` never creates them.
+
+To come up empty instead and register an account yourself:
+
+```
+habnutctl dev up --no-demo
+```
+
+## Without an asset pack
+
+The game runs, but rooms and figures draw as plain coloured shapes: the
+pictures come from a Habbo asset pack, which is not ours to ship. Everything
+else works — walking, chat, furniture, the catalogue, the navigator, the
+website, the staff pages.
+
+To add one:
+
+```
+habnutctl swf install <pack.zip>
+```
+
+## The other commands
+
+| Command | What it does |
+| --- | --- |
+| `habnutctl dev up` | Start it. Safe to run on a hotel that is already up. |
+| `habnutctl dev down` | Stop it. The database is kept, so `up` resumes where you left off. |
+| `habnutctl dev down --purge` | Stop it and delete the database. |
+| `habnutctl dev status` | Whether it is running, and where to find it. |
+| `habnutctl dev logs` | What it is saying. `-f` to follow, or name one service. |
+| `habnutctl dev reset` | Throw the hotel away and build it again from nothing. |
+| `habnutctl dev seed` | Apply the seed files again, keeping whatever you changed. |
+| `habnutctl dev db` | A database prompt, without installing a client. |
+
+The services are `db`, `redis`, `mail`, `emulator`, `cms` and `web`, so
+`habnutctl dev logs -f emulator` follows the hotel itself.
+
+## Where it keeps things
+
+One directory holds the lot:
+
+| Platform | Directory |
+| --- | --- |
+| Linux | `~/.habnut/dev` |
+| macOS | `~/Library/Application Support/Habnut/dev` |
+| Windows | `%LOCALAPPDATA%\Habnut\dev` |
+
+Set `HABNUT_DEV_HOME` or pass `--dir` to put it somewhere else. Inside:
+
+```
+docker-compose.yml   the stack — yours to edit
+nginx.conf           the web server
+app.key              this hotel's signing key
+cms/                 the website, with its .env
+client/              the game client
+emulator/            habnut-emulator.jar
+seed/                base.sql and demo.sql — yours to edit
+logs/
+```
+
+The generated files are yours once they exist: `habnutctl dev up` will not
+overwrite a compose file you have added a service to. Pass `--recreate` when
+you want them rewritten.
+
+The seed files work the same way. Edit `seed/demo.sql`, run `habnutctl dev
+seed`, and your changes are applied. Nothing already in the database is
+overwritten, so a hotel you have been playing with keeps what you did to it.
+
+## Running two at once
+
+Give them names and ports:
+
+```
+habnutctl dev up --name classic --port 8088
+habnutctl dev up --name rp --port 8089 --rp
+```
+
+Each gets its own directory, its own database and its own Compose project, so
+neither adopts the other's containers.
+
+## Mail
+
+Everything the hotel sends — registration, password resets, ban notices — is
+caught by a local inbox at `http://127.0.0.1:8025`. Nothing leaves the machine,
+and you can follow a password reset all the way through without a mail server.
+
+## When something goes wrong
+
+**It says Docker is not available.** Installed is not the same as running: on
+Windows and macOS the engine lives in a VM that has to be started. Open Docker
+Desktop and wait for it to say it is running.
+
+**A port is already in use.** `--port` moves the website. The others move with
+`--name`, which gives the whole hotel its own set.
+
+**The database never came up.** `habnutctl dev logs db`. On a first run it
+builds its data directory, which can take a minute on a slow disk; the start-up
+wait allows three.
+
+**The website shows an error page.** It is running with debugging on, so the
+page says what went wrong and where. `habnutctl dev logs cms` has the rest.
+
+**The game opens but nothing is drawn.** Check `habnutctl dev logs emulator`.
+If the hotel is up and the room is still blank, you have no asset pack — see
+above.
+
+**You want to start completely clean.** `habnutctl dev reset`.
+
+## Differences from a real install
+
+Everything about how the parts fit together is the same — the website at `/`,
+the game at `/client/`, the socket at `/ws`, one account across both, the same
+schema applied by the same migrator. What differs is everything that needs a
+server:
+
+| | Local | Installed |
+| --- | --- | --- |
+| Reachable from | this machine only | the internet |
+| TLS | none | Let's Encrypt |
+| Debugging | on | off |
+| Mail | caught locally | your SMTP server |
+| Services | Docker containers | systemd or Windows services |
+| Starts at boot | no | yes |
+| Demo accounts | yes | never |
+
+A change that works here is a change that will work there. It is not a hotel
+you should put players on.

@@ -16,7 +16,7 @@ class DccEconomyController extends Controller
 
     public function index()
     {
-        $totals = DB::table('users')->selectRaw(
+        $totals = DB::table('habnut_users as users')->selectRaw(
             'SUM(credits) as total_credits, SUM(diamonds) as total_diamonds, SUM(nut_points) as total_nutpoints, COUNT(*) as users'
         )->first();
 
@@ -32,7 +32,7 @@ class DccEconomyController extends Controller
     public function transactions(Request $request)
     {
         $query = DB::table('habnut_transactions')
-            ->join('users', 'users.id', '=', 'habnut_transactions.user_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_transactions.user_id')
             ->select('habnut_transactions.*', 'users.username');
 
         if ($request->filled('currency')) {
@@ -51,7 +51,7 @@ class DccEconomyController extends Controller
     public function grant(Request $request)
     {
         $request->validate([
-            'user_id' => ['required', 'exists:users,id'],
+            'user_id' => ['required', 'exists:habnut_users,id'],
             'currency' => ['required', Rule::in(['credits', 'diamonds', 'nut_points', 'seasonal_currency'])],
             'amount' => ['required', 'integer', 'min:1'],
             'reason' => ['required', 'string', 'max:500'],
@@ -87,7 +87,7 @@ class DccEconomyController extends Controller
     public function debit(Request $request)
     {
         $request->validate([
-            'user_id' => ['required', 'exists:users,id'],
+            'user_id' => ['required', 'exists:habnut_users,id'],
             'currency' => ['required', Rule::in(['credits', 'diamonds', 'nut_points', 'seasonal_currency'])],
             'amount' => ['required', 'integer', 'min:1'],
             'reason' => ['required', 'string', 'max:500'],

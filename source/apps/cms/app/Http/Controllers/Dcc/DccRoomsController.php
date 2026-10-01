@@ -14,7 +14,7 @@ class DccRoomsController extends Controller
     public function index(Request $request)
     {
         $query = DB::table('habnut_rooms')
-            ->join('users', 'users.id', '=', 'habnut_rooms.owner_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_rooms.owner_id')
             ->select('habnut_rooms.*', 'users.username as owner_name');
 
         if ($request->filled('q')) {
@@ -29,7 +29,7 @@ class DccRoomsController extends Controller
     public function show(int $id)
     {
         $room = DB::table('habnut_rooms')
-            ->join('users', 'users.id', '=', 'habnut_rooms.owner_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_rooms.owner_id')
             ->select('habnut_rooms.*', 'users.username as owner_name')
             ->where('habnut_rooms.id', $id)
             ->firstOrFail();

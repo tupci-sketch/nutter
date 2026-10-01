@@ -14,6 +14,21 @@ Habnut is a complete virtual hotel and roleplay platform built for modern player
 - No button does nothing. No wired box does nothing. No game cannot be finished. No item disappears when the server restarts.
 - A single binary — `habnutctl` — installs, updates, backs up, restores and recovers the entire platform on any Ubuntu VPS.
 
+## Try it on your own computer first
+
+```sh
+chmod +x bin/habnutctl-linux-amd64
+./bin/habnutctl-linux-amd64 dev up
+```
+
+One command brings the whole hotel up on `127.0.0.1` — website, game, staff
+pages, database — already filled with rooms, furniture and four accounts to
+sign in as. No root, no domain, no certificate, nothing installed
+system-wide, and `dev down --purge` removes every trace of it.
+
+Docker is the only thing it needs that is not inside the binary.
+[`source/docs/LOCAL.md`](source/docs/LOCAL.md) has the rest.
+
 ## Quick start (operators)
 
 The executables in [`bin/`](bin/) carry the whole hotel — emulator, client and

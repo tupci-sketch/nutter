@@ -22,13 +22,13 @@ class ProfileController extends Controller
         $user = $request->user();
 
         $request->validate([
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'email' => ['required', 'email', Rule::unique('habnut_users')->ignore($user->id)],
             'password' => ['nullable', 'confirmed', 'min:8'],
         ]);
 
         $data = ['email' => $request->email];
         if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
+            $data['password_hash'] = Hash::make($request->password);
         }
 
         $user->update($data);

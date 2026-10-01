@@ -39,6 +39,16 @@ public final class RoomHandler {
     private final RateLimiter rateLimiter;
     private final ChatModerator chatModerator;
 
+    /**
+     * Where the room's furniture comes from when somebody walks in.
+     *
+     * Supplied rather than held directly: the furniture handler owns the loaded
+     * stores, and asking it through a function keeps the two handlers from
+     * having to know about each other.
+     */
+    private volatile java.util.function.LongFunction<Map<String, Object>> furnitureSupplier =
+        roomId -> Map.of("floor", List.of(), "wall", List.of());
+
     private final Map<Long, Long> userCurrentRoom = new java.util.concurrent.ConcurrentHashMap<>();
 
     public RoomHandler(RoomManager rooms, RoomRepository roomRepo,
@@ -53,6 +63,11 @@ public final class RoomHandler {
         this.metrics    = metrics;
         this.rateLimiter = rateLimiter;
         this.chatModerator = chatModerator;
+    }
+
+    /** Tell the room handler where to find a room's furniture. */
+    public void setFurnitureSupplier(java.util.function.LongFunction<Map<String, Object>> supplier) {
+        if (supplier != null) this.furnitureSupplier = supplier;
     }
 
     public void register(PacketRouter router) {
@@ -192,15 +207,39 @@ public final class RoomHandler {
         RoomEntity entity = room.addPlayer(userId, user.username(), user.figureString(), spawn);
         userCurrentRoom.put(userId, roomId);
 
-        // Send full room state to the entering player
-        session.send(router.buildPacket(PacketType.ROOM_ENTER_SUCCESS, Map.of(
-            "roomId",   roomId,
-            "name",     room.getSettings().name(),
-            "modelId",  model.id(),
-            "ownerId",  room.getSettings().ownerId(),
-            "ownerName",room.getSettings().ownerName(),
-            "entities", room.getEntityState()
-        )));
+        // Everything the client needs to draw the room it has just walked into:
+        // the shape of the floor, where the door is, who is standing where, and
+        // what has been put down. Without the heightmap there is nothing to
+        // stand on, and without the furniture the room looks empty however
+        // decorated it is.
+        Map<String, Object> contents = furnitureSupplier.apply(roomId);
+        RoomSettings settings = room.getSettings();
+
+        Map<String, Object> enterPayload = new java.util.HashMap<>();
+        enterPayload.put("roomId",      roomId);
+        enterPayload.put("name",        settings.name());
+        enterPayload.put("description", settings.description());
+        enterPayload.put("modelId",     model.id());
+        enterPayload.put("heightmap",   model.heightmap());
+        enterPayload.put("doorX",       model.doorX());
+        enterPayload.put("doorY",       model.doorY());
+        enterPayload.put("doorRotation", model.doorRotation());
+        enterPayload.put("maxVisitors", settings.maxVisitors());
+        enterPayload.put("ownerId",     settings.ownerId());
+        enterPayload.put("ownerName",   settings.ownerName());
+        enterPayload.put("wallpaper",      settings.wallpaper());
+        enterPayload.put("floorPattern",   settings.floorPattern());
+        enterPayload.put("landscape",      settings.landscapeColour());
+        enterPayload.put("background",     settings.backgroundColour());
+        enterPayload.put("hideWalls",      settings.hideWalls());
+        enterPayload.put("wallHeight",     settings.wallHeight());
+        enterPayload.put("wallThickness",  settings.wallThickness());
+        enterPayload.put("floorThickness", settings.floorThickness());
+        enterPayload.put("entities",    room.getEntityState());
+        enterPayload.put("floorItems",  contents.getOrDefault("floor", List.of()));
+        enterPayload.put("wallItems",   contents.getOrDefault("wall", List.of()));
+
+        session.send(router.buildPacket(PacketType.ROOM_ENTER_SUCCESS, enterPayload));
 
         // Announce new user to existing occupants
         Position p = entity.getPosition();
@@ -448,7 +487,7 @@ public final class RoomHandler {
     }
 
     private void sendError(WebSocketSession session, String code, String message) {
-        session.send(router.buildPacket("system.error",
+        session.send(router.buildPacket(PacketType.SYSTEM_ERROR,
             Map.of("code", code, "message", message)));
     }
 }

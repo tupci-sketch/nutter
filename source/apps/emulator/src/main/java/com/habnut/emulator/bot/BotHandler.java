@@ -161,6 +161,6 @@ public final class BotHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("bot.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.BOT_ERROR, Map.of("reason", reason)));
     }
 }

@@ -23,15 +23,17 @@ public final class SocialHandler {
     private final GroupService groupService;
     private final SessionRegistry sessions;
     private final PacketRouter router;
+    private final com.habnut.emulator.auth.UserRepository users;
 
     public SocialHandler(FriendService friendService, MessageService messageService,
                          GroupService groupService, SessionRegistry sessions,
-                         PacketRouter router) {
+                         PacketRouter router, com.habnut.emulator.auth.UserRepository users) {
         this.friendService  = friendService;
         this.messageService = messageService;
         this.groupService   = groupService;
         this.sessions       = sessions;
         this.router         = router;
+        this.users          = users;
     }
 
     public void register(PacketRouter router) {
@@ -68,17 +70,33 @@ public final class SocialHandler {
 
     private void handleRequestSend(WebSocketSession session, JsonNode payload) {
         if (!session.isAuthenticated()) return;
+
+        // A player adds a friend by typing their name; an id is accepted too,
+        // for the places in the client that already have one to hand.
         long toUserId = payload.path("toUserId").asLong(-1);
-        if (toUserId < 1) { sendError(session, ErrorCode.GENERIC_INVALID_PAYLOAD, "Invalid user"); return; }
+        if (toUserId < 1) {
+            String username = payload.path("username").asText("").trim();
+            if (username.isEmpty()) {
+                sendError(session, ErrorCode.GENERIC_INVALID_PAYLOAD, "Invalid user");
+                return;
+            }
+            com.habnut.emulator.auth.UserRepository.UserRow target = users.findByUsername(username);
+            if (target == null) {
+                sendError(session, ErrorCode.GENERIC_NOT_FOUND, "No one here goes by that name");
+                return;
+            }
+            toUserId = target.id();
+        }
 
         FriendService.SendRequestResult result = friendService.sendRequest(session.getUserId(), toUserId);
         switch (result) {
             case SENT -> {
                 // Notify target if online
+                long fromId = session.getUserId();
                 sessions.byUserId(toUserId).ifPresent(s ->
                     s.send(router.buildPacket(PacketType.SOCIAL_FRIEND_REQUEST_RECEIVED,
-                        Map.of("fromUserId", session.getUserId()))));
-                session.send(router.buildPacket("social.friend.request.sent",
+                        describeUser("from", fromId))));
+                session.send(router.buildPacket(PacketType.SOCIAL_FRIEND_REQUEST_SENT,
                     Map.of("toUserId", toUserId)));
             }
             case ALREADY_FRIENDS    -> sendError(session, ErrorCode.TRADE_INVALID_PARTNER, "Already friends");
@@ -144,11 +162,13 @@ public final class SocialHandler {
         MessageService.SendResult result = messageService.send(session.getUserId(), toUserId, body, friendService);
         switch (result) {
             case SENT -> {
-                session.send(router.buildPacket("social.msg.sent", Map.of("toUserId", toUserId)));
+                session.send(router.buildPacket(PacketType.SOCIAL_MSG_SENT, Map.of("toUserId", toUserId)));
                 // Deliver immediately if target is online
+                Map<String, Object> delivery = new java.util.HashMap<>(describeUser("from", session.getUserId()));
+                delivery.put("body", body);
+                delivery.put("sentAt", java.time.Instant.now().toString());
                 sessions.byUserId(toUserId).ifPresent(s ->
-                    s.send(router.buildPacket(PacketType.SOCIAL_MSG_RECEIVED,
-                        Map.of("fromUserId", session.getUserId(), "body", body))));
+                    s.send(router.buildPacket(PacketType.SOCIAL_MSG_RECEIVED, delivery)));
             }
             case NOT_FRIENDS -> sendError(session, ErrorCode.GENERIC_PERMISSION_DENIED, "Not friends");
             case BLOCKED     -> sendError(session, ErrorCode.GENERIC_PERMISSION_DENIED, "Cannot send message");
@@ -164,7 +184,7 @@ public final class SocialHandler {
         List<MessageService.Message> messages = sent
             ? messageService.getSent(session.getUserId(), limit, offset)
             : messageService.getInbox(session.getUserId(), limit, offset);
-        session.send(router.buildPacket("social.msg.list.result",
+        session.send(router.buildPacket(PacketType.SOCIAL_MSG_LIST_RESULT,
             Map.of("messages", messages, "sent", sent)));
     }
 
@@ -241,7 +261,7 @@ public final class SocialHandler {
         int limit  = Math.min(payload.path("limit").asInt(20), 50);
         int offset = Math.max(payload.path("offset").asInt(0), 0);
         List<GroupService.Group> results = groupService.search(query, limit, offset);
-        session.send(router.buildPacket("group.search.result",
+        session.send(router.buildPacket(PacketType.GROUP_SEARCH_RESULT,
             Map.of("query", query, "groups", results)));
     }
 
@@ -258,7 +278,7 @@ public final class SocialHandler {
         }
         try {
             long threadId = groupService.createThread(groupId, session.getUserId(), title);
-            session.send(router.buildPacket("group.forum.thread.created",
+            session.send(router.buildPacket(PacketType.GROUP_FORUM_THREAD_CREATED,
                 Map.of("threadId", threadId, "groupId", groupId)));
         } catch (SQLException e) {
             log.error("Forum thread create failed: group={}", groupId, e);
@@ -280,7 +300,7 @@ public final class SocialHandler {
         }
         try {
             long postId = groupService.createPost(threadId, session.getUserId(), body);
-            session.send(router.buildPacket("group.forum.post.created",
+            session.send(router.buildPacket(PacketType.GROUP_FORUM_POST_CREATED,
                 Map.of("postId", postId, "threadId", threadId)));
         } catch (SQLException e) {
             log.error("Forum post create failed: thread={}", threadId, e);
@@ -288,11 +308,33 @@ public final class SocialHandler {
         }
     }
 
+    /**
+     * Enough about a user to show them: id, name and figure.
+     *
+     * These notices used to carry only a numeric id, which no part of the
+     * client can draw or address somebody by, so a friend request arrived from
+     * nobody in particular.
+     */
+    private Map<String, Object> describeUser(String prefix, long userId) {
+        com.habnut.emulator.auth.UserRepository.UserRow row = users.findById(userId);
+        Map<String, Object> m = new java.util.HashMap<>();
+        m.put(prefix + "UserId", userId);
+        m.put(prefix + "Username", row != null ? row.username() : "");
+        m.put(prefix + "Figure", row != null ? row.figureString() : "");
+        return m;
+    }
+
     private Map<String, Object> buildFriendForOther(long userId) {
-        return Map.of("userId", userId);
+        com.habnut.emulator.auth.UserRepository.UserRow row = users.findById(userId);
+        Map<String, Object> m = new java.util.HashMap<>();
+        m.put("userId", userId);
+        m.put("username", row != null ? row.username() : "");
+        m.put("figure", row != null ? row.figureString() : "");
+        m.put("online", true);
+        return m;
     }
 
     private void sendError(WebSocketSession session, String code, String msg) {
-        session.send(router.buildPacket("social.error", Map.of("code", code, "message", msg)));
+        session.send(router.buildPacket(PacketType.SOCIAL_ERROR, Map.of("code", code, "message", msg)));
     }
 }

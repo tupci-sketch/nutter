@@ -1,4 +1,4 @@
-import type { RoomUser, RoomFurni, RoomInfo } from '@/stores/roomStore';
+import type { RoomEntity, FloorItem, RoomInfo } from '@/stores/roomStore';
 
 /**
  * Describing a room in words.
@@ -39,10 +39,10 @@ export function countPeople(count: number): string {
 
 export interface RoomDescriptionInput {
   room: RoomInfo | null;
-  users: readonly RoomUser[];
-  furni: readonly RoomFurni[];
-  /** The viewer's own user id, so they are not described as somebody else. */
-  selfId: number | null;
+  users: readonly RoomEntity[];
+  furni: readonly FloorItem[];
+  /** The viewer's own figure, so they are not described as somebody else. */
+  selfInstanceId: number | null;
 }
 
 /**
@@ -52,20 +52,20 @@ export interface RoomDescriptionInput {
  * would be unusable, so this says who is here and what is here, and leaves
  * where everything is to the position readout for one person at a time.
  */
-export function describeRoom({ room, users, furni, selfId }: RoomDescriptionInput): string {
+export function describeRoom({ room, users, furni, selfInstanceId }: RoomDescriptionInput): string {
   if (!room) return 'No room loaded.';
 
-  const others = users.filter((u) => u.userId !== selfId);
+  const others = users.filter((u) => u.instanceId !== selfInstanceId);
   const parts: string[] = [`${room.name}, a room by ${room.ownerName}.`];
 
   parts.push(`${countPeople(others.length)}.`);
 
   if (others.length > 0 && others.length <= 8) {
-    parts.push(`${readAsList(others.map((u) => u.username))}.`);
+    parts.push(`${readAsList(others.map((u) => u.name))}.`);
   }
 
   if (furni.length > 0) {
-    const kinds = new Set(furni.map((f) => f.baseItem));
+    const kinds = new Set(furni.map((f) => f.spriteId));
     parts.push(
       furni.length === 1
         ? 'There is one piece of furniture.'
@@ -78,9 +78,9 @@ export function describeRoom({ room, users, furni, selfId }: RoomDescriptionInpu
 }
 
 /** Where the viewer is standing, and which way they are looking. */
-export function describePosition(user: RoomUser | undefined): string {
+export function describePosition(user: RoomEntity | undefined): string {
   if (!user) return 'You are not in the room.';
-  return `You are at ${user.x}, ${user.y}, facing ${facing(user.dir)}.`;
+  return `You are at ${user.x}, ${user.y}, facing ${facing(user.rotation)}.`;
 }
 
 /** What to say when somebody arrives or leaves. */

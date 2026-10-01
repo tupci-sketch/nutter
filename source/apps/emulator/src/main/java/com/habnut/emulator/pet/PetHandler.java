@@ -156,6 +156,6 @@ public final class PetHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("pet.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.PET_ERROR, Map.of("reason", reason)));
     }
 }

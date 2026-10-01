@@ -311,6 +311,25 @@ jobs:
             -v "$PWD/rendered/habnut.conf:/etc/nginx/conf.d/habnut.conf:ro" \
             -v "$PWD/rendered/certs:/etc/letsencrypt/live/ci.habnut.test:ro" \
             nginx:1.27-alpine nginx -t
+      # `habnutctl dev` generates its own, simpler config. A syntax error in it
+      # means `dev up` fails on somebody's own machine, which is the one place
+      # nobody is watching a build log.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: source/apps/launcher/go.sum
+      - name: Generate the local stack
+        working-directory: source/apps/launcher
+        run: go run . dev config --dir "$RUNNER_TEMP/local"
+      - name: Test the local config syntax
+        run: |
+          docker run --rm \
+            --add-host emulator:127.0.0.1 \
+            --add-host cms:127.0.0.1 \
+            -v "$RUNNER_TEMP/local/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            nginx:1.27-alpine nginx -t
+      - name: Validate the local compose file
+        run: docker compose -f "$RUNNER_TEMP/local/docker-compose.yml" config --quiet
 
   # ── 13 · Docker Compose ───────────────────────────────────────────────────
   docker-compose:

@@ -124,7 +124,7 @@ public final class MarketplaceHandler {
     }
 
     private void sendError(WebSocketSession session, String code, String msg) {
-        session.send(router.buildPacket("marketplace.error",
+        session.send(router.buildPacket(PacketType.MARKETPLACE_ERROR,
             Map.of("code", code, "message", msg)));
     }
 }

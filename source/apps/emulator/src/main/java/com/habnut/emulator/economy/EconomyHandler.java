@@ -135,6 +135,6 @@ public final class EconomyHandler {
     }
 
     private void sendError(WebSocketSession session, String code, String msg) {
-        session.send(router.buildPacket("system.error", Map.of("code", code, "message", msg)));
+        session.send(router.buildPacket(PacketType.SYSTEM_ERROR, Map.of("code", code, "message", msg)));
     }
 }

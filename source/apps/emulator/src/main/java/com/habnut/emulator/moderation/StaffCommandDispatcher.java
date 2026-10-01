@@ -230,7 +230,7 @@ public final class StaffCommandDispatcher {
     }
 
     private void sendFeedback(WebSocketSession s, String message) {
-        s.send(router.buildPacket("staff.command.response", Map.of("message", message)));
+        s.send(router.buildPacket(PacketType.STAFF_COMMAND_RESPONSE, Map.of("message", message)));
     }
 
     private UserRepository.UserRow findUser(String nameOrId) {

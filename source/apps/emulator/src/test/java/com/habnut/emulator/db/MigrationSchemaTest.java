@@ -101,6 +101,62 @@ class MigrationSchemaTest {
     }
 
     @Test
+    @DisplayName("no service selects a bare column the schema does not define")
+    void noBareSelectDrift() throws IOException {
+        Map<String, Set<String>> schema = parseSchema();
+        List<String> problems = new ArrayList<>();
+
+        // A query against one table has no need of an alias, so its columns are
+        // named bare — and the aliased check above never looked at them. That
+        // blind spot covered the user lookup every login goes through, which
+        // had been selecting four columns that do not exist.
+        Pattern select = Pattern.compile(
+            "SELECT\\s+(.+?)\\s+FROM\\s+(habnut_\\w+)\\s*(?:WHERE|ORDER|GROUP|LIMIT|$)",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+
+        for (Path java : javaSources()) {
+            String sqlText = extractStringLiterals(Files.readString(java));
+
+            Matcher m = select.matcher(sqlText);
+            while (m.find()) {
+                String columns = m.group(1);
+                String table = m.group(2).toLowerCase();
+
+                // Anything qualified or joined is the aliased check's business.
+                if (columns.contains(".") || columns.toUpperCase().contains("JOIN")) continue;
+
+                Set<String> defined = schema.get(table);
+                if (defined == null) {
+                    problems.add(java.getFileName() + ": unknown table " + table);
+                    continue;
+                }
+
+                for (String named : columns.split(",")) {
+                    String column = named.trim().toLowerCase().replace("`", "");
+                    // Counts, expressions, literals and aliased results are not
+                    // plain column references and carry their own names.
+                    if (column.isEmpty() || column.contains("(") || column.contains("*")
+                        || column.contains(" ") || SQL_WORDS.contains(column)
+                        // "SELECT 1 FROM ... " asks whether a row exists; the 1
+                        // is a literal, not a column.
+                        || column.chars().allMatch(Character::isDigit)) {
+                        continue;
+                    }
+                    if (!defined.contains(column)) {
+                        problems.add(java.getFileName() + ": " + table
+                            + " has no column '" + column + "' (selected)");
+                    }
+                }
+            }
+        }
+
+        List<String> distinct = problems.stream().distinct().sorted().toList();
+        assertTrue(distinct.isEmpty(),
+            "service SQL selects columns the schema does not define:\n  "
+                + String.join("\n  ", distinct));
+    }
+
+    @Test
     @DisplayName("no service inserts into a column the schema does not define")
     void noInsertDrift() throws IOException {
         Map<String, Set<String>> schema = parseSchema();

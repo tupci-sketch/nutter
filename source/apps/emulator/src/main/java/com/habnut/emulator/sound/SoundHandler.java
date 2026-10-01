@@ -131,6 +131,6 @@ public final class SoundHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("sound.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.SOUND_ERROR, Map.of("reason", reason)));
     }
 }

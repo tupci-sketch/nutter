@@ -13,7 +13,7 @@ public final class CatalogueService {
 
     private static final Logger log = LoggerFactory.getLogger(CatalogueService.class);
 
-    public record CatPage(long id, String name, String layout, int rank,
+    public record CatPage(long id, String name, String layout, int minRank,
                           boolean visible, List<CatItem> items) {}
 
     public record CatItem(long id, long pageId, long baseId, String name,
@@ -34,17 +34,17 @@ public final class CatalogueService {
     public List<CatPage> getPages(int minRank) {
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT id, name, layout, rank, is_visible " +
-                 "FROM habnut_catalogue_pages WHERE is_visible = 1 AND rank <= ? " +
-                 "ORDER BY rank, name")) {
+                 "SELECT id, name, layout, min_rank, visible " +
+                 "FROM habnut_catalogue_pages WHERE visible = 1 AND min_rank <= ? " +
+                 "ORDER BY min_rank, name")) {
             ps.setInt(1, minRank);
             List<CatPage> pages = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     pages.add(new CatPage(
                         rs.getLong("id"), rs.getString("name"),
-                        rs.getString("layout"), rs.getInt("rank"),
-                        rs.getBoolean("is_visible"), List.of()));
+                        rs.getString("layout"), rs.getInt("min_rank"),
+                        rs.getBoolean("visible"), List.of()));
                 }
             }
             return pages;
@@ -58,14 +58,14 @@ public final class CatalogueService {
         try (Connection conn = db.getConnection()) {
             CatPage page;
             try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, name, layout, rank, is_visible FROM habnut_catalogue_pages " +
-                "WHERE id = ? AND rank <= ?")) {
+                "SELECT id, name, layout, min_rank, visible FROM habnut_catalogue_pages " +
+                "WHERE id = ? AND min_rank <= ?")) {
                 ps.setLong(1, pageId); ps.setInt(2, minRank);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) return null;
                     page = new CatPage(rs.getLong("id"), rs.getString("name"),
-                        rs.getString("layout"), rs.getInt("rank"),
-                        rs.getBoolean("is_visible"), new ArrayList<>());
+                        rs.getString("layout"), rs.getInt("min_rank"),
+                        rs.getBoolean("visible"), new ArrayList<>());
                 }
             }
             try (PreparedStatement ps = conn.prepareStatement(
@@ -84,7 +84,7 @@ public final class CatalogueService {
                             rs.getBoolean("is_gift")));
                     }
                 }
-                return new CatPage(page.id(), page.name(), page.layout(), page.rank(),
+                return new CatPage(page.id(), page.name(), page.layout(), page.minRank(),
                     page.visible(), items);
             }
         } catch (SQLException e) {
@@ -102,7 +102,7 @@ public final class CatalogueService {
             if (item == null) return fail("Item not found");
 
             CatPage page = findPageForItem(conn, item.pageId());
-            if (page == null || page.rank() > userRank) return fail("Access denied");
+            if (page == null || page.minRank() > userRank) return fail("Access denied");
 
             if (item.limitedTotal() > 0) {
                 int updated = reserveLimited(conn, catalogueItemId, item.limitedTotal());
@@ -155,13 +155,13 @@ public final class CatalogueService {
 
     private CatPage findPageForItem(Connection conn, long pageId) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-            "SELECT id, name, layout, rank, is_visible FROM habnut_catalogue_pages WHERE id = ?")) {
+            "SELECT id, name, layout, min_rank, visible FROM habnut_catalogue_pages WHERE id = ?")) {
             ps.setLong(1, pageId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;
                 return new CatPage(rs.getLong("id"), rs.getString("name"),
-                    rs.getString("layout"), rs.getInt("rank"),
-                    rs.getBoolean("is_visible"), List.of());
+                    rs.getString("layout"), rs.getInt("min_rank"),
+                    rs.getBoolean("visible"), List.of());
             }
         }
     }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Ban;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\SessionTicketService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -143,10 +144,9 @@ class DccUsersController extends Controller
 
         Ban::create([
             'user_id' => $id,
-            'staff_id' => $actor->id,
+            'banned_by_id' => $actor->id,
             'reason' => $request->reason,
-            'type' => $request->type,
-            'active' => true,
+            'ban_type' => $request->type === 'temporary' ? 'account' : $request->type,
             'expires_at' => $request->type === 'temporary' ? $request->expires_at : null,
         ]);
 
@@ -159,7 +159,8 @@ class DccUsersController extends Controller
     {
         $actor = $request->user();
 
-        Ban::where('user_id', $id)->where('active', true)->update(['active' => false]);
+        Ban::where('user_id', $id)->active()
+            ->update(['lifted_at' => now(), 'lifted_by_id' => $actor->id]);
 
         $this->audit->log($actor->id, 'unban', 'user', $id, []);
 
@@ -190,18 +191,26 @@ class DccUsersController extends Controller
         return back()->with('success', 'User unmuted.');
     }
 
-    public function issueTicket(Request $request, int $id)
+    /**
+     * Sign in as somebody, to see what they are seeing.
+     *
+     * Admin only, written to the audit log every time, and the ticket is as
+     * short-lived as any other. It is the only way to reproduce a bug a player
+     * is reporting from inside their own account.
+     */
+    public function issueTicket(Request $request, int $id, SessionTicketService $tickets)
     {
         $actor = $request->user();
 
-        if ($actor->rank < 7) {
+        if ($actor->rank < User::RANK_ADMIN) {
             abort(403, 'Admin only.');
         }
 
-        $ticket = 'HNT-'.Str::upper(Str::random(32));
-        cache()->put("ticket:{$ticket}", $id, now()->addMinutes(5));
+        $target = User::findOrFail($id);
+        $world = $tickets->normaliseWorld($request->input('world'));
+        $ticket = $tickets->issue($target, $world);
 
-        $this->audit->log($actor->id, 'ticket_issue', 'user', $id, []);
+        $this->audit->log($actor->id, 'ticket_issue', 'user', $id, ['world' => $world]);
 
         return back()->with('ticket', $ticket);
     }

@@ -14,7 +14,7 @@ class DccGroupsController extends Controller
     public function index(Request $request)
     {
         $query = DB::table('habnut_groups')
-            ->join('users', 'users.id', '=', 'habnut_groups.owner_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_groups.owner_id')
             ->select('habnut_groups.*', 'users.username as owner_name');
 
         if ($request->filled('q')) {
@@ -30,7 +30,7 @@ class DccGroupsController extends Controller
     {
         $group = DB::table('habnut_groups')->where('id', $id)->firstOrFail();
         $members = DB::table('habnut_group_members')
-            ->join('users', 'users.id', '=', 'habnut_group_members.user_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_group_members.user_id')
             ->where('group_id', $id)
             ->select('habnut_group_members.*', 'users.username')
             ->get();

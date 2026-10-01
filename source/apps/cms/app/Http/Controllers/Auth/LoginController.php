@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\SessionTicketService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
@@ -44,7 +44,7 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        if ($user->two_factor_enabled) {
+        if ($user->two_fa_enabled) {
             return redirect()->route('2fa.show');
         }
 
@@ -60,12 +60,28 @@ class LoginController extends Controller
         return redirect()->route('login');
     }
 
-    public function ticket(Request $request)
+    /**
+     * A ticket for the hotel, for a caller that wants one rather than a redirect.
+     *
+     * The page that opens the hotel does not use this — the controller sends
+     * the player through with a ticket already made — but the client asks for
+     * one when its own has expired, rather than throwing the player back to
+     * the website.
+     */
+    public function ticket(Request $request, SessionTicketService $tickets)
     {
         $user = $request->user();
-        $ticket = 'HNT-'.Str::upper(Str::random(32));
-        cache()->put("ticket:{$ticket}", $user->id, now()->addMinutes(5));
 
-        return response()->json(['ticket' => $ticket]);
+        if ($user->activeBan()) {
+            return response()->json(['error' => 'Your account has been suspended.'], 403);
+        }
+
+        $world = $tickets->normaliseWorld($request->input('world'));
+
+        return response()->json([
+            'ticket' => $tickets->issue($user, $world),
+            'world' => $world,
+            'expiresIn' => $tickets->ttlSeconds(),
+        ]);
     }
 }

@@ -15,7 +15,7 @@ class DccModerationController extends Controller
     public function index()
     {
         $openReports = DB::table('habnut_reports')->where('status', 'open')->count();
-        $activeBans = Ban::where('active', true)->count();
+        $activeBans = Ban::active()->count();
         $openAppeals = DB::table('habnut_ban_appeals')->where('status', 'pending')->count();
 
         return view('dcc.moderation.index', compact('openReports', 'activeBans', 'openAppeals'));
@@ -24,8 +24,8 @@ class DccModerationController extends Controller
     public function reports(Request $request)
     {
         $query = DB::table('habnut_reports')
-            ->join('users as reporter', 'reporter.id', '=', 'habnut_reports.reporter_id')
-            ->join('users as reported', 'reported.id', '=', 'habnut_reports.reported_id')
+            ->join('habnut_users as reporter', 'reporter.id', '=', 'habnut_reports.reporter_id')
+            ->join('habnut_users as reported', 'reported.id', '=', 'habnut_reports.reported_id')
             ->select('habnut_reports.*', 'reporter.username as reporter_name', 'reported.username as reported_name');
 
         if ($request->filled('status')) {
@@ -42,8 +42,8 @@ class DccModerationController extends Controller
     public function report(int $id)
     {
         $report = DB::table('habnut_reports')
-            ->join('users as reporter', 'reporter.id', '=', 'habnut_reports.reporter_id')
-            ->join('users as reported', 'reported.id', '=', 'habnut_reports.reported_id')
+            ->join('habnut_users as reporter', 'reporter.id', '=', 'habnut_reports.reporter_id')
+            ->join('habnut_users as reported', 'reported.id', '=', 'habnut_reports.reported_id')
             ->select('habnut_reports.*', 'reporter.username as reporter_name', 'reported.username as reported_name')
             ->where('habnut_reports.id', $id)
             ->firstOrFail();
@@ -79,7 +79,7 @@ class DccModerationController extends Controller
 
     public function bans(Request $request)
     {
-        $query = Ban::with(['user', 'staff'])->where('active', true);
+        $query = Ban::with(['user', 'staff'])->active();
 
         if ($request->filled('q')) {
             $query->whereHas('user', fn ($q) => $q->where('username', 'like', '%'.$request->q.'%'));
@@ -92,7 +92,7 @@ class DccModerationController extends Controller
 
     public function liftBan(Request $request, int $id)
     {
-        Ban::where('id', $id)->update(['active' => false]);
+        Ban::findOrFail($id)->lift($request->user()->id);
         $this->audit->log($request->user()->id, 'ban_lift', 'ban', $id, []);
 
         return back()->with('success', 'Ban lifted.');
@@ -102,7 +102,7 @@ class DccModerationController extends Controller
     {
         $status = $request->input('status', 'pending');
         $appeals = DB::table('habnut_ban_appeals')
-            ->join('users', 'users.id', '=', 'habnut_ban_appeals.user_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_ban_appeals.user_id')
             ->join('habnut_bans', 'habnut_bans.id', '=', 'habnut_ban_appeals.ban_id')
             ->select('habnut_ban_appeals.*', 'users.username')
             ->where('habnut_ban_appeals.status', $status)
@@ -115,7 +115,8 @@ class DccModerationController extends Controller
     public function acceptAppeal(Request $request, int $id)
     {
         $appeal = DB::table('habnut_ban_appeals')->where('id', $id)->firstOrFail();
-        DB::table('habnut_bans')->where('id', $appeal->ban_id)->update(['active' => false]);
+        Ban::where('id', $appeal->ban_id)
+            ->update(['lifted_at' => now(), 'lifted_by_id' => $request->user()->id]);
         DB::table('habnut_ban_appeals')->where('id', $id)->update(['status' => 'accepted', 'resolved_at' => now(), 'resolver_id' => $request->user()->id]);
         $this->audit->log($request->user()->id, 'appeal_accept', 'appeal', $id, []);
 
@@ -169,7 +170,7 @@ class DccModerationController extends Controller
         $logs = collect();
         if ($request->filled('q')) {
             $logs = DB::table('habnut_chat_logs')
-                ->join('users', 'users.id', '=', 'habnut_chat_logs.user_id')
+                ->join('habnut_users as users', 'users.id', '=', 'habnut_chat_logs.user_id')
                 ->select('habnut_chat_logs.*', 'users.username')
                 ->whereFullText('habnut_chat_logs.message', $request->q)
                 ->latest('habnut_chat_logs.created_at')

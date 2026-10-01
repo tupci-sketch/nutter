@@ -46,7 +46,7 @@ class DccGardenController extends Controller
     public function plots()
     {
         $plots = DB::table('habnut_garden_plots')
-            ->join('users', 'users.id', '=', 'habnut_garden_plots.user_id')
+            ->join('habnut_users as users', 'users.id', '=', 'habnut_garden_plots.user_id')
             ->select('habnut_garden_plots.*', 'users.username')
             ->orderByDesc('habnut_garden_plots.updated_at')
             ->paginate(25);

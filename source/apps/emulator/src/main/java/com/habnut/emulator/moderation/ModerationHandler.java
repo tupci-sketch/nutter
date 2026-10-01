@@ -320,6 +320,6 @@ public final class ModerationHandler {
     }
 
     private void sendError(WebSocketSession session, String reason) {
-        session.send(router.buildPacket("mod.error", Map.of("reason", reason)));
+        session.send(router.buildPacket(PacketType.MOD_ERROR, Map.of("reason", reason)));
     }
 }

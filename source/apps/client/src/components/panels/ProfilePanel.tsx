@@ -4,17 +4,29 @@ import { getWsClient } from '@/ws/WsClient';
 import { Packet } from '@/protocol/packets';
 import { Panel } from './Panel';
 
+interface Badge {
+  code: string;
+  name: string;
+}
+
 interface ProfileData {
   userId: number;
   username: string;
-  rank: number;
   figure: string;
   motto: string;
+  credits: number;
+  diamonds: number;
+  nutPoints: number;
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+  roomsOwned: number;
+  friendCount: number;
+  achievementPoints: number;
   memberSince: string;
   lastSeen: string;
-  roomCount: number;
-  friendCount: number;
-  achievementScore: number;
+  online: boolean;
+  equippedBadges: Badge[];
 }
 
 export function ProfilePanel() {
@@ -23,10 +35,11 @@ export function ProfilePanel() {
 
   useEffect(() => {
     const ws = getWsClient();
-    const unsub = ws.on(Packet.PROFILE_RESULT, (raw) => {
-      setProfile(raw as ProfileData);
+    const unsub = ws.on(Packet.PROFILE_VIEW_RESULT, (raw) => {
+      const p = raw as { profile: ProfileData };
+      setProfile(p.profile ?? null);
     });
-    ws.send(Packet.PROFILE, { userId });
+    ws.send(Packet.PROFILE_VIEW, { userId });
     return unsub;
   }, [userId]);
 
@@ -36,14 +49,16 @@ export function ProfilePanel() {
         <div style={styles.empty}>Loading…</div>
       ) : (
         <div style={styles.body}>
-          <div style={styles.avatar}>👤</div>
+          <div style={styles.avatar} aria-hidden="true">
+            {profile.username.slice(0, 1).toUpperCase()}
+          </div>
           <div style={styles.name}>{profile.username}</div>
-          <div style={styles.meta}>Rank {profile.rank}</div>
+          <div style={styles.meta}>Level {profile.level}</div>
           {profile.motto && <div style={styles.motto}>"{profile.motto}"</div>}
           <div style={styles.stats}>
-            <Stat label="Achievement Score" value={profile.achievementScore} />
+            <Stat label="Achievement Points" value={profile.achievementPoints} />
             <Stat label="Friends" value={profile.friendCount} />
-            <Stat label="Rooms" value={profile.roomCount} />
+            <Stat label="Rooms" value={profile.roomsOwned} />
             <Stat label="Member Since" value={profile.memberSince?.slice(0, 10) ?? '—'} />
           </div>
         </div>

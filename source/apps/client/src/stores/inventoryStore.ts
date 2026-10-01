@@ -5,30 +5,59 @@ import { Packet } from '@/protocol/packets';
 export interface InventoryItem {
   id: number;
   baseId: number;
+  spriteId: string;
   name: string;
   type: string;
-  extra: string;
 }
 
 interface InventoryStore {
   items: InventoryItem[];
+  total: number;
+  page: number;
   loaded: boolean;
 
-  load: () => void;
+  load: (page?: number) => void;
 }
 
-export const useInventoryStore = create<InventoryStore>((_set) => ({
+export const useInventoryStore = create<InventoryStore>(() => ({
   items: [],
+  total: 0,
+  page: 0,
   loaded: false,
 
-  load() {
-    getWsClient().send(Packet.INV_LIST, {});
+  load(page = 0) {
+    getWsClient().send(Packet.INVENTORY_LIST, { page, limit: 50 });
   },
 }));
 
 export function initInventoryListeners(): void {
-  getWsClient().on(Packet.INV_LIST_RESULT, (raw) => {
-    const p = raw as { items: InventoryItem[] };
-    useInventoryStore.setState({ items: p.items, loaded: true });
+  const ws = getWsClient();
+
+  ws.on(Packet.INVENTORY_LIST_RESULT, raw => {
+    const p = raw as { items: InventoryItem[]; total: number; page: number };
+    useInventoryStore.setState({
+      items: p.items ?? [],
+      total: p.total ?? 0,
+      page: p.page ?? 0,
+      loaded: true,
+    });
+  });
+
+  // An item arriving — bought, traded for, or given — appears without asking.
+  ws.on(Packet.INVENTORY_ITEM_ADDED, raw => {
+    const item = raw as InventoryItem;
+    useInventoryStore.setState(s =>
+      s.items.some(i => i.id === item.id)
+        ? {}
+        : { items: [item, ...s.items], total: s.total + 1 },
+    );
+  });
+
+  ws.on(Packet.INVENTORY_ITEM_REMOVED, raw => {
+    const p = raw as { id: number };
+    useInventoryStore.setState(s => ({
+      items: s.items.filter(i => i.id !== p.id),
+      total: Math.max(0, s.total - 1),
+    }));
   });
 }

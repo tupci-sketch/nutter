@@ -259,6 +259,33 @@ public final class FurniHandler {
         return opt.get();
     }
 
+    /**
+     * Everything standing in a room, for a player who has just walked in.
+     *
+     * The room's own packet carries the floor and the people; without this it
+     * carried no furniture, so a player entering a decorated room saw an empty
+     * one until somebody happened to move something.
+     */
+    public Map<String, Object> roomContents(long roomId) {
+        RoomFurniStore store = storeFor(roomId);
+        return Map.of(
+            "floor", store.allFloor().stream()
+                .map(item -> floorItemMap(item, item.id))
+                .collect(java.util.stream.Collectors.toList()),
+            "wall", store.allWall().stream()
+                .map(this::wallItemMap)
+                .collect(java.util.stream.Collectors.toList())
+        );
+    }
+
+    private Map<String, Object> wallItemMap(WallItem item) {
+        return Map.of(
+            "id", item.id, "baseId", item.base.id(), "spriteId", item.base.spriteId(),
+            "wallPosition", item.getWallPosition(), "state", item.getState(),
+            "extra", item.getExtra()
+        );
+    }
+
     private Map<String, Object> floorItemMap(FloorItem item, long id) {
         return Map.of(
             "id", id, "baseId", item.base.id(), "spriteId", item.base.spriteId(),
@@ -269,6 +296,6 @@ public final class FurniHandler {
     }
 
     private void sendError(WebSocketSession session, String code, String message) {
-        session.send(router.buildPacket("system.error", Map.of("code", code, "message", message)));
+        session.send(router.buildPacket(PacketType.SYSTEM_ERROR, Map.of("code", code, "message", message)));
     }
 }
