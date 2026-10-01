@@ -100,8 +100,26 @@ func (d *Docker) Down(ctx context.Context, out io.Writer, volumes bool) error {
 
 // Pull fetches the images ahead of time, so the first `up` does not sit
 // silently for several minutes looking broken.
+//
+// --ignore-buildable skips the website, which is built rather than pulled.
 func (d *Docker) Pull(ctx context.Context, out io.Writer) error {
-	name, args := d.composeArgs("pull", "--quiet")
+	name, args := d.composeArgs("pull", "--quiet", "--ignore-buildable")
+	if err := run(ctx, out, name, args...); err == nil {
+		return nil
+	}
+	// Older Compose versions do not know --ignore-buildable; without it the
+	// pull is still worth attempting.
+	name, args = d.composeArgs("pull", "--quiet")
+	return run(ctx, out, name, args...)
+}
+
+// Build builds the images this stack compiles rather than pulls.
+//
+// Run as its own step because on a first run it is the slow part, and a
+// two-minute silence inside `up` is indistinguishable from a hang.
+func (d *Docker) Build(ctx context.Context, out io.Writer, services ...string) error {
+	extra := append([]string{"build"}, services...)
+	name, args := d.composeArgs(extra...)
 	return run(ctx, out, name, args...)
 }
 

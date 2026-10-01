@@ -45,6 +45,7 @@ func Steps() []Step {
 		{"Write the stack", stepWriteStack},
 		{"Unpack the hotel", stepUnpackPayload},
 		{"Fetch container images", stepPullImages},
+		{"Build the website's image", stepBuildImages},
 		{"Start the database and cache", stepStartData},
 		{"Apply the hotel's schema", stepMigrate},
 		{"Add rooms, furniture and a catalogue", stepSeedBase},
@@ -169,6 +170,21 @@ func stepPullImages(ctx context.Context, s *Session) error {
 	// already here, so this is allowed to fail.
 	if err := s.Docker.Pull(ctx, io.Discard); err != nil {
 		s.logf("      (could not fetch images; using whatever is already here)")
+	}
+	return nil
+}
+
+// stepBuildImages builds the website's image.
+//
+// The official PHP images do not carry pdo_mysql, and the tools to compile it
+// are dropped from them, so it is built here once rather than installed into
+// every container at start-up.
+func stepBuildImages(ctx context.Context, s *Session) error {
+	s.logf("      first run compiles PHP extensions; this takes a minute")
+	if err := s.Docker.Build(ctx, io.Discard, "cms"); err != nil {
+		return fmt.Errorf("could not build the website's image: %w\n"+
+			"Run `habnutctl dev logs cms` or build it by hand to see why:\n"+
+			"  docker compose -f %s build cms", err, s.Env.ComposeFile())
 	}
 	return nil
 }
