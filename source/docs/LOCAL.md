@@ -80,15 +80,22 @@ habnutctl dev up --no-demo
 ## Without an asset pack
 
 The game runs, but rooms and figures draw as plain coloured shapes: the
-pictures come from a Habbo asset pack, which is not ours to ship. Everything
-else works — walking, chat, furniture, the catalogue, the navigator, the
-website, the staff pages.
+pictures come from an asset pack, which is not ours to ship. Everything else
+works — walking, chat, furniture, the catalogue, the navigator, the website,
+the staff pages.
 
-To add one:
+On the website, figures show as a monogram rather than a broken image: a local
+hotel has no imager running and nothing for one to draw from, so it is not
+asked for pictures at all.
+
+To add a pack:
 
 ```
 habnutctl swf install <pack.zip>
+habnutctl imager            # serves the figures it renders
 ```
+
+Then set `IMAGER_URL` in `cms/.env` to where the imager is listening.
 
 ## The other commands
 
@@ -182,9 +189,13 @@ wait allows three.
 **The website shows an error page.** It is running with debugging on, so the
 page says what went wrong and where. `habnutctl dev logs cms` has the rest.
 
-**The game opens but nothing is drawn.** Check `habnutctl dev logs emulator`.
-If the hotel is up and the room is still blank, you have no asset pack — see
-above.
+**The game opens but nothing is drawn.** If the hotel is up and the room is
+still blank, you have no asset pack — see above. `habnutctl dev up` will not
+report success unless the hotel answered, so a running hotel really is running.
+
+**The client cannot connect.** `habnutctl dev logs emulator`, then
+`habnutctl dev logs web` — the game reaches the hotel through the web server,
+so it is one of those two.
 
 **You want to start completely clean.** `habnutctl dev reset`.
 

@@ -324,3 +324,97 @@ func TestEveryServiceEitherPullsOrBuilds(t *testing.T) {
 		t.Errorf("only found %d services; the parser is wrong, not the file", len(services))
 	}
 }
+
+func TestTheHotelSaysWhetherItIsAlive(t *testing.T) {
+	env := New(t.TempDir(), "test")
+	if err := env.Create(); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := env.WriteStack("base64:test", true); err != nil {
+		t.Fatalf("WriteStack: %v", err)
+	}
+
+	body, err := os.ReadFile(env.ComposeFile())
+	if err != nil {
+		t.Fatalf("reading the compose file: %v", err)
+	}
+	compose := string(body)
+
+	// The website comes up perfectly well without a hotel behind it, so
+	// without this a dead game server passes for a working one and `dev up`
+	// reports success on a hotel nobody can enter.
+	emulator := serviceBlock(compose, "emulator")
+	if !strings.Contains(emulator, "healthcheck:") {
+		t.Error("the hotel has no healthcheck, so a crashed one would report as running")
+	}
+
+	// curl is not in the Temurin images, so a healthcheck that used it would
+	// fail on a perfectly healthy hotel. Only the command matters here — the
+	// comment above it names curl to explain why it is not used.
+	for _, line := range strings.Split(emulator, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "test:") {
+			continue
+		}
+		if strings.Contains(trimmed, "curl") || strings.Contains(trimmed, "wget") {
+			t.Errorf("the healthcheck uses a tool the Temurin images do not carry: %s", trimmed)
+		}
+		if !strings.Contains(trimmed, "/dev/tcp/") {
+			t.Errorf("the healthcheck does not check the port the hotel listens on: %s", trimmed)
+		}
+		return
+	}
+	t.Error("the hotel's healthcheck has no command")
+}
+
+func TestTheWebsiteAsksForNoPicturesNothingIsServing(t *testing.T) {
+	env := New(t.TempDir(), "test")
+	if err := env.Create(); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := env.WriteStack("base64:test", true); err != nil {
+		t.Fatalf("WriteStack: %v", err)
+	}
+
+	body, err := os.ReadFile(filepath.Join(env.CMSDir(), ".env"))
+	if err != nil {
+		t.Fatalf("reading the website settings: %v", err)
+	}
+
+	// No imager runs in a local stack and there is no asset pack for one to
+	// draw from. An address here would put a broken image on every page that
+	// shows a figure; empty makes the site draw a monogram instead.
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.HasPrefix(line, "IMAGER_URL=") {
+			if strings.TrimSpace(strings.TrimPrefix(line, "IMAGER_URL=")) != "" {
+				t.Errorf("IMAGER_URL points somewhere, but nothing in the local stack "+
+					"serves pictures: %q", line)
+			}
+			return
+		}
+	}
+	t.Error("the website settings never mention IMAGER_URL")
+}
+
+// serviceBlock returns one service's lines out of a compose file.
+func serviceBlock(compose, service string) string {
+	lines := strings.Split(compose, "\n")
+	var out []string
+	inside := false
+
+	for _, line := range lines {
+		isServiceHeader := strings.HasPrefix(line, "  ") &&
+			!strings.HasPrefix(line, "   ") &&
+			strings.HasSuffix(strings.TrimSpace(line), ":") &&
+			!strings.HasPrefix(strings.TrimSpace(line), "#")
+
+		if isServiceHeader {
+			inside = strings.TrimSpace(line) == service+":"
+			continue
+		}
+		if inside {
+			out = append(out, line)
+		}
+	}
+	return strings.Join(out, "\n")
+}

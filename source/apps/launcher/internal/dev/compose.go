@@ -84,6 +84,16 @@ services:
     volumes:
       - ./emulator:/app:ro
       - ./logs:/var/log/habnut
+    # Checked through bash's own TCP support rather than curl, which the
+    # Temurin images do not carry. Without this a hotel that fell over on
+    # start-up still reported as running, and 'dev up' would hand somebody a
+    # working website attached to nothing.
+    healthcheck:
+      test: ["CMD", "bash", "-c", ":< /dev/tcp/127.0.0.1/{{.APIPort}}"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
@@ -249,9 +259,11 @@ EMULATOR_PORT={{.APIPort}}
 # The game client is served from this same host, under /client/.
 CLIENT_URL=/client/
 
-# Pictures come from the imager when one is running; without it the site falls
-# back to a monogram rather than a broken image.
-IMAGER_URL=/imager
+# No imager runs in a local stack, and there is no asset pack for one to draw
+# from, so this is left empty and the site shows a monogram instead of asking
+# for pictures nothing is serving. Install a pack with 'habnutctl swf install',
+# run 'habnutctl imager', and set this to where it is listening.
+IMAGER_URL=
 
 HABNUT_TICKET_TTL_MINUTES=5
 `
