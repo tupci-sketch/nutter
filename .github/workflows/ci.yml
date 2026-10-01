@@ -223,6 +223,21 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, gd
           coverage: none
+      # The handover ticket is the one thing the website and the hotel have to
+      # agree on exactly, and the agreement is a Redis key. A faked client
+      # cannot see the prefix the connector adds underneath it — which is how
+      # the site came to write a key the hotel could not find — so the test
+      # that checks it needs a real server to read back from.
+      - name: Start Redis
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq redis-server
+          redis-server --port 6399 --daemonize yes --save '' --appendonly no
+          for i in $(seq 1 20); do
+            redis-cli -p 6399 ping >/dev/null 2>&1 && break
+            sleep 1
+          done
+          redis-cli -p 6399 ping
       - name: Install
         working-directory: source/apps/cms
         run: composer install --prefer-dist --no-progress --no-interaction
