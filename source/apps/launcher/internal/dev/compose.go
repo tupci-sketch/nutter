@@ -129,6 +129,7 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./cms:/var/www/cms:ro
       - ./client:/var/www/client:ro
+      - ./assets:/var/www/assets:ro
     depends_on:
       - cms
       - emulator
@@ -188,6 +189,18 @@ server {
     # afternoon, so they are not.
     location /client/assets/ {
         alias /var/www/client/assets/;
+        try_files $uri =404;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # The artwork, as the game client asks for it: /assets/<era>/...
+    #
+    # Empty until a pack is installed with 'habnutctl swf install --local',
+    # and the client draws plain shapes until then. Not cached, because
+    # reinstalling a pack and looking again is the whole point of having the
+    # hotel on your own machine.
+    location /assets/ {
+        alias /var/www/assets/;
         try_files $uri =404;
         add_header Cache-Control "no-store" always;
     }

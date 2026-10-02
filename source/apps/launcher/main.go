@@ -5,11 +5,13 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/habnut/launcher/internal/dev"
 	"github.com/habnut/launcher/internal/doctor"
 	"github.com/habnut/launcher/internal/imager"
 	"github.com/habnut/launcher/internal/installer"
@@ -268,7 +270,43 @@ func cmdImager() *cobra.Command {
 // then chooses which artwork they see without leaving the room or changing
 // world.
 func cmdSwf() *cobra.Command {
-	cmd := &cobra.Command{Use: "swf", Short: "Manage SWF asset packs"}
+	cmd := &cobra.Command{
+		Use:   "swf",
+		Short: "Manage SWF asset packs",
+		Long: "Installs the artwork a hotel draws itself with.\n" +
+			"\n" +
+			"On an installed hotel this writes to /var/lib/habnut and needs root. With\n" +
+			"--local it writes into a hotel started by `habnutctl dev` instead, which\n" +
+			"needs neither root nor an install — the local web server serves whatever is\n" +
+			"extracted there.",
+	}
+
+	// --local sends every sub-command at a hotel running on this machine
+	// rather than an installed one. Resolved before the command runs so a
+	// sub-command never has to know which kind of hotel it is working on.
+	var local bool
+	var localDir string
+	cmd.PersistentFlags().BoolVar(&local, "local", false,
+		"work on the hotel started by `habnutctl dev` rather than an installed one")
+	cmd.PersistentFlags().StringVar(&localDir, "dir", "",
+		"which local hotel, when it is not in the usual place")
+
+	cmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
+		if !local && localDir == "" {
+			return nil
+		}
+		root := localDir
+		if root == "" {
+			var err error
+			root, err = dev.DefaultRoot()
+			if err != nil {
+				return err
+			}
+		}
+		// The same two directories `habnutctl dev` creates and mounts.
+		swf.SetRoots(filepath.Join(root, "swf"), filepath.Join(root, "assets"))
+		return nil
+	}
 
 	// eraFlag attaches a shared --era flag to a sub-command.
 	eraFlag := func(c *cobra.Command, target *string) *cobra.Command {
@@ -281,9 +319,16 @@ func cmdSwf() *cobra.Command {
 
 	cmd.AddCommand(
 		eraFlag(&cobra.Command{
-			Use:   "install <pack.zip>",
-			Short: "Install a SWF pack into one visual era",
-			Args:  cobra.ExactArgs(1),
+			Use:   "install <pack.zip|directory>",
+			Short: "Install an asset pack into one visual era",
+			Long: "Unpacks an asset pack and extracts every sprite in it.\n" +
+				"\n" +
+				"Takes a .zip or a directory, so a pack fetched with a downloader can be\n" +
+				"installed as it arrives. The layout inside does not matter: the data files\n" +
+				"are found by name and the sprites by extension, wherever they sit.\n" +
+				"\n" +
+				"Add --local to install into a hotel started by `habnutctl dev`.",
+			Args: cobra.ExactArgs(1),
 			RunE: func(_ *cobra.Command, args []string) error {
 				return swf.Install(args[0], installEra)
 			},
