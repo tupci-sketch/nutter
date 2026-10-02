@@ -91,14 +91,36 @@ On the website, figures show as a monogram rather than a broken image: a local
 hotel has no imager running and nothing for one to draw from, so it is not
 asked for pictures at all.
 
-To add a pack:
+### Adding one
 
 ```
-habnutctl swf install <pack.zip>
-habnutctl imager            # serves the figures it renders
+habnutctl swf install <pack.zip-or-directory> --local --era classic
 ```
 
-Then set `IMAGER_URL` in `cms/.env` to where the imager is listening.
+`--local` installs into the hotel in your home directory rather than into a
+system install, so it needs no root. A `.zip` or a plain directory both work,
+and the layout inside does not matter: the data files are found by name and
+the sprites by extension, wherever the pack happens to put them.
+
+Restart the game page afterwards — the local web server serves the artwork
+uncached, so a reinstall shows up on a refresh.
+
+`--era modern` installs a second set alongside, and a player can switch
+between them in-game without leaving the room.
+
+A pack lands in two places inside the hotel's directory: `swf/` holds it as
+it arrived, and `assets/` holds the sprites extracted from it, which is what
+the web server serves. Both are deleted along with everything else by
+`habnutctl dev down --purge`, and together they roughly double the pack's size
+on disk.
+
+### Pictures on the website
+
+The website renders figures through the imager rather than the game client.
+To turn it on, run `habnutctl imager` beside the hotel and set `IMAGER_URL` in
+`cms/.env` to where it is listening. Until then the site shows a monogram,
+which is also what it does when a pack is installed but the imager is not
+running.
 
 ## The other commands
 

@@ -106,12 +106,16 @@ func DefaultRoot() (string, error) {
 
 // Paths inside the hotel's directory.
 
-func (e *Env) ComposeFile() string   { return filepath.Join(e.Root, "docker-compose.yml") }
-func (e *Env) EnvFile() string       { return filepath.Join(e.Root, ".env") }
-func (e *Env) EmulatorJar() string   { return filepath.Join(e.Root, "emulator", "habnut-emulator.jar") }
-func (e *Env) CMSDir() string        { return filepath.Join(e.Root, "cms") }
-func (e *Env) ClientDir() string     { return filepath.Join(e.Root, "client") }
-func (e *Env) AssetsDir() string     { return filepath.Join(e.Root, "assets") }
+func (e *Env) ComposeFile() string { return filepath.Join(e.Root, "docker-compose.yml") }
+func (e *Env) EnvFile() string     { return filepath.Join(e.Root, ".env") }
+func (e *Env) EmulatorJar() string { return filepath.Join(e.Root, "emulator", "habnut-emulator.jar") }
+func (e *Env) CMSDir() string      { return filepath.Join(e.Root, "cms") }
+func (e *Env) ClientDir() string   { return filepath.Join(e.Root, "client") }
+func (e *Env) AssetsDir() string   { return filepath.Join(e.Root, "assets") }
+
+// SwfDir holds the unpacked asset pack, beside the sprites extracted from it.
+// `habnutctl swf install --local` writes here.
+func (e *Env) SwfDir() string        { return filepath.Join(e.Root, "swf") }
 func (e *Env) NginxConf() string     { return filepath.Join(e.Root, "nginx.conf") }
 func (e *Env) CMSDockerfile() string { return filepath.Join(e.Root, "Dockerfile.cms") }
 func (e *Env) StateFile() string     { return filepath.Join(e.Root, "state.json") }
@@ -142,6 +146,7 @@ func (e *Env) Dirs() []string {
 		e.CMSDir(),
 		e.ClientDir(),
 		e.AssetsDir(),
+		e.SwfDir(),
 		e.SeedDir(),
 		e.LogDir(),
 		filepath.Join(e.Root, "db"),

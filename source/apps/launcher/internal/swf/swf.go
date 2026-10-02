@@ -1,11 +1,13 @@
 package swf
 
 import (
+	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -13,10 +15,43 @@ import (
 	"github.com/habnut/launcher/internal/swfextract"
 )
 
+// Where an installed hotel keeps its artwork.
 const (
-	packManifestPath = "/var/lib/habnut/swf/PACK_MANIFEST.json"
-	assetsBase       = "/var/lib/habnut/assets"
+	defaultPackRoot   = "/var/lib/habnut/swf"
+	defaultAssetsBase = "/var/lib/habnut/assets"
 )
+
+// Where this process keeps artwork.
+//
+// An installed hotel uses the system paths above. A hotel somebody is running
+// on their own laptop keeps everything in one directory under their home, and
+// nothing about it should need root — so the root is relocatable rather than
+// a constant. `habnutctl dev` points these at its own directory before it
+// unpacks anything.
+var (
+	packRoot   = defaultPackRoot
+	assetsBase = defaultAssetsBase
+)
+
+// SetRoots points the asset commands at a different hotel.
+//
+// Both paths move together: a pack and the sprites extracted from it belong to
+// the same hotel, and splitting them is how you end up with a manifest that
+// describes artwork that is not there.
+func SetRoots(packDir, assetsDir string) {
+	if packDir != "" {
+		packRoot = packDir
+	}
+	if assetsDir != "" {
+		assetsBase = assetsDir
+	}
+}
+
+// Roots reports where artwork is being read from and written to.
+func Roots() (packDir, assetsDir string) { return packRoot, assetsBase }
+
+// packManifest is the file describing what is installed.
+func packManifest() string { return filepath.Join(packRoot, "PACK_MANIFEST.json") }
 
 // Eras a pack can be installed under. Both describe the same hotel and differ
 // only in artwork, so a player can switch between them without leaving the room
@@ -95,14 +130,29 @@ func Install(packPath, era string) error {
 	if !ValidEra(era) {
 		return fmt.Errorf("unknown era %q: expected %s or %s", era, EraClassic, EraModern)
 	}
-	swfDir := filepath.Join(filepath.Dir(packManifestPath), era)
+	swfDir := filepath.Join(packRoot, era)
 	if err := os.MkdirAll(swfDir, 0755); err != nil {
 		return err
 	}
 
-	fmt.Println("→ Unpacking SWF archive…")
-	if err := run("unzip", "-o", packPath, "-d", swfDir); err != nil {
-		return fmt.Errorf("unpack failed: %w", err)
+	info, err := os.Stat(packPath)
+	if err != nil {
+		return fmt.Errorf("cannot read %s: %w", packPath, err)
+	}
+
+	if info.IsDir() {
+		// A pack fetched with a downloader is a directory, not an archive.
+		// Requiring it to be zipped first would be a step that exists only to
+		// be undone a moment later.
+		fmt.Println("→ Copying asset directory…")
+		if err := copyTree(packPath, swfDir); err != nil {
+			return fmt.Errorf("copy failed: %w", err)
+		}
+	} else {
+		fmt.Println("→ Unpacking SWF archive…")
+		if err := unzipInto(packPath, swfDir); err != nil {
+			return fmt.Errorf("unpack failed: %w", err)
+		}
 	}
 
 	// Create asset output directories.
@@ -230,30 +280,78 @@ func mergeManifests(era string) error {
 
 // copyAssetXMLs finds and copies furnidata.xml, figuremap.xml, figuredata.xml
 // from the unpacked SWF tree to assetsBase so the client can fetch them.
+// The data files the client reads straight out of an era's directory.
+//
+// furnidata, figuredata and figuremap are the three it cannot draw without:
+// they say what each piece of furniture is, what an avatar is made of, and
+// which sprite file each body part lives in. The other two are read by the
+// hotel rather than the client.
+var assetDataFiles = []string{
+	"furnidata.xml",
+	"figuremap.xml",
+	"figuredata.xml",
+	"effectmap.xml",
+	"productdata.xml",
+}
+
+// copyAssetXMLs lifts the data files out of a pack to where the client looks.
+//
+// A pack puts them wherever it likes — some under gamedata/, some at the root
+// — and the client reads them from one place, so they are found by name and
+// copied up. The first of each wins; a pack that ships two figuredata.xml has
+// one that is current and one that is a leftover, and the walk order is as
+// good a guess as any.
 func copyAssetXMLs(swfDir, era string) error {
-	targets := map[string]bool{
-		"furnidata.xml":   false,
-		"figuremap.xml":   false,
-		"figuredata.xml":  false,
-		"effectmap.xml":   false,
-		"productdata.xml": false,
+	wanted := make(map[string]bool, len(assetDataFiles))
+	for _, name := range assetDataFiles {
+		wanted[name] = true
 	}
-	return filepath.WalkDir(swfDir, func(path string, d fs.DirEntry, err error) error {
+	found := make(map[string]bool, len(assetDataFiles))
+
+	if err := os.MkdirAll(eraRoot(era), 0o755); err != nil {
+		return err
+	}
+
+	err := filepath.WalkDir(swfDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
+
 		name := strings.ToLower(filepath.Base(path))
-		if !targets[name] {
+		if !wanted[name] || found[name] {
 			return nil
 		}
-		targets[name] = true // mark found (don't copy duplicates)
-		dest := filepath.Join(eraRoot(era), name)
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
+
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
 		}
-		return os.WriteFile(dest, data, 0644)
+		if writeErr := os.WriteFile(filepath.Join(eraRoot(era), name), data, 0o644); writeErr != nil {
+			return writeErr
+		}
+
+		found[name] = true
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// The three the client cannot draw without are worth naming when absent:
+	// a pack missing one renders nothing, and silence would look like a bug
+	// in the hotel rather than a gap in the pack.
+	var missing []string
+	for _, name := range []string{"furnidata.xml", "figuredata.xml", "figuremap.xml"} {
+		if !found[name] {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("this pack has no %s, so the client will draw nothing",
+			strings.Join(missing, " or "))
+	}
+
+	return nil
 }
 
 // Update replaces one era's pack with a new one, keeping config.
@@ -261,14 +359,19 @@ func Update(packPath, era string) error {
 	return Install(packPath, era)
 }
 
-// Rebrand applies Habnut branding strings to all asset manifests.
+// Rebrand applies this hotel's own name to the manifests inside a pack.
+//
+// Done in Go rather than by shelling out to find and sed: those exist on a
+// Linux server and on neither Windows nor a stripped-down container, and the
+// whole point of a single executable is that it needs nothing installed
+// beside it.
 func Rebrand(brandName string) error {
-	swfDir := filepath.Dir(packManifestPath)
-	// Replace any occurrence of the original vendor name in XML/JSON manifests
-	if err := run("find", swfDir, "-name", "*.xml", "-exec",
-		"sed", "-i", "s/Habbo/"+brandName+"/g", "{}", ";"); err != nil {
+	replaced, err := replaceInXML(packRoot, "Habbo", brandName)
+	if err != nil {
 		return err
 	}
+	fmt.Printf("→ Rebranded %d manifest files\n", replaced)
+
 	m, err := loadManifest()
 	if err != nil {
 		return err
@@ -334,7 +437,7 @@ func Rollback(backupPath, era string) error {
 
 // AddCustom copies a custom asset into the pack directory.
 func AddCustom(assetPath, targetSubPath string) error {
-	swfDir := filepath.Dir(packManifestPath)
+	swfDir := packRoot
 	dest := filepath.Join(swfDir, targetSubPath)
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err
@@ -347,7 +450,7 @@ func AddCustom(assetPath, targetSubPath string) error {
 }
 
 func loadManifest() (*PackManifest, error) {
-	data, err := os.ReadFile(packManifestPath)
+	data, err := os.ReadFile(packManifest())
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +463,10 @@ func saveManifest(m *PackManifest) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(packManifestPath, data, 0644)
+	if err := os.MkdirAll(packRoot, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(packManifest(), data, 0644)
 }
 
 func countFiles(dir string) (int, error) {
@@ -377,11 +483,174 @@ func countFiles(dir string) (int, error) {
 	return count, err
 }
 
-func run(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+// unzipInto extracts an archive, refusing any entry that would escape dest.
+//
+// An asset pack is a file somebody downloaded from a forum. A zip can name its
+// entries anything it likes, including ../../etc/something, and an extractor
+// that joins those paths blindly will write exactly where it is told.
+func unzipInto(archivePath, dest string) error {
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", archivePath, err)
+	}
+	defer reader.Close()
+
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return err
+	}
+
+	root, err := filepath.Abs(dest)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range reader.File {
+		target := filepath.Join(root, filepath.FromSlash(entry.Name))
+
+		rel, err := filepath.Rel(root, target)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			return fmt.Errorf("%s: entry %q would write outside the pack directory",
+				filepath.Base(archivePath), entry.Name)
+		}
+
+		if entry.FileInfo().IsDir() {
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// A symlink in a pack could point anywhere; packs do not need them.
+		if entry.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		if err := writeZipEntry(entry, target); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeZipEntry(entry *zip.File, target string) error {
+	src, err := entry.Open()
+	if err != nil {
+		return fmt.Errorf("read %s: %w", entry.Name, err)
+	}
+	defer src.Close()
+
+	dst, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return fmt.Errorf("write %s: %w", target, err)
+	}
+	return nil
+}
+
+// copyTree copies a directory into dest, keeping its shape.
+//
+// Symlinks are skipped: a pack has no use for one, and following a link out of
+// the tree would copy whatever it points at into the hotel.
+func copyTree(src, dest string) error {
+	root, err := filepath.Abs(src)
+	if err != nil {
+		return err
+	}
+
+	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return os.MkdirAll(dest, 0o755)
+		}
+
+		target := filepath.Join(dest, rel)
+
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		if d.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		return copyFile(path, target)
+	})
+}
+
+func copyFile(src, dest string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
+}
+
+// replaceInXML rewrites a string through every XML file under root, returning
+// how many files it changed.
+func replaceInXML(root, from, to string) (int, error) {
+	if from == "" || from == to {
+		return 0, nil
+	}
+
+	changed := 0
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.EqualFold(filepath.Ext(path), ".xml") {
+			return nil
+		}
+
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(string(body), from) {
+			return nil
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(path, []byte(strings.ReplaceAll(string(body), from, to)),
+			info.Mode().Perm()); err != nil {
+			return err
+		}
+		changed++
+		return nil
+	})
+
+	if errors.Is(err, fs.ErrNotExist) {
+		return changed, nil
+	}
+	return changed, err
 }
 
 // AssetsRoot is the directory holding every installed era's artwork.
