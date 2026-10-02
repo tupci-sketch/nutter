@@ -10,6 +10,61 @@ It exists because the alternative was a server. `habnutctl install` wants root,
 a domain, a certificate and system packages; none of that is reasonable when
 the question is just "does this work?".
 
+## Getting it onto a Linux Mint laptop
+
+The whole thing start to finish. Mint is Ubuntu underneath, so Docker's own
+instructions nearly work — the one line that does not is called out below.
+
+**1. Docker.** Mint reports its own codename (`xia`, `wilma`, …) in
+`VERSION_CODENAME`, which is not a codename Docker's apt repository knows, so
+following Docker's instructions verbatim gives a 404. `UBUNTU_CODENAME` is the
+one to use:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$UBUNTU_CODENAME") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER
+```
+
+Log out and back in — the group change only applies to a new session — then
+check with `docker run hello-world`.
+
+**2. The executable.** It is statically linked, so it runs on any x86-64 Linux
+whatever its glibc version. Either take the whole repository:
+
+```sh
+git clone --depth 1 https://github.com/<owner>/<repo>.git
+cd <repo> && chmod +x bin/habnutctl-linux-amd64
+```
+
+`--depth 1` matters: the history carries every previous build of the
+executables, which is most of the repository's size.
+
+Or take the one file, which is a quarter of that:
+
+```sh
+gh api -H "Accept: application/vnd.github.raw" \
+  /repos/<owner>/<repo>/contents/bin/habnutctl-linux-amd64 > habnutctl
+chmod +x habnutctl
+```
+
+**3. Start it.**
+
+```sh
+./bin/habnutctl-linux-amd64 dev up
+```
+
 ## What you need
 
 Docker, and nothing else. The hotel, the website, the game client and the seed
