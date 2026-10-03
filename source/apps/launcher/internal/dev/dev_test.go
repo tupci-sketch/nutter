@@ -468,3 +468,44 @@ func TestTheDefaultHotelIsTheHotel(t *testing.T) {
 		t.Error("a hotel started without --rp should be the hotel")
 	}
 }
+
+func TestTheSchemaCheckLooksForTablesFromBothEnds(t *testing.T) {
+	// Exiting zero is not the same as having done the work: the migrator once
+	// reported success having created nothing, because the jar had lost
+	// Flyway's plugin list while being packed. A witness from the first
+	// migration and one from the last catch both a schema that was never
+	// built and one that stopped part-way.
+	if len(schemaWitnesses) < 2 {
+		t.Fatalf("only %d witness tables; one cannot tell a partial schema from a whole one",
+			len(schemaWitnesses))
+	}
+
+	want := map[string]bool{
+		"habnut_users":          false, // from the first migration
+		"flyway_schema_history": false, // proves the migrator itself ran
+	}
+	for _, table := range schemaWitnesses {
+		if _, ok := want[table]; ok {
+			want[table] = true
+		}
+	}
+	for table, found := range want {
+		if !found {
+			t.Errorf("%s is not among the witness tables", table)
+		}
+	}
+}
+
+func TestCapturedOutputIsQuotedRatherThanSpoken(t *testing.T) {
+	// The migrator's output is included in the failure, and it has to read as
+	// something quoted rather than as the launcher's own words.
+	got := indent("line one\nline two")
+	if got != "  line one\n  line two" {
+		t.Errorf("indent() = %q", got)
+	}
+
+	if indent("   ") != "  (it said nothing)" {
+		t.Error("a migrator that said nothing should be reported as having said nothing, " +
+			"not as an empty gap in the message")
+	}
+}

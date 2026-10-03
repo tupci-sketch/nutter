@@ -207,8 +207,7 @@ func stepStartData(ctx context.Context, s *Session) error {
 // Run through the emulator's own migrator rather than a SQL file, so a local
 // hotel is built by exactly the thing that builds a real one.
 func stepMigrate(ctx context.Context, s *Session) error {
-	name, args := s.Docker.composeArgs("run", "--rm", "--no-deps",
-		"-e", "MIGRATE_ONLY=true", "emulator",
+	name, args := s.Docker.composeArgs("run", "--rm", "--no-deps", "emulator",
 		"java", "-cp", "/app/habnut-emulator.jar",
 		"com.habnut.emulator.db.MigrationRunner")
 
@@ -216,7 +215,64 @@ func stepMigrate(ctx context.Context, s *Session) error {
 	if err := run(ctx, &out, name, args...); err != nil {
 		return fmt.Errorf("the schema could not be applied: %w\n%s", err, out.String())
 	}
+
+	// Exiting zero is not the same as having done the work.
+	//
+	// The migrator once reported success having created nothing at all: the
+	// jar had lost Flyway's own plugin list while being packed, so Flyway
+	// recognised the database, found no migrations to run, and finished
+	// happily. The first anybody knew of it was the next step failing on a
+	// table that did not exist, which pointed at the seed rather than at the
+	// schema. So the schema is checked rather than assumed.
+	if err := s.verifySchema(ctx); err != nil {
+		return fmt.Errorf("%w\n\nWhat the migrator said:\n%s", err, indent(out.String()))
+	}
 	return nil
+}
+
+// schemaWitnesses are tables that must exist once the schema is applied.
+//
+// One from the first migration and one from the last, so a schema that is
+// present but stopped part-way through is caught as well as one that was never
+// built at all.
+var schemaWitnesses = []string{"habnut_users", "habnut_room_models", "flyway_schema_history"}
+
+// verifySchema asks the database whether the tables are really there.
+func (s *Session) verifySchema(ctx context.Context) error {
+	query := "SELECT COUNT(*) FROM information_schema.tables " +
+		"WHERE table_schema = 'habnut' AND table_name IN ('" +
+		strings.Join(schemaWitnesses, "','") + "');"
+
+	var out bytes.Buffer
+	err := s.Docker.ExecInput(ctx, &out, strings.NewReader(query),
+		"db", "mariadb", "-uhabnut", "-phabnut", "-N", "-B", "habnut")
+	if err != nil {
+		return fmt.Errorf("could not check whether the schema was applied: %w\n%s",
+			err, out.String())
+	}
+
+	found := strings.TrimSpace(out.String())
+	if found == fmt.Sprint(len(schemaWitnesses)) {
+		return nil
+	}
+
+	return fmt.Errorf("the migrator finished without error but the database has only "+
+		"%s of the %d tables it should (looked for %s). The schema was not applied",
+		found, len(schemaWitnesses), strings.Join(schemaWitnesses, ", "))
+}
+
+// indent shifts a block of captured output so it reads as quoted rather than
+// as this program's own words.
+func indent(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return "  (it said nothing)"
+	}
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = "  " + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func stepSeedBase(ctx context.Context, s *Session) error {

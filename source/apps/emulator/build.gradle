@@ -103,7 +103,145 @@ jacocoTestCoverageVerification {
     }
 }
 
+// Service-loader files from every dependency, concatenated into one set.
+//
+// A fat jar merges many jars into one path space, so two dependencies that each
+// declare META-INF/services/<same interface> collide on the same path. A
+// duplicates strategy then keeps one and drops the rest — which for a service
+// file is silent data loss, because the file is a list and the halves needed
+// merging rather than choosing between.
+//
+// This is not hypothetical. flyway-core declares 31 plugins and flyway-mysql
+// declares 3; the shipped jar carried only the 3. Flyway could therefore
+// recognise a MariaDB URL but had no SQL migration resolver, so it discovered
+// zero migrations, reported success, and created nothing. Every hotel built
+// from that jar came up with an empty database and no error to explain it.
+def mergedServicesDir = layout.buildDirectory.dir('merged-services')
+
+def mergeServiceFiles = tasks.register('mergeServiceFiles') {
+    description = 'Concatenates META-INF/services entries from every dependency.'
+    def classpath = configurations.runtimeClasspath
+    def outDir = mergedServicesDir
+    inputs.files(classpath)
+    outputs.dir(outDir)
+
+    doLast {
+        def servicesDir = new File(outDir.get().asFile, 'META-INF/services')
+        servicesDir.deleteDir()
+        servicesDir.mkdirs()
+
+        def merged = new TreeMap<String, Set<String>>()
+
+        classpath.files.each { File file ->
+            if (!file.name.endsWith('.jar') || !file.isFile()) {
+                return
+            }
+            new java.util.zip.ZipFile(file).withCloseable { zip ->
+                zip.entries().each { entry ->
+                    if (entry.isDirectory() || !entry.name.startsWith('META-INF/services/')) {
+                        return
+                    }
+                    def name = entry.name.substring('META-INF/services/'.length())
+                    // Only the flat files are service declarations; anything
+                    // nested deeper is something else that happens to live there.
+                    if (name.isEmpty() || name.contains('/')) {
+                        return
+                    }
+                    zip.getInputStream(entry).withReader('UTF-8') { reader ->
+                        reader.readLines().each { line ->
+                            def provider = line.trim()
+                            if (!provider.isEmpty() && !provider.startsWith('#')) {
+                                merged.computeIfAbsent(name) { new LinkedHashSet<String>() }
+                                    .add(provider)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        merged.each { name, providers ->
+            new File(servicesDir, name).setText(providers.join('\n') + '\n', 'UTF-8')
+        }
+        logger.lifecycle("Merged ${merged.size()} service-loader files")
+    }
+}
+
+// Checks the packaged jar kept every service-loader entry.
+//
+// The merge above is easy to undo by accident — reordering the `from` specs,
+// or changing the duplicates strategy — and the failure is silent: the jar
+// builds, starts, connects to the database and quietly does nothing. So the
+// property is asserted on the built artefact rather than trusted.
+def verifyServiceFiles = tasks.register('verifyServiceFiles') {
+    description = 'Fails if the fat jar dropped any dependency service-loader entry.'
+    dependsOn tasks.named('jar')
+
+    def jarFile = tasks.named('jar').flatMap { it.archiveFile }
+    def classpath = configurations.runtimeClasspath
+    inputs.file(jarFile)
+    inputs.files(classpath)
+
+    doLast {
+        def readServices = { File file ->
+            def found = new TreeMap<String, Set<String>>()
+            new java.util.zip.ZipFile(file).withCloseable { zip ->
+                zip.entries().each { entry ->
+                    if (entry.isDirectory() || !entry.name.startsWith('META-INF/services/')) {
+                        return
+                    }
+                    def name = entry.name.substring('META-INF/services/'.length())
+                    if (name.isEmpty() || name.contains('/')) {
+                        return
+                    }
+                    zip.getInputStream(entry).withReader('UTF-8') { reader ->
+                        reader.readLines().each { line ->
+                            def provider = line.trim()
+                            if (!provider.isEmpty() && !provider.startsWith('#')) {
+                                found.computeIfAbsent(name) { new LinkedHashSet<String>() }
+                                    .add(provider)
+                            }
+                        }
+                    }
+                }
+            }
+            return found
+        }
+
+        def packaged = readServices(jarFile.get().asFile)
+        def missing = []
+
+        classpath.files.each { File dep ->
+            if (!dep.name.endsWith('.jar') || !dep.isFile()) {
+                return
+            }
+            readServices(dep).each { name, providers ->
+                def have = packaged.get(name) ?: [] as Set
+                providers.each { provider ->
+                    if (!have.contains(provider)) {
+                        missing << "${name}: ${provider} (from ${dep.name})"
+                    }
+                }
+            }
+        }
+
+        if (!missing.isEmpty()) {
+            throw new GradleException(
+                "The jar dropped ${missing.size()} service-loader entries. A service file is a " +
+                "list, so merging two of them means concatenating, not choosing. Dropping entries " +
+                "produces a jar that starts and silently does less than it should:\n  " +
+                missing.take(20).join('\n  '))
+        }
+
+        logger.lifecycle("Service files intact: ${packaged.size()} files, " +
+            "${packaged.values().sum { it.size() }} providers")
+    }
+}
+
+tasks.named('check') { dependsOn verifyServiceFiles }
+
 jar {
+    dependsOn mergeServiceFiles
     archiveBaseName = 'habnut-emulator'
     archiveVersion  = ''
     manifest {
@@ -114,6 +252,10 @@ jar {
             'Multi-Release'         : 'true'
         )
     }
+    // Added before the dependency jars: under EXCLUDE the first copy of a
+    // path wins, so the merged service files have to arrive first or the
+    // originals would shadow them and undo the merge.
+    from(mergedServicesDir)
     from {
         configurations.runtimeClasspath.collect {
             it.isDirectory() ? it : zipTree(it)
