@@ -452,7 +452,13 @@ jobs:
           DB_URL: "jdbc:mariadb://127.0.0.1:3306/habnut"
           DB_USERNAME: habnut
           DB_PASSWORD: habnut
+        # pipefail, because the migrator's output is piped through tee and a
+        # pipeline reports tee's exit code, not the migrator's. Without it a
+        # migration that fails halfway leaves this step green and the failure
+        # only surfaces in the next one.
+        shell: bash
         run: |
+          set -o pipefail
           java -cp apps/emulator/build/libs/habnut-emulator.jar \
             com.habnut.emulator.db.MigrationRunner 2>&1 | tee migrate.log
           grep -q "pending migrations" migrate.log || {
