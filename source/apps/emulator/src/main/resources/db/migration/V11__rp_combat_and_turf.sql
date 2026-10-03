@@ -23,7 +23,7 @@ CREATE TABLE habnut_rp_weapon_types (
 
 CREATE TABLE habnut_rp_character_weapons (
     id           BIGINT UNSIGNED   NOT NULL AUTO_INCREMENT,
-    character_id BIGINT UNSIGNED   NOT NULL,
+    character_id INT UNSIGNED      NOT NULL,
     weapon_id    INT UNSIGNED      NOT NULL,
     ammo         SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     equipped     TINYINT(1)        NOT NULL DEFAULT 0,
@@ -41,8 +41,8 @@ CREATE TABLE habnut_rp_character_weapons (
 -- faction reputation, so the log is the evidence those systems reason from.
 CREATE TABLE habnut_rp_combat_log (
     id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    attacker_id   BIGINT UNSIGNED NOT NULL,
-    victim_id     BIGINT UNSIGNED NOT NULL,
+    attacker_id   INT UNSIGNED    NOT NULL,
+    victim_id     INT UNSIGNED    NOT NULL,
     weapon_id     INT UNSIGNED    NULL,
     room_id       INT UNSIGNED    NULL,
     damage        SMALLINT UNSIGNED NOT NULL DEFAULT 0,

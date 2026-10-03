@@ -213,6 +213,20 @@ ALTER TABLE habnut_friends RENAME COLUMN user_id_b TO user_b;
 ALTER TABLE habnut_friends
     ADD COLUMN accepted TINYINT(1) NOT NULL DEFAULT 1;
 
+-- fk_friends_a gets an index of its own before the primary key comes off.
+--
+-- InnoDB insists every foreign key has an index to use, and the composite
+-- primary key was the only index leading with user_a — so dropping it first
+-- leaves fk_friends_a with nothing to use and MariaDB refuses the whole
+-- statement. fk_friends_b is already served by idx_friends_b from V1.
+--
+-- The new index is deliberately a different shape from uq_friend_pair: give
+-- the pair its unique key here instead and H2 backs it with the primary key's
+-- own index, then will not let the primary key go. One single-column index
+-- satisfies both engines.
+ALTER TABLE habnut_friends
+    ADD KEY idx_friends_a (user_a);
+
 ALTER TABLE habnut_friends DROP PRIMARY KEY;
 
 ALTER TABLE habnut_friends

@@ -29,8 +29,26 @@ ALTER TABLE habnut_pets
 ALTER TABLE habnut_user_achievements
     MODIFY COLUMN achievement_code VARCHAR(64) NOT NULL;
 
+-- badge_code needs its constraint repointed before it can be retyped.
+--
+-- BadgeService joins habnut_badges on its code column, but fk_ubadge_badge
+-- still pointed at habnut_badges.id — so the column the service matches on
+-- was not the column the database enforced, and a badge held under a code
+-- with no matching id would have been refused on insert.
+--
+-- Dropping it is also what makes the widening possible at all: MariaDB will
+-- not change the type of a column a foreign key depends on (error 1832), and
+-- VARCHAR(64) is the width of the code column it now references. DROP
+-- CONSTRAINT is the spelling both MariaDB and H2 accept; DROP FOREIGN KEY is
+-- MariaDB's alone.
+ALTER TABLE habnut_user_badges DROP CONSTRAINT fk_ubadge_badge;
+
 ALTER TABLE habnut_user_badges
     MODIFY COLUMN badge_code VARCHAR(64) NOT NULL;
+
+ALTER TABLE habnut_user_badges
+    ADD CONSTRAINT fk_ubadge_badge FOREIGN KEY (badge_code)
+        REFERENCES habnut_badges (code);
 
 ALTER TABLE habnut_wired_variables
     MODIFY COLUMN var_name VARCHAR(64) NOT NULL;
