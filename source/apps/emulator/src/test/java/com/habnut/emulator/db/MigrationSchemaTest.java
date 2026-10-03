@@ -100,6 +100,69 @@ class MigrationSchemaTest {
                 + String.join("\n  ", distinct));
     }
 
+    /**
+     * The two tests above read the SQL. This one reads what the mapping code
+     * asks the result set for, which is a separate thing and drifted on its own:
+     * UserRepository selected "figure, rank" correctly and then asked for
+     * "figure_string" and "rank_id", so every user lookup threw and login
+     * resolved nobody. FurniBaseRepository did the same with four labels and
+     * preloaded no furniture at all. Both passed the SQL tests, because the SQL
+     * was right — only the reader was wrong.
+     *
+     * A label is accepted if the file's own SQL names it (so an alias, whether
+     * written with AS or not, is fine) or if it is a column of some habnut_
+     * table that file queries (so SELECT * is fine). Anything else is a label
+     * no result set will carry.
+     */
+    @Test
+    @DisplayName("no service reads a result label nothing can produce")
+    void noResultLabelDrift() throws IOException {
+        Map<String, Set<String>> schema = parseSchema();
+        List<String> problems = new ArrayList<>();
+
+        Pattern getter = Pattern.compile("\\brs\\.get[A-Za-z]+\\(\\s*\"([a-z0-9_]+)\"");
+        Pattern tableRef = Pattern.compile(
+            "\\b(?:FROM|JOIN|INTO|UPDATE)\\s+(habnut_\\w+)", Pattern.CASE_INSENSITIVE);
+
+        for (Path java : javaSources()) {
+            String source = Files.readString(java);
+            Matcher labels = getter.matcher(source);
+            if (!labels.find()) continue;
+
+            // The getter's own argument is a string literal too, so it has to
+            // come out before the SQL is read — otherwise every label proves
+            // itself and the test can never fail.
+            String sqlText = extractStringLiterals(
+                getter.matcher(source).replaceAll(" "));
+
+            // every word the file's SQL mentions: covers aliases of both forms
+            Set<String> sqlWords = new HashSet<>();
+            Matcher word = Pattern.compile("[a-z0-9_]+").matcher(sqlText.toLowerCase());
+            while (word.find()) sqlWords.add(word.group());
+
+            // plus the columns of every table it touches, for SELECT *
+            Set<String> reachable = new HashSet<>();
+            Matcher t = tableRef.matcher(sqlText);
+            while (t.find()) {
+                Set<String> cols = schema.get(t.group(1).toLowerCase());
+                if (cols != null) reachable.addAll(cols);
+            }
+
+            labels.reset();
+            while (labels.find()) {
+                String label = labels.group(1).toLowerCase();
+                if (sqlWords.contains(label) || reachable.contains(label)) continue;
+                problems.add(java.getFileName() + ": reads '" + label
+                    + "' but no query in the file produces that label");
+            }
+        }
+
+        List<String> distinct = problems.stream().distinct().sorted().toList();
+        assertTrue(distinct.isEmpty(),
+            "service code reads result labels no query produces:\n  "
+                + String.join("\n  ", distinct));
+    }
+
     @Test
     @DisplayName("no service selects a bare column the schema does not define")
     void noBareSelectDrift() throws IOException {

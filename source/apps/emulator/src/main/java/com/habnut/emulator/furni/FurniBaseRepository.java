@@ -65,13 +65,11 @@ public final class FurniBaseRepository {
             rs.getInt("length"),
             rs.getDouble("stack_height"),
             rs.getBoolean("can_sit"),
-            rs.getBoolean("can_lay"),
-            rs.getBoolean("can_walk"),
+            // the column is is_walkable; can_walk never existed
+            rs.getBoolean("is_walkable"),
             rs.getBoolean("can_stack"),
             rs.getInt("interaction_modes"),
-            rs.getString("interaction_type"),
-            rs.getInt("credits_cost"),
-            rs.getInt("diamonds_cost")
+            rs.getString("interaction_type")
         );
     }
 }

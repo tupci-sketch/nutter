@@ -10,11 +10,8 @@ public record FurniBase(
     int length,
     double stackHeight,
     boolean canSit,
-    boolean canLay,
     boolean canWalk,
     boolean canStack,
     int interactionModes,
-    String interactionType,
-    int credits,
-    int diamonds
+    String interactionType
 ) {}
