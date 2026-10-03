@@ -402,3 +402,115 @@ jobs:
           name: habnutctl
           path: bin/habnutctl-*
           retention-days: 14
+
+  # ── 15 · Migrations on MariaDB ────────────────────────────────────────────
+  # The schema tests apply the migration files to H2 through a harness, which
+  # proves the SQL is right but never exercises the thing that applies it on a
+  # real hotel. Three faults got through that gap, each only visible against
+  # MariaDB: backslash escapes meaning different things, CHANGE COLUMN setting
+  # a type on one engine and not the other, and MariaDB refusing to rename a
+  # column a foreign key depends on inside a combined ALTER.
+  #
+  # So this runs the real jar, with the real Flyway, against the same MariaDB
+  # the local edition uses, and then applies the seeds on top — the exact path
+  # `habnutctl dev up` takes.
+  mariadb-migrations:
+    name: "15 · Migrations on MariaDB"
+    runs-on: ubuntu-24.04
+    needs: [emulator]
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: habnut
+          MARIADB_DATABASE: habnut
+          MARIADB_USER: habnut
+          MARIADB_PASSWORD: habnut
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build the emulator jar
+        working-directory: source
+        run: ./gradlew :emulator:jar --no-daemon
+      # Flyway finds its migration resolver through the service loader, so a
+      # jar that merged those files wrongly connects, finds nothing to do and
+      # reports success. Counting what it discovered is what catches that.
+      - name: Apply the schema with the real migrator
+        working-directory: source
+        env:
+          DB_URL: "jdbc:mariadb://127.0.0.1:3306/habnut"
+          DB_USERNAME: habnut
+          DB_PASSWORD: habnut
+        run: |
+          java -cp apps/emulator/build/libs/habnut-emulator.jar \
+            com.habnut.emulator.db.MigrationRunner 2>&1 | tee migrate.log
+          grep -q "pending migrations" migrate.log || {
+            echo "::error::The migrator found no migrations to apply." >&2
+            exit 1
+          }
+      - name: Check every migration was recorded as applied
+        run: |
+          applied=$(mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut -N -B habnut \
+            -e "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1;")
+          expected=$(ls source/apps/emulator/src/main/resources/db/migration/*.sql | wc -l)
+          echo "applied=$applied expected=$expected"
+          if [ "$applied" -ne "$expected" ]; then
+            echo "::error::$applied of $expected migrations applied." >&2
+            mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut habnut \
+              -e "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
+            exit 1
+          fi
+      # The seeds are what the schema is for, and they are where a column that
+      # drifted shows up: a rename the services do not know about fails here
+      # rather than in the migration.
+      - name: Apply the base seed
+        run: |
+          mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut habnut \
+            < source/apps/launcher/internal/seed/sql/base.sql
+      - name: Apply the demo world
+        run: |
+          mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut habnut \
+            < source/apps/launcher/internal/seed/sql/demo.sql
+      - name: Check a seeded hotel has something in it
+        run: |
+          for pair in "habnut_room_models 5" "habnut_items_base 10" \
+                      "habnut_catalogue_offers 10" "habnut_rooms 3" \
+                      "habnut_floor_items 10" "habnut_users 4"; do
+            set -- $pair
+            count=$(mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut -N -B habnut \
+              -e "SELECT COUNT(*) FROM $1;")
+            echo "$1: $count (want at least $2)"
+            if [ "$count" -lt "$2" ]; then
+              echo "::error::$1 has $count rows, expected at least $2." >&2
+              exit 1
+            fi
+          done
+      # Applying a seed twice must change nothing: a hotel that has been
+      # running gets brought up to a newer base seed without losing what its
+      # staff changed.
+      - name: Check the seeds are safe to run twice
+        run: |
+          before=$(mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut -N -B habnut \
+            -e "SELECT (SELECT COUNT(*) FROM habnut_rooms) + (SELECT COUNT(*) FROM habnut_users) + (SELECT COUNT(*) FROM habnut_floor_items);")
+          mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut habnut \
+            < source/apps/launcher/internal/seed/sql/base.sql
+          mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut habnut \
+            < source/apps/launcher/internal/seed/sql/demo.sql
+          after=$(mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut -N -B habnut \
+            -e "SELECT (SELECT COUNT(*) FROM habnut_rooms) + (SELECT COUNT(*) FROM habnut_users) + (SELECT COUNT(*) FROM habnut_floor_items);")
+          echo "before=$before after=$after"
+          [ "$before" = "$after" ] || {
+            echo "::error::Reapplying the seeds changed the hotel." >&2
+            exit 1
+          }

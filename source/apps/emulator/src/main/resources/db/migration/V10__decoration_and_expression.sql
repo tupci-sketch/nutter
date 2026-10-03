@@ -83,10 +83,16 @@ ALTER TABLE habnut_users
     ADD COLUMN    xp            INT UNSIGNED  NOT NULL DEFAULT 0,
     ADD COLUMN    online        TINYINT(1)    NOT NULL DEFAULT 0;
 
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_floor_items RENAME COLUMN base_item_id TO base_id;
+ALTER TABLE habnut_floor_items RENAME COLUMN user_id TO owner_id;
+
 ALTER TABLE habnut_floor_items
-    CHANGE COLUMN base_item_id base_id    INT UNSIGNED NOT NULL,
-    CHANGE COLUMN user_id      owner_id   INT UNSIGNED NOT NULL,
-    CHANGE COLUMN extra        extra_data TEXT         NULL;
+    CHANGE COLUMN extra extra_data TEXT NULL;
 
 ALTER TABLE habnut_wired_items
     CHANGE COLUMN wired_type  component_type  VARCHAR(16)  NOT NULL,
@@ -94,8 +100,14 @@ ALTER TABLE habnut_wired_items
     CHANGE COLUMN category    definition_code VARCHAR(64)  NOT NULL,
     ADD COLUMN    stack_order SMALLINT UNSIGNED NOT NULL DEFAULT 0;
 
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_marketplace_listings RENAME COLUMN base_item_id TO base_id;
+
 ALTER TABLE habnut_marketplace_listings
-    CHANGE COLUMN base_item_id base_id           INT UNSIGNED NOT NULL,
     CHANGE COLUMN item_id      inventory_item_id BIGINT UNSIGNED NOT NULL,
     CHANGE COLUMN price        price_credits     INT UNSIGNED NOT NULL,
     CHANGE COLUMN listed_at    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -111,16 +123,26 @@ ALTER TABLE habnut_user_quests
     CHANGE COLUMN progress_json progress     JSON     NULL,
     ADD COLUMN    abandoned_at  DATETIME     NULL DEFAULT NULL;
 
-ALTER TABLE habnut_user_achievements
-    CHANGE COLUMN achievement_id achievement_code VARCHAR(64) NOT NULL;
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_user_achievements RENAME COLUMN achievement_id TO achievement_code;
 
 ALTER TABLE habnut_machine_ids
     CHANGE COLUMN machine_id_hash machine_id VARCHAR(128) NOT NULL;
 
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_items_inventory RENAME COLUMN base_item_id TO base_id;
+ALTER TABLE habnut_items_inventory RENAME COLUMN user_id TO owner_id;
+
 ALTER TABLE habnut_items_inventory
-    CHANGE COLUMN base_item_id base_id    INT UNSIGNED NOT NULL,
-    CHANGE COLUMN user_id      owner_id   INT UNSIGNED NOT NULL,
-    CHANGE COLUMN extra        extra_data TEXT         NULL;
+    CHANGE COLUMN extra extra_data TEXT NULL;
 
 ALTER TABLE habnut_group_forum_threads
     CHANGE COLUMN subject title VARCHAR(255) NOT NULL;
@@ -156,8 +178,16 @@ ALTER TABLE habnut_badges
 
 -- slot_index records which of the five profile slots a badge occupies;
 -- equipped records whether it is displayed at all. Both are read.
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+-- The widening from VARCHAR(32) to VARCHAR(64) is restated in V17, which is
+-- where every type that a rename used to carry is set.
+ALTER TABLE habnut_user_badges RENAME COLUMN badge_id TO badge_code;
+
 ALTER TABLE habnut_user_badges
-    CHANGE COLUMN badge_id badge_code VARCHAR(64) NOT NULL,
     ADD COLUMN    equipped TINYINT(1) NOT NULL DEFAULT 0;
 
 ALTER TABLE habnut_catalogue_offers
@@ -172,10 +202,16 @@ ALTER TABLE habnut_catalogue_offers
 -- The pair was the primary key; it becomes a unique constraint so the row can
 -- carry a surrogate id, which the friend service uses to address a single
 -- friendship without needing both user ids.
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_friends RENAME COLUMN user_id_a TO user_a;
+ALTER TABLE habnut_friends RENAME COLUMN user_id_b TO user_b;
+
 ALTER TABLE habnut_friends
-    CHANGE COLUMN user_id_a user_a INT UNSIGNED NOT NULL,
-    CHANGE COLUMN user_id_b user_b INT UNSIGNED NOT NULL,
-    ADD COLUMN    accepted TINYINT(1) NOT NULL DEFAULT 1;
+    ADD COLUMN accepted TINYINT(1) NOT NULL DEFAULT 1;
 
 ALTER TABLE habnut_friends DROP PRIMARY KEY;
 

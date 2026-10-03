@@ -61,9 +61,15 @@ ALTER TABLE habnut_room_models
 -- one pet query has ever returned a row. The service's shape wins: hunger and
 -- happiness tick on a schedule and are compared and ordered on, which is not
 -- something to do inside a JSON document.
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_pets RENAME COLUMN owner_user_id TO owner_id;
+
 ALTER TABLE habnut_pets
-    CHANGE COLUMN type          pet_type VARCHAR(32)  NOT NULL,
-    CHANGE COLUMN owner_user_id owner_id INT UNSIGNED NOT NULL;
+    CHANGE COLUMN type pet_type VARCHAR(32) NOT NULL;
 
 ALTER TABLE habnut_pets
     ADD COLUMN figure_data     VARCHAR(255)     NOT NULL DEFAULT '',
@@ -82,9 +88,15 @@ ALTER TABLE habnut_pets
 -- ─── BOTS ─────────────────────────────────────────────────────────────────────
 
 -- Same story as pets: the service keeps a bot's position on the bot.
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_bots RENAME COLUMN owner_user_id TO owner_id;
+
 ALTER TABLE habnut_bots
-    CHANGE COLUMN owner_user_id owner_id INT UNSIGNED NOT NULL,
-    CHANGE COLUMN figure_string figure   VARCHAR(255) NOT NULL DEFAULT '';
+    CHANGE COLUMN figure_string figure VARCHAR(255) NOT NULL DEFAULT '';
 
 ALTER TABLE habnut_bots
     ADD COLUMN pos_x           SMALLINT     NOT NULL DEFAULT 0,
