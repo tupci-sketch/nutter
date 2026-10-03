@@ -440,6 +440,14 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
       - uses: gradle/actions/setup-gradle@v4
+      # The runner has no MariaDB client of its own, so every step below that
+      # queries the database exited 127 and the job went red without having
+      # checked anything. It looked like a schema failure twice over.
+      - name: Install the MariaDB client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mariadb-client
+          mariadb --version
       - name: Build the emulator jar
         working-directory: source
         run: ./gradlew :emulator:jar --no-daemon
@@ -471,6 +479,15 @@ jobs:
             -e "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1;")
           expected=$(ls source/apps/emulator/src/main/resources/db/migration/*.sql | wc -l)
           echo "applied=$applied expected=$expected"
+          # A query that did not run leaves this empty, which would otherwise
+          # fail the comparison below as a bash syntax error and read as a
+          # schema fault. Say which it is.
+          case "$applied" in
+            ''|*[!0-9]*)
+              echo "::error::Could not read flyway_schema_history." >&2
+              exit 1
+              ;;
+          esac
           if [ "$applied" -ne "$expected" ]; then
             echo "::error::$applied of $expected migrations applied." >&2
             mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut habnut \
