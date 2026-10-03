@@ -238,6 +238,13 @@ class MigrationSchemaTest {
         Pattern addCol    = Pattern.compile("ADD COLUMN\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
         Pattern changeCol = Pattern.compile("CHANGE COLUMN\\s+(\\w+)\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
         Pattern renameTo  = Pattern.compile("^\\s*RENAME TO\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        // `RENAME COLUMN a TO b` renames one column, the same as CHANGE COLUMN
+        // does, and is what the migrations use wherever a foreign key depends
+        // on the column — MariaDB refuses to rename one of those inside a
+        // combined ALTER. Missing it here made every such column read as
+        // undefined and the drift guards fire on a schema that was correct.
+        Pattern renameCol = Pattern.compile(
+            "RENAME COLUMN\\s+(\\w+)\\s+TO\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
 
         for (Path file : migrationFiles()) {
             String sql = Files.readString(file);
@@ -273,6 +280,11 @@ class MigrationSchemaTest {
                 while (chg.find()) {
                     cols.remove(chg.group(1).toLowerCase());
                     cols.add(chg.group(2).toLowerCase());
+                }
+                Matcher ren = renameCol.matcher(a.group(2));
+                while (ren.find()) {
+                    cols.remove(ren.group(1).toLowerCase());
+                    cols.add(ren.group(2).toLowerCase());
                 }
             }
         }

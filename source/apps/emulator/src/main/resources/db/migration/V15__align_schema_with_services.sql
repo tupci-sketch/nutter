@@ -18,8 +18,14 @@
 
 -- The camera stores a token identifying the full picture and a small preview
 -- shown in a list, rather than one blob doing both jobs.
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_photos RENAME COLUMN taker_user_id TO user_id;
+
 ALTER TABLE habnut_photos
-    CHANGE COLUMN taker_user_id user_id       INT UNSIGNED NOT NULL,
     CHANGE COLUMN data_url      preview_data  MEDIUMTEXT   NULL,
     CHANGE COLUMN created_at    taken_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
@@ -41,17 +47,27 @@ ALTER TABLE habnut_machine_ids
 
 -- Floor items were aligned in V10; the wall items beside them were missed, so
 -- nothing hung on a wall has ever been saved.
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_wall_items RENAME COLUMN base_item_id TO base_id;
+ALTER TABLE habnut_wall_items RENAME COLUMN user_id TO owner_id;
+
 ALTER TABLE habnut_wall_items
-    CHANGE COLUMN base_item_id base_id       INT UNSIGNED NOT NULL,
-    CHANGE COLUMN user_id      owner_id      INT UNSIGNED NOT NULL,
-    CHANGE COLUMN wall_loc     wall_position VARCHAR(64)  NOT NULL DEFAULT '';
+    CHANGE COLUMN wall_loc wall_position VARCHAR(64) NOT NULL DEFAULT '';
 
 -- ─── GROUPS ───────────────────────────────────────────────────────────────────
 
 -- A group's room is its home room, and a group has a type the way a faction has
 -- a tag.
-ALTER TABLE habnut_groups
-    CHANGE COLUMN room_id home_room_id INT UNSIGNED NULL;
+-- Renamed on their own, because MariaDB will not rename a column a foreign key
+-- depends on inside a combined ALTER: it falls back to ALGORITHM=COPY and then
+-- refuses, since a copy cannot carry the constraint across. RENAME COLUMN does
+-- it properly and is understood by both MariaDB and the H2 the schema tests
+-- run against.
+ALTER TABLE habnut_groups RENAME COLUMN room_id TO home_room_id;
 
 ALTER TABLE habnut_groups
     ADD COLUMN type VARCHAR(32) NOT NULL DEFAULT 'normal';
