@@ -50,6 +50,34 @@ class AuthTest extends TestCase
         $this->assertAuthenticated();
     }
 
+    /**
+     * @test
+     *
+     * A hash made at a cost other than the configured one — every seeded
+     * account is one — is rehashed as the player signs in, and the new hash
+     * has to land in password_hash. Laravel's default target is a 'password'
+     * column, which does not exist, so signing in failed at exactly that
+     * point. The other tests hash at the configured cost and never got there.
+     */
+    public function a_password_hashed_at_another_cost_signs_in_and_is_upgraded(): void
+    {
+        $old = password_hash('testpassword123', PASSWORD_BCRYPT, ['cost' => 5]);
+        $this->createTupci(['password_hash' => $old]);
+
+        $response = $this->post(route('login'), [
+            'email' => 'tupci@icloud.com',
+            'password' => 'testpassword123',
+        ]);
+
+        $response->assertRedirect(route('home'));
+        $this->assertAuthenticated();
+
+        $stored = User::where('email', 'tupci@icloud.com')->value('password_hash');
+        $this->assertNotSame($old, $stored, 'the hash was not upgraded');
+        $this->assertTrue(Hash::check('testpassword123', $stored));
+        $this->assertFalse(Hash::needsRehash($stored));
+    }
+
     /** @test */
     public function tupci_login_fails_with_wrong_password(): void
     {

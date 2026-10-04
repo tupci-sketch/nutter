@@ -411,13 +411,24 @@ func (e *Env) WriteStack(appKey string, overwrite bool) error {
 		{e.ComposeFile(), composeTemplate, 0o644},
 		{e.NginxConf(), nginxTemplate, 0o644},
 		{e.CMSDockerfile(), cmsDockerfile, 0o644},
-		{e.CMSDir() + "/.env", cmsEnvTemplate, 0o600},
+		// Readable by everyone, not just its owner. The website reads it
+		// inside its container as www-data, a different user from the one who
+		// ran 'dev up', so owner-only meant the website could never read its
+		// own settings: it fell back to 127.0.0.1 and failed every request.
+		// What it holds is local: the dev database's password and a key made on
+		// this machine, for a hotel that listens on nothing but 127.0.0.1.
+		{e.CMSDir() + "/.env", cmsEnvTemplate, 0o644},
 		{e.CMSDir() + "/dev-entrypoint.sh", cmsEntrypoint, 0o755},
 	}
 
 	for _, f := range files {
 		if !overwrite {
 			if _, err := os.Stat(f.path); err == nil {
+				// Kept as it is, but with the permissions it needs, so a hotel
+				// made before the .env above was readable mends itself.
+				if err := os.Chmod(f.path, f.mode); err != nil {
+					return fmt.Errorf("could not set permissions on %s: %w", f.path, err)
+				}
 				continue
 			}
 		}
