@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\HotelSchema;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -14,13 +15,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('habnut_mutes', function (Blueprint $table) {
-            // An automatic mute has no staff member behind it, so the column
-            // that names one becomes optional and the row records where the
-            // mute came from instead.
-            $table->unsignedBigInteger('muted_by_id')->nullable()->change();
-            $table->string('source', 16)->default('staff');
-        });
+        if (! HotelSchema::present()) {
+            Schema::table('habnut_mutes', function (Blueprint $table) {
+                // An automatic mute has no staff member behind it, so the column
+                // that names one becomes optional and the row records where the
+                // mute came from instead.
+                $table->unsignedBigInteger('muted_by_id')->nullable()->change();
+                $table->string('source', 16)->default('staff');
+            });
+        }
 
         if (! Schema::hasTable('habnut_content_rules')) {
             Schema::create('habnut_content_rules', function (Blueprint $table) {
@@ -74,8 +77,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('habnut_mute_help_requests');
-        Schema::dropIfExists('habnut_auto_mutes');
-        Schema::dropIfExists('habnut_content_rules');
+        HotelSchema::dropIfOurs('habnut_mute_help_requests');
+        HotelSchema::dropIfOurs('habnut_auto_mutes');
+        HotelSchema::dropIfOurs('habnut_content_rules');
     }
 };

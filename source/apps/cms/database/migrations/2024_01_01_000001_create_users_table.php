@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\HotelSchema;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -14,7 +15,9 @@ return new class extends Migration
         // that no player ever appears in.
         if (! Schema::hasTable('habnut_users')) {
             Schema::create('habnut_users', function (Blueprint $table) {
-                $table->bigIncrements('id');
+                // INT UNSIGNED, as the hotel's own migration declares it, so a
+                // key that references it is checked against the real type.
+                $table->increments('id');
                 $table->string('username', 25)->unique();
                 $table->string('email', 254)->unique();
                 $table->string('password_hash');
@@ -66,6 +69,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('sessions');
         Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('habnut_users');
+        HotelSchema::dropIfOurs('habnut_users');
     }
 };

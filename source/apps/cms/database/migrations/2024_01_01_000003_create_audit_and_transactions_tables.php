@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\HotelSchema;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -50,7 +51,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('habnut_transactions');
-        Schema::dropIfExists('habnut_audit_logs');
+        HotelSchema::dropIfOurs('habnut_transactions');
+        HotelSchema::dropIfOurs('habnut_audit_logs');
     }
 };
