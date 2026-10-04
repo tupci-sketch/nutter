@@ -1,0 +1,247 @@
+# Habnut — the production stack.
+#
+# Run it through deploy/bin/habnut, never 'docker compose' by hand: the script
+# passes the settings file and the paths these definitions refer to, and it
+# runs the steps around starting it (the hotel's schema, the first seed, the
+# checks afterwards) in the order they need.
+#
+# Built from the local edition ('habnutctl dev up'), which is the stack shown to
+# work end to end: same images, same layout (the website at /, the game at
+# /client/, the socket at /ws), same start-up order. What differs is what a real
+# server needs: passwords, no demo accounts, limits, and Cloudflare in front.
+#
+# Sized for 2 vCPU / 4 GB. Every service has a memory limit, so one that
+# misbehaves is stopped on its own instead of taking the server with it, and
+# the database and the hotel are the last things the kernel picks when memory
+# runs out. Measured with 200 simulated players: the hotel used 111 MB of heap
+# and 15% of one core, the database 123 MB.
+#
+# Nothing is published beyond this machine. The web server listens on
+# 127.0.0.1 only; Cloudflare reaches it through the tunnel (profile "tunnel").
+
+name: habnut
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is not set}
+      MARIADB_DATABASE: habnut
+      MARIADB_USER: habnut
+      MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./mariadb/habnut.cnf:/etc/mysql/conf.d/habnut.cnf:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    mem_limit: 768m
+    oom_score_adj: -800
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf",
+              "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is not set}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    mem_limit: 128m
+    oom_score_adj: -500
+    logging: *logging
+
+  # The hotel applies its own schema as it starts, so everything that reads
+  # the hotel's tables waits for it to be healthy.
+  emulator:
+    image: eclipse-temurin:21-jre
+    restart: unless-stopped
+    working_dir: /app
+    command:
+      - java
+      - -Xms256m
+      - -Xmx512m
+      - -XX:MaxDirectMemorySize=96m
+      - -XX:MaxMetaspaceSize=160m
+      - -XX:+UseG1GC
+      - -XX:+ExitOnOutOfMemoryError
+      - -jar
+      - /app/habnut-emulator.jar
+    environment:
+      DB_URL: "jdbc:mariadb://db:3306/habnut?useUnicode=true&characterEncoding=utf8"
+      DB_USERNAME: habnut
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_POOL_MAX_POOL_SIZE: "15"
+      DB_POOL_MIN_IDLE: "2"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      WS_PORT: "3000"
+      HEALTH_PORT: "3001"
+      METRICS_PORT: "3002"
+      WORLD_ID: ${HABNUT_WORLD:-classic}
+      SESSION_TICKET_TTL_SECONDS: "300"
+    volumes:
+      - ../emulator:/app:ro
+    # bash's own TCP support: the Temurin images carry no curl.
+    healthcheck:
+      test: ["CMD", "bash", "-c", ":< /dev/tcp/127.0.0.1/3001"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 90s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 1g
+    oom_score_adj: -300
+    logging: *logging
+
+  # The website. Its code is built into the image, so a release is one image
+  # tag and going back is starting the previous one. Its settings and the
+  # files it writes live outside, on the host, and survive releases.
+  cms:
+    image: habnut-cms:${HABNUT_VERSION:?HABNUT_VERSION is not set}
+    build:
+      context: ..
+      dockerfile: deploy/cms/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${HABNUT_SHARED:?HABNUT_SHARED is not set}/cms.env:/var/www/cms/.env:ro
+      - ${HABNUT_SHARED}/storage:/var/www/cms/storage
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 120s
+    depends_on:
+      emulator:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 384m
+    logging: *logging
+
+  # Avatars and group badges, drawn from the installed asset pack. It is the
+  # launcher itself in a serving mode.
+  imager:
+    image: alpine:3.20
+    restart: unless-stopped
+    command: ["/opt/habnut/habnutctl", "imager", "--listen", "0.0.0.0:8081"]
+    volumes:
+      - ../bin/habnutctl:/opt/habnut/habnutctl:ro
+      - ${HABNUT_ASSETS:?HABNUT_ASSETS is not set}:/var/lib/habnut/assets:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    mem_limit: 128m
+    logging: *logging
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${HABNUT_HTTP_PORT:-8080}:80"
+    environment:
+      HABNUT_DOMAIN: ${HABNUT_DOMAIN:?HABNUT_DOMAIN is not set}
+    volumes:
+      - ./nginx/habnut.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ../cms/public:/var/www/cms/public:ro
+      - ../client:/var/www/client:ro
+      - ${HABNUT_ASSETS}:/var/www/assets:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      - cms
+      - imager
+    mem_limit: 64m
+    logging: *logging
+
+  # Cloudflare's connector. It dials out to Cloudflare, so the server needs no
+  # open web ports and its address is never published. The tunnel and its
+  # route to http://nginx:80 are made in Cloudflare; this only needs its token.
+  cloudflared:
+    profiles: [tunnel]
+    image: cloudflare/cloudflared:2025.9.1
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - nginx
+    mem_limit: 128m
+    logging: *logging
+
+  # Monitoring, kept to what a 4 GB server can carry: metrics with two weeks'
+  # history and alerts to Discord. The dashboards and log store of the old
+  # stack are left off this server; they can run on a laptop against these.
+  prometheus:
+    profiles: [monitoring]
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=1GB
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    mem_limit: 256m
+    logging: *logging
+
+  node-exporter:
+    profiles: [monitoring]
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command: ["--path.rootfs=/host"]
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    mem_limit: 48m
+    logging: *logging
+
+  alertmanager:
+    profiles: [monitoring]
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"]
+    volumes:
+      - ${HABNUT_SHARED}/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    mem_limit: 64m
+    logging: *logging
+
+volumes:
+  db_data:
+  redis_data:
+  prometheus_data:
+  alertmanager_data:
