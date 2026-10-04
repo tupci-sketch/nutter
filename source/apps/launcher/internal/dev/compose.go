@@ -179,8 +179,12 @@ server {
         proxy_set_header Host $host;
     }
 
+    # Its own index: the server's is index.php, so without this the bare
+    # /client/ the website sends a signed-in player to was a forbidden
+    # directory listing rather than the game.
     location /client/ {
         alias /var/www/client/;
+        index index.html;
         try_files $uri $uri/ /client/index.html;
     }
 
@@ -348,13 +352,18 @@ until php -r 'new PDO("mysql:host=db;port=3306;dbname=habnut", "habnut", "habnut
   sleep 2
 done
 
+# Every artisan command runs as www-data, the user php-fpm serves as. Run as
+# root, the first thing one logged created laravel.log owned by root, and from
+# then on php-fpm could not write its own log and every page was a 500.
+artisan() { su -s /bin/sh -c "php artisan $*" www-data; }
+
 echo "[cms] applying website migrations..."
-php artisan migrate --force --no-interaction
+artisan migrate --force --no-interaction
 
 echo "[cms] clearing caches..."
-php artisan config:clear >/dev/null 2>&1 || true
-php artisan route:clear >/dev/null 2>&1 || true
-php artisan view:clear >/dev/null 2>&1 || true
+artisan config:clear >/dev/null 2>&1 || true
+artisan route:clear >/dev/null 2>&1 || true
+artisan view:clear >/dev/null 2>&1 || true
 
 echo "[cms] ready"
 exec php-fpm

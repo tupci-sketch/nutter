@@ -89,6 +89,9 @@ server {
     # falls back to its own index rather than the website's.
     location /client/ {
         alias /var/www/client/;
+        # The server's index is index.php; without its own, the /client/ the
+        # website redirects a signed-in player to is a 403.
+        index index.html;
         try_files $uri $uri/ /client/index.html;
     }
 
