@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\HotelSchema;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -17,7 +18,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $this->alignGroupsAndRooms();
+        // Only in a database without the hotel in it: these columns are the
+        // hotel's, and against a real hotel they already exist.
+        if (! HotelSchema::present()) {
+            $this->alignGroupsAndRooms();
+        }
         $this->createForumTables();
         $this->createSocialAndProgressionTables();
         $this->createModerationTables();
@@ -71,40 +76,44 @@ return new class extends Migration
             });
         }
 
-        Schema::create('habnut_forum_threads', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('group_id')->nullable();
-            $table->unsignedBigInteger('category_id')->nullable();
-            $table->unsignedBigInteger('author_id');
-            $table->string('title', 255);
-            $table->unsignedInteger('reply_count')->default(0);
-            $table->unsignedInteger('views')->default(0);
-            $table->boolean('pinned')->default(false);
-            $table->boolean('locked')->default(false);
-            $table->boolean('hidden')->default(false);
-            $table->unsignedBigInteger('last_post_id')->nullable();
-            $table->unsignedBigInteger('last_poster_id')->nullable();
-            $table->timestamp('created_at')->useCurrent();
-            $table->timestamp('updated_at')->useCurrent();
-            $table->timestamp('last_reply_at')->useCurrent();
-            $table->index(['category_id', 'hidden', 'pinned', 'last_reply_at']);
-            $table->index(['group_id', 'hidden', 'pinned', 'last_reply_at']);
-        });
+        if (! Schema::hasTable('habnut_forum_threads')) {
+            Schema::create('habnut_forum_threads', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('group_id')->nullable();
+                $table->unsignedBigInteger('category_id')->nullable();
+                $table->unsignedBigInteger('author_id');
+                $table->string('title', 255);
+                $table->unsignedInteger('reply_count')->default(0);
+                $table->unsignedInteger('views')->default(0);
+                $table->boolean('pinned')->default(false);
+                $table->boolean('locked')->default(false);
+                $table->boolean('hidden')->default(false);
+                $table->unsignedBigInteger('last_post_id')->nullable();
+                $table->unsignedBigInteger('last_poster_id')->nullable();
+                $table->timestamp('created_at')->useCurrent();
+                $table->timestamp('updated_at')->useCurrent();
+                $table->timestamp('last_reply_at')->useCurrent();
+                $table->index(['category_id', 'hidden', 'pinned', 'last_reply_at']);
+                $table->index(['group_id', 'hidden', 'pinned', 'last_reply_at']);
+            });
+        }
 
-        Schema::create('habnut_forum_posts', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('thread_id');
-            $table->unsignedBigInteger('author_id');
-            $table->text('body');
-            $table->boolean('hidden')->default(false);
-            $table->timestamp('created_at')->useCurrent();
-            $table->timestamp('hidden_at')->nullable();
-            $table->timestamp('edited_at')->nullable();
-            $table->unsignedBigInteger('edited_by_id')->nullable();
-            $table->unsignedBigInteger('hidden_by_id')->nullable();
-            $table->string('hidden_reason', 255)->nullable();
-            $table->index(['thread_id', 'hidden', 'created_at']);
-        });
+        if (! Schema::hasTable('habnut_forum_posts')) {
+            Schema::create('habnut_forum_posts', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('thread_id');
+                $table->unsignedBigInteger('author_id');
+                $table->text('body');
+                $table->boolean('hidden')->default(false);
+                $table->timestamp('created_at')->useCurrent();
+                $table->timestamp('hidden_at')->nullable();
+                $table->timestamp('edited_at')->nullable();
+                $table->unsignedBigInteger('edited_by_id')->nullable();
+                $table->unsignedBigInteger('hidden_by_id')->nullable();
+                $table->string('hidden_reason', 255)->nullable();
+                $table->index(['thread_id', 'hidden', 'created_at']);
+            });
+        }
 
         if (! Schema::hasTable('habnut_forum_moderators')) {
             Schema::create('habnut_forum_moderators', function (Blueprint $table) {
@@ -362,7 +371,7 @@ return new class extends Migration
      */
     private function alignLeaderboards(): void
     {
-        Schema::dropIfExists('habnut_leaderboards');
+        HotelSchema::dropIfOurs('habnut_leaderboards');
 
         if (! Schema::hasTable('habnut_leaderboards')) {
             Schema::create('habnut_leaderboards', function (Blueprint $table) {
@@ -392,7 +401,7 @@ return new class extends Migration
             'habnut_forum_moderators', 'habnut_forum_posts', 'habnut_forum_threads',
             'habnut_forum_categories',
         ] as $table) {
-            Schema::dropIfExists($table);
+            HotelSchema::dropIfOurs($table);
         }
     }
 };

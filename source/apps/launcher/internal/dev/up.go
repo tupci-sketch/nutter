@@ -310,7 +310,10 @@ func stepWaitReady(ctx context.Context, s *Session) error {
 	if err := s.Docker.WaitHealthy(ctx, "web", 2*time.Minute); err != nil {
 		return err
 	}
-	return waitForHTTP(ctx, s.Env.URL(), 2*time.Minute)
+	if err := waitForHTTP(ctx, s.Env.URL(), 2*time.Minute); err != nil {
+		return fmt.Errorf("%w\nRun `habnutctl dev logs web` to see what the web server is doing", err)
+	}
+	return nil
 }
 
 // stepVerifyHotel makes sure the game server is actually answering.
@@ -330,9 +333,19 @@ func stepVerifyHotel(ctx context.Context, s *Session) error {
 	}
 
 	health := s.Env.URL() + "/emulator/health"
-	if err := waitForHTTP(ctx, health, time.Minute); err != nil {
+	if err := waitForOK(ctx, health, time.Minute); err != nil {
 		return fmt.Errorf("the hotel is running but the website cannot reach it: %w\n"+
 			"Run `habnutctl dev logs emulator` to see what it is doing", err)
+	}
+
+	// The two pages a player goes through. Everything above can pass while the
+	// website fails every page — it did, on a database its own migrations could
+	// not run against — or while the redirect into the game lands on a 403.
+	for _, page := range []string{"/", "/client/"} {
+		if err := waitForOK(ctx, s.Env.URL()+page, time.Minute); err != nil {
+			return fmt.Errorf("the hotel is up but the website is not: %w\n"+
+				"Run `habnutctl dev logs cms` to see why", err)
+		}
 	}
 	return nil
 }

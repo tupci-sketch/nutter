@@ -537,3 +537,65 @@ jobs:
             echo "::error::Reapplying the seeds changed the hotel." >&2
             exit 1
           }
+      # The website keeps migrations of its own, and its tests run them against
+      # SQLite, which accepted a foreign key aimed at a table that does not
+      # exist, columns re-added on top of the hotel's, and a rollback that
+      # dropped habnut_users. So they run here as well, where they really run:
+      # on top of a hotel. The website may add tables of its own; it may not
+      # change or drop one the hotel made.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_mysql, bcmath, intl
+          coverage: none
+      - name: Install the website
+        working-directory: source/apps/cms
+        run: composer install --prefer-dist --no-progress --no-interaction
+      - name: Apply the website's migrations on top of the hotel
+        working-directory: source/apps/cms
+        env:
+          DB_CONNECTION: mariadb
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_DATABASE: habnut
+          DB_USERNAME: habnut
+          DB_PASSWORD: habnut
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+        run: |
+          set -o pipefail
+          # Each hotel table's definition, and its InnoDB table id. The id is
+          # what catches a table dropped and created again with the same
+          # definition, which a comparison of shapes alone would pass while
+          # every row in it was gone.
+          snapshot() {
+            mariadb -h 127.0.0.1 -P 3306 -uroot -phabnut -N -B \
+              -e "SELECT NAME, TABLE_ID FROM information_schema.INNODB_SYS_TABLES
+                  WHERE NAME LIKE 'habnut/habnut\\_%' ORDER BY NAME"
+            for t in $(mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut -N -B habnut \
+                         -e "SHOW TABLES LIKE 'habnut\_%'"); do
+              mariadb -h 127.0.0.1 -P 3306 -uhabnut -phabnut -N -B habnut \
+                -e "SHOW CREATE TABLE \`$t\`"
+            done | sed -E 's/ AUTO_INCREMENT=[0-9]+//'
+          }
+          snapshot > /tmp/hotel-before.sql
+          php artisan migrate --force --no-interaction
+          snapshot > /tmp/hotel-after.sql
+          # A line only in the first snapshot is a hotel table that was changed,
+          # dropped or recreated; lines only in the second are tables the
+          # website added. Not 'diff | grep': under pipefail diff's own exit
+          # status, 1 whenever the files differ, made that test false exactly
+          # when it mattered, so it could never fail.
+          lost=$(comm -23 <(sort /tmp/hotel-before.sql) <(sort /tmp/hotel-after.sql))
+          if [ -n "$lost" ]; then
+            echo "::error::The website's migrations changed tables the hotel owns:" >&2
+            echo "$lost" | cut -c1-200 >&2
+            exit 1
+          fi
+          echo "$(grep -c 'CREATE TABLE' /tmp/hotel-before.sql) hotel tables, all exactly as the hotel made them"
+          php artisan migrate --force --no-interaction | tee /tmp/second.log
+          grep -q "Nothing to migrate" /tmp/second.log || {
+            echo "::error::A second run of the website's migrations did something." >&2
+            exit 1
+          }

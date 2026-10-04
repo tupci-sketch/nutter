@@ -88,6 +88,17 @@ class User extends Authenticatable
     }
 
     /**
+     * The column Laravel writes a password to.
+     *
+     * Reading it was overridden below; writing it was not. Laravel rehashes a
+     * password on sign-in whenever its cost is behind the configured one, and
+     * it writes the new hash to this column — 'password' by default, which
+     * does not exist. Every seeded account, and any hash made at a lower cost,
+     * therefore failed at the moment of signing in.
+     */
+    protected $authPasswordName = 'password_hash';
+
+    /**
      * Where the password lives.
      *
      * Laravel looks for a `password` column by default; the hotel stores it as

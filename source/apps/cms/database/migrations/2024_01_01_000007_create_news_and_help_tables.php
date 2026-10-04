@@ -22,7 +22,12 @@ return new class extends Migration
             $table->string('excerpt', 512)->default('');
             $table->longText('body');
             $table->string('image_url')->nullable();
-            $table->foreignId('author_id')->nullable()->constrained('users')->nullOnDelete();
+            // Accounts live in habnut_users, whose id is INT UNSIGNED — the
+            // hotel's migrations create it. foreignId() would make a BIGINT
+            // aimed at a 'users' table that does not exist, which SQLite
+            // accepts and MariaDB refuses, so the website died on start.
+            $table->unsignedInteger('author_id')->nullable();
+            $table->foreign('author_id')->references('id')->on('habnut_users')->nullOnDelete();
             $table->timestamp('published_at')->nullable()->index();
             $table->timestamps();
         });

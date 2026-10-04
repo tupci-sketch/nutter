@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\HotelSchema;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -206,22 +207,22 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('habnut_system_settings');
-        Schema::dropIfExists('habnut_feature_flags');
-        Schema::dropIfExists('habnut_word_filter');
-        Schema::dropIfExists('habnut_rp_court_cases');
-        Schema::dropIfExists('habnut_rp_crimes');
-        Schema::dropIfExists('habnut_rp_characters');
-        Schema::dropIfExists('habnut_garden_plots');
-        Schema::dropIfExists('habnut_leaderboards');
-        Schema::dropIfExists('habnut_chat_logs');
-        Schema::dropIfExists('habnut_catalogue_items');
-        Schema::dropIfExists('habnut_catalogue_pages');
-        Schema::dropIfExists('habnut_group_members');
-        Schema::dropIfExists('habnut_groups');
-        Schema::dropIfExists('habnut_ban_appeals');
-        Schema::dropIfExists('habnut_bans');
-        Schema::dropIfExists('habnut_reports');
-        Schema::dropIfExists('habnut_rooms');
+        HotelSchema::dropIfOurs('habnut_system_settings');
+        HotelSchema::dropIfOurs('habnut_feature_flags');
+        HotelSchema::dropIfOurs('habnut_word_filter');
+        HotelSchema::dropIfOurs('habnut_rp_court_cases');
+        HotelSchema::dropIfOurs('habnut_rp_crimes');
+        HotelSchema::dropIfOurs('habnut_rp_characters');
+        HotelSchema::dropIfOurs('habnut_garden_plots');
+        HotelSchema::dropIfOurs('habnut_leaderboards');
+        HotelSchema::dropIfOurs('habnut_chat_logs');
+        HotelSchema::dropIfOurs('habnut_catalogue_items');
+        HotelSchema::dropIfOurs('habnut_catalogue_pages');
+        HotelSchema::dropIfOurs('habnut_group_members');
+        HotelSchema::dropIfOurs('habnut_groups');
+        HotelSchema::dropIfOurs('habnut_ban_appeals');
+        HotelSchema::dropIfOurs('habnut_bans');
+        HotelSchema::dropIfOurs('habnut_reports');
+        HotelSchema::dropIfOurs('habnut_rooms');
     }
 };
