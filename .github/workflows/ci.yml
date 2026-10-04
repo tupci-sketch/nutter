@@ -566,9 +566,9 @@ jobs:
         run: |
           set -o pipefail
           # Each hotel table's definition, and its InnoDB table id. The id is
-          # what catches a table dropped and created again: the leaderboards
-          # were, with an identical definition, which a comparison of shapes
-          # alone passes while every row in them is gone.
+          # what catches a table dropped and created again with the same
+          # definition, which a comparison of shapes alone would pass while
+          # every row in it was gone.
           snapshot() {
             mariadb -h 127.0.0.1 -P 3306 -uroot -phabnut -N -B \
               -e "SELECT NAME, TABLE_ID FROM information_schema.INNODB_SYS_TABLES
@@ -582,11 +582,15 @@ jobs:
           snapshot > /tmp/hotel-before.sql
           php artisan migrate --force --no-interaction
           snapshot > /tmp/hotel-after.sql
-          # A line only in the first snapshot is a hotel table that was changed
-          # or dropped; lines only in the second are tables the website added.
-          if diff /tmp/hotel-before.sql /tmp/hotel-after.sql | grep -q '^<'; then
-            echo "::error::The website's migrations changed tables the hotel owns." >&2
-            diff /tmp/hotel-before.sql /tmp/hotel-after.sql || true
+          # A line only in the first snapshot is a hotel table that was changed,
+          # dropped or recreated; lines only in the second are tables the
+          # website added. Not 'diff | grep': under pipefail diff's own exit
+          # status, 1 whenever the files differ, made that test false exactly
+          # when it mattered, so it could never fail.
+          lost=$(comm -23 <(sort /tmp/hotel-before.sql) <(sort /tmp/hotel-after.sql))
+          if [ -n "$lost" ]; then
+            echo "::error::The website's migrations changed tables the hotel owns:" >&2
+            echo "$lost" | cut -c1-200 >&2
             exit 1
           fi
           echo "$(grep -c 'CREATE TABLE' /tmp/hotel-before.sql) hotel tables, all exactly as the hotel made them"
