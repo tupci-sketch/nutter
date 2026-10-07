@@ -20,6 +20,10 @@ return [
     // for the city. A stack configured as the city while the site still issued
     // hotel tickets would run the city and put everybody in the hotel.
     'default_world' => env('HABNUT_WORLD', 'classic'),
+    // Password resets by email. Off until outgoing mail is configured; with it
+    // off the reset pages do not exist and the sign-in page does not offer one.
+    'password_resets' => (bool) env('HABNUT_PASSWORD_RESETS', false),
+
     'brand_name' => 'Habnut',
     'brand_acorn' => '🌰',
     // The hotel renders its own avatars and badges, served alongside the site

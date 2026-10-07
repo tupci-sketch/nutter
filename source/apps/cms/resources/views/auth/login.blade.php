@@ -28,8 +28,10 @@
             <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem;">Sign in</button>
         </form>
         <div style="text-align:center;margin-top:1rem;font-size:0.85rem;color:var(--muted);">
-            <a href="{{ route('password.request') }}">Forgot password?</a>
-            &bull;
+            @if (config('habnut.password_resets'))
+                <a href="{{ route('password.request') }}">Forgot password?</a>
+                &bull;
+            @endif
             <a href="{{ route('register') }}">Create account</a>
         </div>
     </div>

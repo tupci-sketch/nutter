@@ -16,6 +16,7 @@ public final class WebSocketSession {
 
     private final AtomicReference<Long> authenticatedUserId = new AtomicReference<>(null);
     private final AtomicReference<String> worldId = new AtomicReference<>(null);
+    private volatile String clientAddress;
 
     public WebSocketSession(Channel channel) {
         this.sessionId = ID_SEQ.getAndIncrement();
@@ -61,7 +62,14 @@ public final class WebSocketSession {
         return worldId.get();
     }
 
+    /** Set once the websocket handshake has shown who is behind the connection. */
+    public void setClientAddress(String address) {
+        this.clientAddress = address;
+    }
+
+    /** The player's address: the bare IP, never the socket's "/host:port" form. */
     public String remoteAddress() {
-        return channel.remoteAddress() != null ? channel.remoteAddress().toString() : "unknown";
+        String known = clientAddress;
+        return known != null ? known : ClientAddress.resolve(channel.remoteAddress(), null);
     }
 }

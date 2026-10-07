@@ -93,8 +93,18 @@ public final class ServerBootstrap {
         RateLimiter networkLimiter = new RateLimiter();
         PacketRouter router = buildRouter(mapper, networkLimiter);
 
+        // A player leaves the online list when their last connection goes, not
+        // only when they send a logout: closing the tab or losing the network
+        // never sends one, so everybody who left that way stayed "online"
+        // forever. A player who signed in again elsewhere still has a session,
+        // and stays on the list.
         WebSocketHandler handler = new WebSocketHandler(sessions, router, networkLimiter, metrics,
-            uid -> { if (roomHandler != null) roomHandler.onSessionDisconnect(uid); });
+            uid -> {
+                if (sessions.byUserId(uid).isEmpty()) {
+                    redis.srem(RedisManager.KEY_ONLINE, String.valueOf(uid));
+                }
+                if (roomHandler != null) roomHandler.onSessionDisconnect(uid);
+            });
 
         nettyServer = new NettyServer(config, () -> handler);
         nettyServer.start();

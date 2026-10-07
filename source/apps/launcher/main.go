@@ -15,6 +15,7 @@ import (
 	"github.com/habnut/launcher/internal/doctor"
 	"github.com/habnut/launcher/internal/imager"
 	"github.com/habnut/launcher/internal/installer"
+	"github.com/habnut/launcher/internal/manage"
 	"github.com/habnut/launcher/internal/payload"
 	"github.com/habnut/launcher/internal/service"
 	"github.com/habnut/launcher/internal/state"
@@ -49,6 +50,7 @@ func main() {
 		cmdDoctor(),
 		cmdMigrate(),
 		cmdDev(),
+		cmdManage(),
 		cmdVersion(),
 	)
 
@@ -411,4 +413,28 @@ func cmdVersion() *cobra.Command {
 			fmt.Printf("Habnut v%s installed at %s\n", s.InstalledVersion, s.InstallPath)
 		}
 	}}
+}
+
+// cmdManage opens the control panel for a hotel on a server, on this computer.
+func cmdManage() *cobra.Command {
+	cfg := manage.Config{Listen: "127.0.0.1:0", OpenBrowser: true}
+	var noBrowser bool
+	cmd := &cobra.Command{
+		Use:   "manage",
+		Short: "Open the control panel for your hotel's server",
+		Long: "Opens a control panel in your browser for the hotel on your server: its\n" +
+			"services, logs, backups, updates and asset pack.\n" +
+			"\n" +
+			"It runs on this computer and reaches the server over SSH with the key you\n" +
+			"already log in with, so check that 'ssh <host>' works first. Nothing is\n" +
+			"opened on the server.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg.OpenBrowser = !noBrowser
+			return manage.Run(cfg)
+		},
+	}
+	cmd.Flags().StringVar(&cfg.Host, "host", "habnut", "the server, as you would give it to ssh")
+	cmd.Flags().StringVar(&cfg.Listen, "listen", cfg.Listen, "where to serve the panel on this computer")
+	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "print the address instead of opening a browser")
+	return cmd
 }

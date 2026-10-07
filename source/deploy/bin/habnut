@@ -15,6 +15,9 @@
 #   habnut backup                        database and settings, last 7 kept
 #   habnut restore <file.sql.gz> --yes   put a backup back
 #   habnut artisan <command...>          run a website command as www-data
+#   habnut update                        install the latest version from GitHub
+#   habnut assets status|receive <era>   show, or install a pack read from stdin
+#   habnut summary | backups             JSON for the control panel
 #
 # Settings live in /opt/habnut/shared/habnut.env, readable by root only.
 # Nothing here prints a password or a token.
@@ -144,7 +147,8 @@ render_cms_env() {
   case $url in https://*) secure=true ;; *) secure=false ;; esac
   # Avatars come from the imager once an asset pack is installed; until then
   # the website draws a monogram rather than asking for pictures of nothing.
-  if [ -n "$(ls -A "$ASSETS" 2>/dev/null)" ]; then imager=/imager; fi
+  # Hidden entries are kept-back previous packs, not an installed one.
+  if [ -n "$(ls "$ASSETS" 2>/dev/null)" ]; then imager=/imager; fi
   tmp=$(mktemp "$SHARED/.cms.env.XXXXXX")
   cat > "$tmp" <<EOF
 APP_NAME=Habnut
@@ -558,6 +562,157 @@ cmd_restore() {
   say "Restored."
 }
 
+# ─── for the control panel ────────────────────────────────────────────────
+
+# One line of JSON: what the panel's header and service list show.
+cmd_summary() {
+  local online
+  online=$(compose exec -T -e REDISCLI_AUTH="$(env_get REDIS_PASSWORD)" redis \
+    redis-cli SCARD habnut:online 2>/dev/null | tr -dc '0-9')
+  compose ps --all --format json | RELEASE="$(cat "$CURRENT/VERSION" 2>/dev/null || echo none)" \
+    ONLINE="${online:-0}" python3 -c '
+import json, os, shutil, sys
+services = []
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    rows = json.loads(line)
+    for r in rows if isinstance(rows, list) else [rows]:
+        services.append({"name": r.get("Service"), "state": r.get("State"), "health": r.get("Health") or ""})
+mem = {}
+for l in open("/proc/meminfo"):
+    k, v = l.split(":")
+    mem[k] = int(v.split()[0]) // 1024
+du = shutil.disk_usage("/")
+print(json.dumps({
+    "release": os.environ["RELEASE"],
+    "online": int(os.environ["ONLINE"]),
+    "memory": {"used": mem["MemTotal"] - mem["MemAvailable"], "total": mem["MemTotal"]},
+    "disk": {"used": f"{du.used / 2**30:.1f} GB", "size": f"{du.total / 2**30:.0f} GB"},
+    "services": sorted(services, key=lambda s: s["name"] or ""),
+}))'
+}
+
+cmd_backups() {
+  python3 - "$SHARED/backups" <<'EOF'
+import json, os, re, sys
+d = sys.argv[1]
+out = []
+for name in sorted(os.listdir(d), reverse=True) if os.path.isdir(d) else []:
+    m = re.fullmatch(r"habnut-(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)Z\.sql\.gz", name)
+    if not m:
+        continue
+    size = os.path.getsize(os.path.join(d, name))
+    y, mo, da, h, mi, _ = m.groups()
+    out.append({"name": name, "taken": f"{y}-{mo}-{da} {h}:{mi} UTC",
+                "size": f"{size / 1024:.0f} KB" if size < 2**20 else f"{size / 2**20:.1f} MB"})
+print(json.dumps(out))
+EOF
+}
+
+cmd_backup_fetch() {
+  need_root backup-fetch
+  local name=${1:-}
+  [[ $name =~ ^habnut-[0-9TZ]+\.sql\.gz$ ]] || die "not a backup name"
+  [ -f "$SHARED/backups/$name" ] || die "no backup called $name"
+  cat "$SHARED/backups/$name"
+}
+
+cloudflare_purge() {
+  local token zone
+  token=$(env_get CLOUDFLARE_API_TOKEN)
+  [ -n "$token" ] || { warn "no Cloudflare token: its cache was not cleared"; return 0; }
+  zone=$(curl -4 -s -m 20 -H "Authorization: Bearer $token" \
+    "https://api.cloudflare.com/client/v4/zones?name=$(env_get HABNUT_DOMAIN)" \
+    | python3 -c 'import json,sys; r=json.load(sys.stdin).get("result") or []; print(r[0]["id"] if r else "")')
+  [ -n "$zone" ] || { warn "could not find the zone in Cloudflare: its cache was not cleared"; return 0; }
+  if curl -4 -s -m 30 -X POST -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
+       -d '{"purge_everything":true}' "https://api.cloudflare.com/client/v4/zones/$zone/purge_cache" \
+     | grep -q '"success":true'; then
+    say "Cloudflare's cached copy cleared."
+  else
+    warn "Cloudflare did not clear its cache"
+  fi
+}
+
+# Set while a pack is being received, so the exit trap can clear it up. A
+# global: a trap runs after the function's locals are gone.
+ASSET_WORK=''
+
+cmd_assets() {
+  need_root assets
+  local sub=${1:-status} era=${2:-modern} up file stage previous
+  local hctl="$CURRENT/bin/habnutctl"
+  case $sub in
+    status)
+      "$hctl" swf status ;;
+    receive)
+      [[ $era =~ ^(classic|modern)$ ]] || die "era must be classic or modern"
+      up=$SHARED/uploads
+      mkdir -p "$up"; chmod 700 "$up"
+      ASSET_WORK=$(mktemp -d "$up/pack-XXXXXX")
+      trap 'rm -rf "${ASSET_WORK:-}"' EXIT
+      file=$ASSET_WORK/pack.zip
+      stage=$ASSET_WORK/stage
+
+      say "Receiving the pack"
+      # 4 GB at most, so a runaway upload cannot fill the disk.
+      head -c 4294967296 > "$file"
+      say "Received $(du -h "$file" | cut -f1)"
+      unzip -tq "$file" >/dev/null 2>&1 || die "that is not a complete .zip file"
+
+      # Tried somewhere harmless first. The installer takes any zip, so a pack
+      # with no artwork in it would otherwise be "installed" and switch the
+      # website's pictures on with nothing behind them.
+      say "Checking it is a complete pack"
+      "$hctl" swf install "$file" --era "$era" --dir "$stage" >"$ASSET_WORK/check.log" 2>&1 \
+        || { tail -n 15 "$ASSET_WORK/check.log" >&2; die "the pack could not be unpacked"; }
+      "$hctl" swf validate --dir "$stage" \
+        || die "that is not a complete asset pack; nothing on the server was changed"
+
+      previous=$ASSETS/.previous-$era
+      if [ -d "$ASSETS/$era" ]; then
+        say "Keeping the current $era pack, so it can be put back"
+        rm -rf "$previous"
+        cp -a "$ASSETS/$era" "$previous"
+      fi
+      say "Installing it into the $era era"
+      "$hctl" swf install "$file" --era "$era"
+      "$hctl" swf validate || die "the installed pack did not validate"
+
+      say "Switching the website's pictures on"
+      render_cms_env
+      compose restart cms >/dev/null
+      compose up -d --wait --wait-timeout 420 cms >/dev/null
+      cloudflare_purge
+      say "Pack installed." ;;
+    *) die "usage: habnut assets status | receive <classic|modern> < pack.zip" ;;
+  esac
+}
+
+# Installs whatever is on GitHub's main branch, from a checkout of its own.
+cmd_update() {
+  need_root update
+  local src=$HABNUT_ROOT/src repo zip
+  repo=$(env_get HABNUT_REPO); repo=${repo:-https://github.com/tupci-sketch/nutter.git}
+  if [ ! -d "$src/.git" ]; then
+    say "Fetching the source"
+    git clone -q --depth 50 "$repo" "$src"
+  fi
+  git -C "$src" fetch -q --depth 50 origin main
+  git -C "$src" reset -q --hard origin/main
+  say "Latest on GitHub: $(git -C "$src" log -1 --format='%h %s')"
+  rm -rf "$SHARED/dist"
+  bash "$src/source/scripts/package-release.sh" "$SHARED/dist"
+  zip=$(ls "$SHARED"/dist/*.zip)
+  if [ "$(basename "$zip" .zip)" = "habnut-$(cat "$CURRENT/VERSION" 2>/dev/null)" ]; then
+    say "Already running that version."
+    return 0
+  fi
+  cmd_deploy "$zip"
+}
+
 cmd_install_host() {
   need_root install-host
   exec bash "$(dirname "$(readlink -f "$0")")/../scripts/install-host.sh" "$@"
@@ -573,6 +728,11 @@ main() {
     status)       cmd_status "$@" ;;
     verify)       cmd_verify "$@" ;;
     logs)         compose logs --tail 200 "$@" ;;
+    summary)      cmd_summary "$@" ;;
+    backups)      cmd_backups "$@" ;;
+    backup-fetch) cmd_backup_fetch "$@" ;;
+    assets)       cmd_assets "$@" ;;
+    update)       cmd_update "$@" ;;
     restart)      need_root restart; compose restart "$@" ;;
     reconfigure)  cmd_reconfigure "$@" ;;
     secret)       cmd_secret "$@" ;;
@@ -580,7 +740,7 @@ main() {
     backup)       cmd_backup "$@" ;;
     restore)      cmd_restore "$@" ;;
     artisan)      compose exec -T -u www-data cms php artisan "$@" ;;
-    help|-h|--help) sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//' ;;
+    help|-h|--help) sed -n '3,23p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command '$cmd' (try: habnut help)" ;;
   esac
 }

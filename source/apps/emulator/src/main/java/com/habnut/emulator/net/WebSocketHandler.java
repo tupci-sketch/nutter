@@ -5,6 +5,7 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import org.slf4j.Logger;
@@ -80,7 +81,14 @@ public final class WebSocketHandler extends SimpleChannelInboundHandler<TextWebS
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        if (evt instanceof IdleStateEvent idle && idle.state() == IdleState.READER_IDLE) {
+        if (evt instanceof WebSocketServerProtocolHandler.HandshakeComplete handshake) {
+            WebSocketSession session = SessionRegistry.fromChannel(ctx.channel());
+            if (session != null) {
+                session.setClientAddress(ClientAddress.resolve(
+                    ctx.channel().remoteAddress(), handshake.requestHeaders().get("X-Real-IP")));
+            }
+            super.userEventTriggered(ctx, evt);
+        } else if (evt instanceof IdleStateEvent idle && idle.state() == IdleState.READER_IDLE) {
             WebSocketSession session = SessionRegistry.fromChannel(ctx.channel());
             long sid = session != null ? session.sessionId : -1;
             log.debug("Idle timeout, closing session {}", sid);
