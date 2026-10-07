@@ -1,0 +1,588 @@
+#!/usr/bin/env bash
+#
+# habnut — runs a Habnut hotel on this server.
+#
+#   habnut install-host                  prepare a fresh Ubuntu 24.04 server (once)
+#   habnut deploy <release.zip> [--domain D] [--admin-email E] [--admin-username U]
+#   habnut rollback                      go back to the release before this one
+#   habnut status                        release, services, players online, memory, disk
+#   habnut verify [--notify]             check the pages a player uses really work
+#   habnut logs [service...] [-f]
+#   habnut restart [service...]
+#   habnut reconfigure                   apply changed settings
+#   habnut secret <NAME>                 set a setting without it being shown
+#   habnut enable <tunnel|monitoring>    switch on an optional part
+#   habnut backup                        database and settings, last 7 kept
+#   habnut restore <file.sql.gz> --yes   put a backup back
+#   habnut artisan <command...>          run a website command as www-data
+#
+# Settings live in /opt/habnut/shared/habnut.env, readable by root only.
+# Nothing here prints a password or a token.
+
+set -euo pipefail
+
+HABNUT_ROOT=${HABNUT_ROOT:-/opt/habnut}
+RELEASES=$HABNUT_ROOT/releases
+SHARED=$HABNUT_ROOT/shared
+CURRENT=$HABNUT_ROOT/current
+HISTORY=$HABNUT_ROOT/history
+ASSETS=${HABNUT_ASSETS:-/var/lib/habnut/assets}
+ENV_FILE=$SHARED/habnut.env
+KEEP_RELEASES=3
+KEEP_BACKUPS=7
+# www-data inside the website's image (Alpine).
+WEB_UID=82
+
+say()  { printf '\033[1m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[33mwarning:\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+
+need_root() { [ "$(id -u)" = 0 ] || die "run this as root: sudo habnut $*"; }
+
+# ─── settings ─────────────────────────────────────────────────────────────
+
+# Values are written single-quoted, which both Docker Compose and Laravel read
+# literally, so a password may hold any character but a quote or a newline.
+env_get() {
+  [ -f "$ENV_FILE" ] || return 0
+  local line
+  line=$(grep -E "^$1=" "$ENV_FILE" | tail -1 | cut -d= -f2-) || true
+  line=${line#\'}
+  printf '%s' "${line%\'}"
+}
+
+env_set() {
+  local name=$1 value=$2 tmp
+  case $value in *"'"*|*$'\n'*) die "$name cannot contain a quote or a newline" ;; esac
+  tmp=$(mktemp "$SHARED/.habnut.env.XXXXXX")
+  { grep -vE "^$name=" "$ENV_FILE" || true; printf "%s='%s'\n" "$name" "$value"; } > "$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$ENV_FILE"
+}
+
+# Hex, made in one step: a 'tr | head' pipeline can die of SIGPIPE under pipefail.
+random() { openssl rand -hex "$(( (${1:-32} + 1) / 2 ))"; }
+
+# ─── compose ──────────────────────────────────────────────────────────────
+
+compose_in() {
+  local rel=$1; shift
+  HABNUT_SHARED=$SHARED HABNUT_ASSETS=$ASSETS HABNUT_VERSION=$(cat "$rel/VERSION") \
+  COMPOSE_PROFILES=$(env_get HABNUT_PROFILES) \
+    docker compose --project-name habnut --env-file "$ENV_FILE" \
+      -f "$rel/deploy/compose.yaml" "$@"
+}
+
+compose() {
+  [ -e "$CURRENT" ] || die "no release is deployed yet"
+  compose_in "$(readlink -f "$CURRENT")" "$@"
+}
+
+# SQL on the hotel's database as root. The password goes in through the
+# environment, never on a command line where 'ps' would show it.
+db_sql() {
+  compose_in "$1" exec -T -e MYSQL_PWD="$(env_get DB_ROOT_PASSWORD)" db \
+    mariadb -uroot -N -B habnut
+}
+
+# ─── first install ────────────────────────────────────────────────────────
+
+init_settings() {
+  local domain=$1 admin_email=$2 admin_user=$3
+  mkdir -p "$SHARED"
+  ( umask 077
+    cat > "$ENV_FILE" <<EOF
+# Habnut settings for this server. Root only.
+# Change secret values with 'habnut secret NAME', then 'habnut reconfigure'.
+
+HABNUT_DOMAIN='$domain'
+HABNUT_URL='https://$domain'
+HABNUT_HTTP_PORT='8080'
+HABNUT_WORLD='classic'
+HABNUT_PROFILES=''
+HABNUT_ADMIN_EMAIL='$admin_email'
+HABNUT_ADMIN_USERNAME='$admin_user'
+
+DB_PASSWORD='$(random 32)'
+DB_ROOT_PASSWORD='$(random 32)'
+REDIS_PASSWORD='$(random 32)'
+APP_KEY='base64:$(openssl rand -base64 32)'
+
+# Outgoing mail, for password resets. Until a provider is set, messages are
+# written to the website's log instead of being sent.
+MAIL_MAILER='log'
+MAIL_SCHEME='smtp'
+MAIL_HOST=''
+MAIL_PORT='587'
+MAIL_USERNAME=''
+MAIL_PASSWORD=''
+MAIL_FROM_ADDRESS='noreply@$domain'
+
+# Optional parts: set with 'habnut secret', switch on with 'habnut enable'.
+CLOUDFLARE_TUNNEL_TOKEN=''
+DISCORD_WEBHOOK_ALERTS=''
+EOF
+  )
+}
+
+prepare_dirs() {
+  mkdir -p "$RELEASES" "$SHARED/backups" "$ASSETS"
+  chmod 700 "$SHARED/backups"
+  # Laravel's writable tree, kept across releases and owned by www-data.
+  local d
+  for d in app/public framework/cache/data framework/sessions framework/views logs; do
+    mkdir -p "$SHARED/storage/$d"
+  done
+  chown -R "$WEB_UID:$WEB_UID" "$SHARED/storage"
+}
+
+# The website's .env, made from the settings every time so there is one place
+# to change things. Readable by root and by the website's group only.
+render_cms_env() {
+  local url secure imager='' tmp
+  url=$(env_get HABNUT_URL)
+  case $url in https://*) secure=true ;; *) secure=false ;; esac
+  # Avatars come from the imager once an asset pack is installed; until then
+  # the website draws a monogram rather than asking for pictures of nothing.
+  if [ -n "$(ls -A "$ASSETS" 2>/dev/null)" ]; then imager=/imager; fi
+  tmp=$(mktemp "$SHARED/.cms.env.XXXXXX")
+  cat > "$tmp" <<EOF
+APP_NAME=Habnut
+APP_ENV=production
+APP_KEY='$(env_get APP_KEY)'
+APP_DEBUG=false
+APP_URL='$url'
+
+LOG_CHANNEL=daily
+LOG_DAILY_DAYS=14
+LOG_LEVEL=warning
+
+DB_CONNECTION=mysql
+DB_HOST=db
+DB_PORT=3306
+DB_DATABASE=habnut
+DB_USERNAME=habnut
+DB_PASSWORD='$(env_get DB_PASSWORD)'
+
+CACHE_STORE=redis
+FILESYSTEM_DISK=local
+QUEUE_CONNECTION=sync
+SESSION_DRIVER=redis
+SESSION_LIFETIME=120
+SESSION_SECURE_COOKIE=$secure
+
+REDIS_CLIENT=predis
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD='$(env_get REDIS_PASSWORD)'
+
+MAIL_MAILER='$(env_get MAIL_MAILER)'
+MAIL_SCHEME='$(env_get MAIL_SCHEME)'
+MAIL_HOST='$(env_get MAIL_HOST)'
+MAIL_PORT='$(env_get MAIL_PORT)'
+MAIL_USERNAME='$(env_get MAIL_USERNAME)'
+MAIL_PASSWORD='$(env_get MAIL_PASSWORD)'
+MAIL_FROM_ADDRESS='$(env_get MAIL_FROM_ADDRESS)'
+MAIL_FROM_NAME=Habnut
+
+EMULATOR_HOST=emulator
+EMULATOR_PORT=3001
+CLIENT_URL=/client/
+HABNUT_WORLD='$(env_get HABNUT_WORLD)'
+IMAGER_URL=$imager
+HABNUT_TICKET_TTL_MINUTES=5
+EOF
+  chown "root:$WEB_UID" "$tmp"
+  chmod 640 "$tmp"
+  mv "$tmp" "$SHARED/cms.env"
+}
+
+# Alertmanager's settings, with the Discord webhook in them. Alertmanager runs
+# as 'nobody', so the file is readable by that group and no one else.
+render_alertmanager() {
+  local hook tmp
+  hook=$(env_get DISCORD_WEBHOOK_ALERTS)
+  tmp=$(mktemp "$SHARED/.alertmanager.yml.XXXXXX")
+  if [ -n "$hook" ]; then
+    cat > "$tmp" <<EOF
+route:
+  receiver: discord
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+receivers:
+  - name: discord
+    discord_configs:
+      - webhook_url: '$hook'
+        send_resolved: true
+EOF
+  else
+    printf 'route:\n  receiver: nowhere\nreceivers:\n  - name: nowhere\n' > "$tmp"
+  fi
+  chown root:65534 "$tmp"
+  chmod 640 "$tmp"
+  mv "$tmp" "$SHARED/alertmanager.yml"
+}
+
+check_schema() {
+  local n
+  n=$(echo "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='habnut'
+        AND table_name IN ('habnut_users','habnut_room_models','flyway_schema_history');" | db_sql "$1")
+  [ "$n" = 3 ] || die "the hotel's schema is not there after migrating (found $n of 3 tables)"
+}
+
+create_admin_if_needed() {
+  local rel=$1 email user count pw hash
+  count=$(echo 'SELECT COUNT(*) FROM habnut_users WHERE `rank` >= 7;' | db_sql "$rel")
+  [ "$count" = 0 ] || return 0
+  email=$(env_get HABNUT_ADMIN_EMAIL)
+  user=$(env_get HABNUT_ADMIN_USERNAME)
+  if [ -z "$email" ] || [ -z "$user" ]; then
+    warn "there is no administrator: set HABNUT_ADMIN_EMAIL and HABNUT_ADMIN_USERNAME and deploy again"
+    return 0
+  fi
+  [[ $user =~ ^[A-Za-z0-9._-]{3,25}$ ]] || die "HABNUT_ADMIN_USERNAME must be 3-25 letters, digits, . _ or -"
+  [[ $email =~ ^[^@\'[:space:]]+@[^@\'[:space:]]+\.[^@\'[:space:]]+$ ]] || die "HABNUT_ADMIN_EMAIL is not an email address"
+  pw=$(random 20)
+  hash=$(compose_in "$rel" exec -T -e HABNUT_PW="$pw" cms \
+    php -r 'echo password_hash(getenv("HABNUT_PW"), PASSWORD_BCRYPT, ["cost" => 12]);')
+  printf "INSERT INTO habnut_users (username, email, password_hash, \`rank\`, figure)
+          VALUES ('%s', '%s', '%s', 7, 'hd-180-1.ch-210-66.lg-280-110.sh-300-91');\n" \
+    "$user" "$email" "$hash" | db_sql "$rel" >/dev/null
+  ( umask 077; printf '%s\n' "$pw" > "$SHARED/admin-initial-password" )
+  say "Created administrator '$user' <$email>."
+  say "Its first password is in $SHARED/admin-initial-password (root only):"
+  say "sign in, change it, turn on two-factor, then delete that file."
+}
+
+install_cli() {
+  ln -sfn "$CURRENT/deploy/bin/habnut" /usr/local/bin/habnut
+}
+
+# Timers for the website's scheduler, the nightly backup and the five-minute
+# check. Skipped where there is no systemd, which is only ever a test box.
+install_timers() {
+  [ -d /run/systemd/system ] || { warn "no systemd here; timers not installed"; return 0; }
+  local unit
+  for unit in "$CURRENT"/deploy/systemd/*; do
+    install -m 644 "$unit" "/etc/systemd/system/$(basename "$unit")"
+  done
+  systemctl daemon-reload
+  systemctl enable --now habnut-scheduler.timer habnut-backup.timer habnut-watch.timer >/dev/null
+}
+
+switch_to() {
+  ln -sfn "$1" "$CURRENT.new"
+  mv -T "$CURRENT.new" "$CURRENT"
+}
+
+prune_releases() {
+  local keep
+  keep=$(tail -n "$KEEP_RELEASES" "$HISTORY" 2>/dev/null || true)
+  local dir v
+  for dir in "$RELEASES"/*/; do
+    [ -d "$dir" ] || continue
+    v=$(basename "$dir")
+    if ! grep -qxF "$v" <<<"$keep"; then
+      rm -rf "$dir"
+      docker image rm "habnut-cms:$v" >/dev/null 2>&1 || true
+    fi
+  done
+}
+
+# ─── commands ─────────────────────────────────────────────────────────────
+
+cmd_deploy() {
+  need_root deploy
+  local zip='' domain='' admin_email='' admin_user=''
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --domain) domain=$2; shift 2 ;;
+      --admin-email) admin_email=$2; shift 2 ;;
+      --admin-username) admin_user=$2; shift 2 ;;
+      -*) die "unknown option $1" ;;
+      *) zip=$1; shift ;;
+    esac
+  done
+  [ -f "$zip" ] || die "usage: habnut deploy <release.zip>"
+
+  if [ -f "$zip.sha256" ]; then
+    (cd "$(dirname "$zip")" && sha256sum --quiet -c "$(basename "$zip").sha256") \
+      || die "$zip does not match its checksum"
+  fi
+
+  local top version rel previous
+  top=$(unzip -Z1 "$zip" | awk -F/ 'NR == 1 { print $1 }')
+  version=$(unzip -p "$zip" "$top/VERSION" | tr -d '[:space:]')
+  [[ $version =~ ^[A-Za-z0-9._-]+$ ]] || die "$zip has no usable VERSION"
+  rel=$RELEASES/$version
+
+  say "Unpacking $version"
+  mkdir -p "$RELEASES"
+  rm -rf "$rel.unpack"
+  unzip -q "$zip" -d "$rel.unpack"
+  rm -rf "$rel"
+  mv "$rel.unpack/$top" "$rel"
+  rmdir "$rel.unpack"
+  (cd "$rel" && sha256sum --quiet -c MANIFEST.sha256) \
+    || die "the unpacked files do not match the release's manifest"
+
+  if [ ! -f "$ENV_FILE" ]; then
+    [ -n "$domain" ] || domain=habnut.co.uk
+    say "First install: generating settings and passwords for $domain"
+    init_settings "$domain" "$admin_email" "$admin_user"
+  fi
+  prepare_dirs
+  render_cms_env
+  render_alertmanager
+
+  say "Building the website's image"
+  if ! docker image inspect "habnut-cms:$version" >/dev/null 2>&1; then
+    compose_in "$rel" build --quiet cms
+  fi
+
+  say "Fetching images"
+  compose_in "$rel" pull --quiet db redis emulator imager nginx
+
+  say "Starting the database and cache"
+  compose_in "$rel" up -d --wait --wait-timeout 300 db redis
+
+  # The hotel also migrates as it starts; doing it here first means a schema
+  # that will not apply stops the deploy with the reason, before anything is
+  # switched over.
+  say "Applying the hotel's schema"
+  if ! compose_in "$rel" run --rm --no-deps -T emulator \
+       java -cp /app/habnut-emulator.jar com.habnut.emulator.db.MigrationRunner \
+       > "$SHARED/last-migration.log" 2>&1; then
+    tail -n 25 "$SHARED/last-migration.log" >&2
+    die "the hotel's schema could not be applied; nothing was switched over"
+  fi
+  check_schema "$rel"
+
+  if [ "$(echo 'SELECT COUNT(*) FROM habnut_room_models;' | db_sql "$rel")" = 0 ]; then
+    say "Adding the hotel's starting content (room shapes, furniture, catalogue)"
+    db_sql "$rel" < "$rel/seed/base.sql" >/dev/null
+  fi
+
+  previous=''
+  [ -e "$CURRENT" ] && previous=$(readlink -f "$CURRENT")
+  switch_to "$rel"
+
+  say "Starting the hotel and the website"
+  if ! compose up -d --remove-orphans --wait --wait-timeout 420; then
+    compose ps >&2 || true
+    if [ -n "$previous" ]; then
+      warn "$version did not come up; going back to $(basename "$previous")"
+      switch_to "$previous"
+      compose up -d --remove-orphans --wait --wait-timeout 420 || true
+    fi
+    die "$version did not start"
+  fi
+
+  create_admin_if_needed "$rel"
+
+  say "Checking the pages a player uses"
+  if ! cmd_verify; then
+    if [ -n "$previous" ]; then
+      warn "$version failed its checks; going back to $(basename "$previous")"
+      switch_to "$previous"
+      compose up -d --remove-orphans --wait --wait-timeout 420 || true
+    fi
+    die "$version failed its checks"
+  fi
+
+  echo "$version" >> "$HISTORY"
+  install_cli
+  install_timers
+  prune_releases
+  say "Habnut $version is live."
+}
+
+cmd_rollback() {
+  need_root rollback
+  local current target
+  current=$(basename "$(readlink -f "$CURRENT")")
+  target=$(grep -vxF "$current" "$HISTORY" 2>/dev/null | tail -1 || true)
+  [ -n "$target" ] && [ -d "$RELEASES/$target" ] || die "there is no earlier release on this server"
+  say "Going back from $current to $target"
+  say "(the database keeps any newer schema; the hotel's migrations only ever add)"
+  switch_to "$RELEASES/$target"
+  compose up -d --remove-orphans --wait --wait-timeout 420
+  cmd_verify
+  echo "$target" >> "$HISTORY"
+  say "Back on $target."
+}
+
+# Checks what a player goes through, from this machine, as Cloudflare would
+# send it: the website, its sign-in page, the game, and the hotel's socket.
+cmd_verify() {
+  local notify=false port domain proto=() failed=() code path
+  [ "${1:-}" = --notify ] && notify=true
+  port=$(env_get HABNUT_HTTP_PORT); domain=$(env_get HABNUT_DOMAIN)
+  case $(env_get HABNUT_URL) in https://*) proto=(-H "X-Forwarded-Proto: https") ;; esac
+
+  for path in /healthz / /login /client/; do
+    code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 -H "Host: $domain" "${proto[@]}" \
+      "http://127.0.0.1:$port$path" || true)
+    [ "$code" = 200 ] || failed+=("$path answered $code")
+  done
+
+  code=$(curl -s -o /dev/null -w '%{http_code}' -m 3 -H "Host: $domain" \
+    -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" \
+    -H "Sec-WebSocket-Key: aGFibnV0LXZlcmlmeS1rZXk=" "http://127.0.0.1:$port/ws" || true)
+  [ "$code" = 101 ] || failed+=("the hotel's socket answered $code instead of upgrading")
+
+  if ! compose exec -T emulator bash -c ':< /dev/tcp/127.0.0.1/3001' 2>/dev/null; then
+    failed+=("the hotel's health port is not answering")
+  fi
+
+  local state=$SHARED/.verify-state
+  if [ ${#failed[@]} -eq 0 ]; then
+    if $notify && [ -f "$state" ]; then
+      notify_discord "Habnut has recovered: every check passes again."
+      rm -f "$state"
+    fi
+    $notify || say "All checks pass: website, sign-in page, game, and the hotel's socket."
+    return 0
+  fi
+  if $notify; then
+    if [ ! -f "$state" ]; then
+      notify_discord "Habnut is failing checks: $(IFS=';'; echo "${failed[*]}")"
+      touch "$state"
+    fi
+  else
+    printf '  failing: %s\n' "${failed[@]}" >&2
+  fi
+  return 1
+}
+
+notify_discord() {
+  local hook
+  hook=$(env_get DISCORD_WEBHOOK_ALERTS)
+  [ -n "$hook" ] || return 0
+  curl -s -m 10 -H 'Content-Type: application/json' \
+    -d "$(printf '{"content":"%s"}' "${1//\"/\'}")" "$hook" >/dev/null || true
+}
+
+cmd_status() {
+  local online
+  echo "Release:  $(cat "$CURRENT/VERSION" 2>/dev/null || echo none)"
+  compose ps --format 'table {{.Service}}\t{{.Status}}'
+  online=$(compose exec -T -e REDISCLI_AUTH="$(env_get REDIS_PASSWORD)" redis \
+    redis-cli SCARD habnut:online 2>/dev/null || echo "?")
+  echo "Players online: $online"
+  echo
+  docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' \
+    $(compose ps -q) 2>/dev/null || true
+  echo
+  free -m | sed -n '1,3p'
+  df -h / | tail -1 | awk '{print "Disk: " $3 " used of " $2 " (" $5 ")"}'
+}
+
+cmd_reconfigure() {
+  need_root reconfigure
+  render_cms_env
+  render_alertmanager
+  compose up -d --remove-orphans --wait --wait-timeout 420
+  # The website caches its settings as it starts, so it starts again.
+  compose restart cms
+  compose up -d --wait --wait-timeout 420 cms
+  say "Settings applied."
+}
+
+cmd_secret() {
+  need_root secret
+  local name=${1:-} value
+  [[ $name =~ ^[A-Z][A-Z0-9_]*$ ]] || die "usage: habnut secret NAME (for example MAIL_PASSWORD)"
+  read -r -s -p "$name (not shown): " value
+  echo
+  [ -n "$value" ] || die "nothing entered; $name is unchanged"
+  env_set "$name" "$value"
+  say "$name saved. Run 'habnut reconfigure' to apply it."
+}
+
+cmd_enable() {
+  need_root enable
+  local part=${1:-} profiles
+  case $part in
+    tunnel)
+      [ -n "$(env_get CLOUDFLARE_TUNNEL_TOKEN)" ] \
+        || die "set the tunnel's token first: habnut secret CLOUDFLARE_TUNNEL_TOKEN" ;;
+    monitoring) ;;
+    *) die "usage: habnut enable tunnel|monitoring" ;;
+  esac
+  profiles=$(env_get HABNUT_PROFILES)
+  case ",$profiles," in *",$part,"*) ;; *) profiles=${profiles:+$profiles,}$part ;; esac
+  env_set HABNUT_PROFILES "$profiles"
+  render_alertmanager
+  compose up -d --remove-orphans --wait --wait-timeout 300
+  say "$part is on."
+}
+
+cmd_backup() {
+  need_root backup
+  local ts dir out
+  ts=$(date -u +%Y%m%dT%H%M%SZ)
+  dir=$SHARED/backups
+  out=$dir/habnut-$ts
+  mkdir -p "$dir"; chmod 700 "$dir"
+  ( umask 077
+    compose exec -T -e MYSQL_PWD="$(env_get DB_ROOT_PASSWORD)" db \
+      mariadb-dump -uroot --single-transaction --quick --routines --events --triggers \
+      --databases habnut | gzip -6 > "$out.sql.gz.part"
+    gzip -t "$out.sql.gz.part"
+    mv "$out.sql.gz.part" "$out.sql.gz"
+    # The settings hold the key the website encrypts with; a database
+    # restored without it cannot read what it encrypted.
+    cp "$ENV_FILE" "$out.env"
+  )
+  ls -1t "$dir"/habnut-*.sql.gz | tail -n +$((KEEP_BACKUPS + 1)) | while read -r old; do
+    rm -f "$old" "${old%.sql.gz}.env"
+  done
+  say "Backup written: $out.sql.gz ($(du -h "$out.sql.gz" | cut -f1))"
+}
+
+cmd_restore() {
+  need_root restore
+  local file=${1:-}
+  [ -f "$file" ] || die "usage: habnut restore <backup.sql.gz> --yes"
+  [ "${2:-}" = --yes ] || die "this replaces the hotel's database with $file; add --yes to go ahead"
+  gzip -t "$file"
+  say "Stopping the hotel and the website"
+  compose stop nginx cms emulator imager
+  say "Restoring $file"
+  gzip -dc "$file" | compose exec -T -e MYSQL_PWD="$(env_get DB_ROOT_PASSWORD)" db mariadb -uroot
+  compose up -d --wait --wait-timeout 420
+  cmd_verify
+  say "Restored."
+}
+
+cmd_install_host() {
+  need_root install-host
+  exec bash "$(dirname "$(readlink -f "$0")")/../scripts/install-host.sh" "$@"
+}
+
+main() {
+  local cmd=${1:-help}
+  shift || true
+  case $cmd in
+    install-host) cmd_install_host "$@" ;;
+    deploy)       cmd_deploy "$@" ;;
+    rollback)     cmd_rollback "$@" ;;
+    status)       cmd_status "$@" ;;
+    verify)       cmd_verify "$@" ;;
+    logs)         compose logs --tail 200 "$@" ;;
+    restart)      need_root restart; compose restart "$@" ;;
+    reconfigure)  cmd_reconfigure "$@" ;;
+    secret)       cmd_secret "$@" ;;
+    enable)       cmd_enable "$@" ;;
+    backup)       cmd_backup "$@" ;;
+    restore)      cmd_restore "$@" ;;
+    artisan)      compose exec -T -u www-data cms php artisan "$@" ;;
+    help|-h|--help) sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) die "unknown command '$cmd' (try: habnut help)" ;;
+  esac
+}
+
+main "$@"

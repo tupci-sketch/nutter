@@ -1,0 +1,9 @@
+[Unit]
+Description=Habnut nightly backup
+After=docker.service
+
+[Service]
+Type=oneshot
+Nice=15
+IOSchedulingClass=idle
+ExecStart=/usr/local/bin/habnut backup

@@ -1,0 +1,30 @@
+# Habnut — MariaDB, sized for a 2 vCPU / 4 GB server.
+#
+# The container's limit is 768 MB. The buffer pool is the bulk of that; the
+# rest covers connections and temporary tables. A fresh hotel's data is far
+# smaller than the pool, so it all stays in memory for a long while.
+
+[mysqld]
+innodb_buffer_pool_size = 384M
+innodb_log_file_size = 128M
+innodb_flush_method = O_DIRECT
+innodb_file_per_table = 1
+
+# The hotel's pool takes 15 at most and the website's six workers one each;
+# 60 leaves room for backups and an operator.
+max_connections = 60
+thread_cache_size = 16
+table_open_cache = 1024
+table_definition_cache = 800
+tmp_table_size = 32M
+max_heap_table_size = 32M
+max_allowed_packet = 64M
+
+performance_schema = OFF
+skip_name_resolve = ON
+
+character_set_server = utf8mb4
+collation_server = utf8mb4_unicode_ci
+
+slow_query_log = ON
+long_query_time = 1

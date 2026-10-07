@@ -1,0 +1,8 @@
+# Only the website and its image's own files go to the build.
+*
+!cms/
+!deploy/cms/
+cms/.env
+cms/storage/logs/*
+cms/storage/framework/sessions/*
+cms/bootstrap/cache/*.php

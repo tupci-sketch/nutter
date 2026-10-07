@@ -1,0 +1,8 @@
+[Unit]
+Description=Habnut player-path check
+After=docker.service
+
+[Service]
+Type=oneshot
+# Posts to Discord when the checks start failing and when they recover.
+ExecStart=/usr/local/bin/habnut verify --notify

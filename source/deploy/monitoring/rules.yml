@@ -1,0 +1,23 @@
+groups:
+  - name: habnut
+    rules:
+      - alert: HotelDown
+        expr: up{job="emulator"} == 0
+        for: 2m
+        annotations: {summary: "The hotel has not answered for 2 minutes"}
+      - alert: HotelHeapHigh
+        expr: sum(jvm_memory_used_bytes{area="heap"}) / sum(jvm_memory_max_bytes{area="heap"} > 0) > 0.9
+        for: 10m
+        annotations: {summary: "The hotel has used over 90% of its memory for 10 minutes"}
+      - alert: ServerMemoryLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 5m
+        annotations: {summary: "Less than 10% of the server's memory is free"}
+      - alert: DiskFilling
+        expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.25
+        for: 10m
+        annotations: {summary: "Less than 25% of the disk is free"}
+      - alert: CpuSaturated
+        expr: avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) < 0.10
+        for: 15m
+        annotations: {summary: "The server's CPU has been over 90% busy for 15 minutes"}
