@@ -37,6 +37,15 @@ map $http_upgrade $connection_upgrade {
     ''      close;
 }
 
+# www goes to the bare domain, so sign-in cookies and the session live on one
+# host. Cloudflare already terminated https, so the redirect can name it.
+server {
+    listen 80;
+    server_name www.${HABNUT_DOMAIN};
+    server_tokens off;
+    return 301 https://${HABNUT_DOMAIN}$request_uri;
+}
+
 server {
     listen 80 default_server;
     server_name ${HABNUT_DOMAIN};
