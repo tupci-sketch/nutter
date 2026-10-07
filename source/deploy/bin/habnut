@@ -60,7 +60,8 @@ env_set() {
   mv "$tmp" "$ENV_FILE"
 }
 
-random() { openssl rand -base64 64 | tr -dc 'A-Za-z0-9' | head -c "${1:-32}"; }
+# Hex, made in one step: a 'tr | head' pipeline can die of SIGPIPE under pipefail.
+random() { openssl rand -hex "$(( (${1:-32} + 1) / 2 ))"; }
 
 # ─── compose ──────────────────────────────────────────────────────────────
 
@@ -312,7 +313,7 @@ cmd_deploy() {
   fi
 
   local top version rel previous
-  top=$(unzip -Z1 "$zip" | head -1 | cut -d/ -f1)
+  top=$(unzip -Z1 "$zip" | awk -F/ 'NR == 1 { print $1 }')
   version=$(unzip -p "$zip" "$top/VERSION" | tr -d '[:space:]')
   [[ $version =~ ^[A-Za-z0-9._-]+$ ]] || die "$zip has no usable VERSION"
   rel=$RELEASES/$version

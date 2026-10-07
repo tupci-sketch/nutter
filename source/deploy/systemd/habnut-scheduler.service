@@ -1,0 +1,7 @@
+[Unit]
+Description=Habnut website scheduled tasks
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/habnut artisan schedule:run
