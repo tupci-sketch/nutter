@@ -57,6 +57,7 @@ cp -r "$ROOT/deploy" "$R/deploy"
 # Only the hotel's starting content. demo.sql holds sign-in accounts with a
 # known password and must never reach a server.
 cp "$ROOT/apps/launcher/internal/seed/sql/base.sql" "$R/seed/base.sql"
+cp "$ROOT/apps/launcher/internal/seed/sql/public.sql" "$R/seed/public.sql"
 echo "$VERSION" > "$R/VERSION"
 
 echo "==> Checking nothing secret is inside"

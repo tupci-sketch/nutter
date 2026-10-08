@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { useRoomStore } from '@/stores/roomStore';
 import { useUiStore } from '@/stores/uiStore';
 import { LoginPage } from '@/pages/LoginPage';
 import { RoomCanvas } from '@/components/room/RoomCanvas';
@@ -40,6 +42,18 @@ function SettingsPanel() {
 export function App() {
   const authenticated = useAuthStore((s) => s.authenticated);
   const activePanel = useUiStore((s) => s.activePanel);
+  const inRoom = useRoomStore((s) => s.currentRoom !== null);
+  const greeted = useRef(false);
+
+  // Arriving in the hotel and not in a room, a player is shown where they
+  // can go, as the hotel has always greeted people, rather than an empty
+  // screen. Once only: closing the navigator is a choice to respect.
+  useEffect(() => {
+    if (authenticated && !inRoom && !greeted.current) {
+      greeted.current = true;
+      useUiStore.getState().openPanel('navigator');
+    }
+  }, [authenticated, inRoom]);
 
   if (!authenticated) return <LoginPage />;
 
