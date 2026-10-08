@@ -394,6 +394,14 @@ cmd_deploy() {
 
   create_admin_if_needed "$rel"
 
+  # A new hotel gets furnished public rooms, so a first visitor has somewhere
+  # to go. Only while there are no rooms at all: after that, the rooms are
+  # the hotel's own, and staff rearranging them is not something to undo.
+  if [ -f "$rel/seed/public.sql" ] && [ "$(echo 'SELECT COUNT(*) FROM habnut_rooms;' | db_sql "$rel")" = 0 ]; then
+    say "Adding the public rooms"
+    db_sql "$rel" < "$rel/seed/public.sql" >/dev/null
+  fi
+
   say "Checking the pages a player uses"
   if ! cmd_verify; then
     if [ -n "$previous" ]; then
