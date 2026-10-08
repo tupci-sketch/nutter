@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Writes the Octane client's runtime configuration for Habnut.
 
-    write-client-config.py <octane-dist/configuration> <out-dir> <https://domain>
+    write-client-config.py <client-dir/configuration> <out-dir> <https://domain>
 
 Starts from the client's own templates and sets every URL to this hotel. The
 website (Atom CMS) signs players in and hands the client a ticket, so the
@@ -64,7 +64,7 @@ def main():
         "login.turnstile.sitekey": "",
         "system.log.debug": False,
         "timezone.settings": "Europe/London",
-        "loading.logo.url": "",
+        "loading.logo.url": f"{site}/client/habnut-logo.png",
     })
     json.dump(r, open(os.path.join(out, "renderer-config.json"), "w"), indent=1)
 
@@ -77,8 +77,8 @@ def main():
     u.update({
         "url.prefix": site,
         "habbopages.url": f"{nitro}/habbopages/",
-        "camera.url": f"{site}/camera/photo",
-        "thumbnails.url": f"{site}/camera/thumbnail/%thumbnail%.png",
+        "camera.url": f"{site}/usercontent/camera/",
+        "thumbnails.url": f"{site}/usercontent/camera/thumbnail/%thumbnail%.png",
         "show.google.ads": False,
     })
     text = json.dumps(u, indent=1)
@@ -91,7 +91,7 @@ def main():
         "secureAssetsEnabled": False,
         "secureApiEnabled": False,
         "apiBaseUrl": game,
-        "plainConfigBaseUrl": f"{site}/octane/configuration/",
+        "plainConfigBaseUrl": f"{site}/client/configuration/",
         "plainGamedataBaseUrl": f"{nitro}/gamedata/",
     }
     json.dump(mode, open(os.path.join(out, "client-mode.json"), "w"), indent=1)

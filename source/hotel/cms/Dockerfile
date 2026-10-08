@@ -1,16 +1,21 @@
-# Habnut website: Atom CMS (DennisObject/atomcms), pinned, with Habnut's
-# overlay copied on top. Built on the server; nothing here is downloaded at
-# start-up.
+# NutCMS, the Habnut website: Atom CMS (DennisObject/atomcms), pinned, with
+# Habnut's overlay copied on top and every visible name made Habnut's. Built
+# on the server; nothing here is downloaded at start-up.
 ARG ATOM_REF=f77e2b6545fcd293f09e819aaa6e0281f555ada4
 
 FROM alpine/git AS source
 ARG ATOM_REF
 RUN git clone -q https://github.com/DennisObject/atomcms.git /src \
  && git -C /src checkout -q "$ATOM_REF" && rm -rf /src/.git
+
+FROM composer:2 AS brand
+COPY --from=source /src /src
 COPY overlay/ /src/
+COPY rebrand.php /rebrand.php
+RUN php /rebrand.php /src
 
 FROM composer:2 AS vendor
-COPY --from=source /src /app
+COPY --from=brand /src /app
 WORKDIR /app
 RUN composer install --no-dev --no-interaction --no-progress --prefer-dist \
       --optimize-autoloader --no-scripts --ignore-platform-req=ext-*
@@ -29,7 +34,7 @@ RUN install-php-extensions gd intl pdo_mysql sockets bcmath zip opcache exif pcn
 COPY php.ini /usr/local/etc/php/conf.d/zz-habnut.ini
 COPY www.conf /usr/local/etc/php-fpm.d/zz-habnut.conf
 WORKDIR /var/www/atom
-COPY --from=source --chown=www-data:www-data /src /var/www/atom
+COPY --from=brand --chown=www-data:www-data /src /var/www/atom
 COPY --from=vendor --chown=www-data:www-data /app/vendor /var/www/atom/vendor
 COPY --from=assets --chown=www-data:www-data /app/public/build /var/www/atom/public/build
 # Settings come from the container's environment; an empty .env it owns keeps

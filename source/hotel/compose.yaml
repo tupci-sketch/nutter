@@ -51,9 +51,11 @@ services:
     restart: unless-stopped
     working_dir: /emulator
     command: ["java", "-Dfile.encoding=UTF8", "-Xms256m", "-Xmx1g", "-XX:MaxDirectMemorySize=256m",
-              "-XX:+UseG1GC", "-XX:+ExitOnOutOfMemoryError", "-jar", "/emulator/polaris.jar"]
+              "-XX:+UseG1GC", "-XX:+ExitOnOutOfMemoryError", "-jar", "/emulator/habnut-emulator.jar"]
     volumes:
       - ${HOTEL_ROOT:?}/emulator:/emulator
+      # group badges, camera photos and room thumbnails it draws
+      - ${HOTEL_ROOT}/usercontent:/usercontent
     networks: { hotel: { ipv4_address: 172.30.10.20 } }
     depends_on:
       db: { condition: service_healthy }
@@ -74,6 +76,8 @@ services:
     volumes:
       - atom_public:/srv/public
       - atom_storage:/var/www/atom/storage
+      # badge names and pictures the site reads
+      - /srv/habnut/nitro:/var/www/nitro:ro
     networks: { hotel: { ipv4_address: 172.30.10.30 } }
     depends_on:
       db: { condition: service_healthy }
@@ -86,6 +90,34 @@ services:
     mem_limit: 384m
     logging: *logging
 
+  # Avatar pictures for the website, drawn by the same renderer as the
+  # client, from the hotel's own clothing (duckietm/Polaris-imager).
+  imager:
+    image: habnut-imager:${IMAGER_TAG:-dev}
+    restart: unless-stopped
+    init: true
+    environment:
+      NITRO_GAMEDATA_URL: http://172.30.10.40/nitro/gamedata
+      NITRO_ASSET_URL: http://172.30.10.40/nitro/bundled
+      AVATAR_IMAGING_HOST: 0.0.0.0
+      AVATAR_IMAGING_PORT: "8082"
+      AVATAR_IMAGING_TRUST_PROXY: 172.30.10.40
+      AVATAR_IMAGING_CLIENT_IP_HEADER: x-real-ip
+      AVATAR_IMAGING_RATELIMIT_MAX: "600"
+      AVATAR_IMAGING_CACHE_ENTRIES: "2048"
+      AVATAR_IMAGING_CACHE_TTL_MS: "3600000"
+      AVATAR_IMAGING_SCENE: "0"
+    networks:
+      hotel:
+        ipv4_address: 172.30.10.50
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8082/health').then(r=>r.json()).then(j=>process.exit(j.ready?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    mem_limit: 512m
+
   web:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -93,9 +125,10 @@ services:
       - ./nginx:/etc/nginx/conf.d:ro
       - atom_public:/var/www/atom/public:ro
       - atom_storage:/var/www/atom/storage:ro
-      - ${HOTEL_ROOT}/octane:/var/www/octane:ro
-      - ${HOTEL_ROOT}/client-config:/var/www/octane-config:ro
+      - ${HOTEL_ROOT}/client:/var/www/client:ro
+      - ${HOTEL_ROOT}/client-config:/var/www/client-config:ro
       - /srv/habnut/nitro:/var/www/nitro:ro
+      - ${HOTEL_ROOT}/usercontent:/var/www/usercontent:ro
     networks:
       hotel: { ipv4_address: 172.30.10.40 }
       edge: { aliases: [hotel-web] }
