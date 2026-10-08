@@ -1,0 +1,8 @@
+[mysqld]
+innodb_buffer_pool_size = 384M
+innodb_log_file_size = 128M
+max_connections = 80
+performance_schema = OFF
+skip_name_resolve = ON
+character_set_server = utf8mb4
+collation_server = utf8mb4_unicode_ci

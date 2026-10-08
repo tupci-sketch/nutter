@@ -1,0 +1,109 @@
+# Habnut hotel: Polaris (game server), Octane (client), Atom CMS (website).
+#
+# Run through hotel/scripts/hotelctl. Sized for 2 vCPU / 4 GB. Nothing is
+# published on the host's network: nginx joins the network the Cloudflare
+# tunnel connector lives on, and the tunnel routes habnut.co.uk to it.
+
+name: hotel
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+networks:
+  hotel:
+    ipam:
+      config: [{ subnet: 172.30.10.0/24 }]
+  edge:
+    name: habnut_default
+    external: true
+
+volumes:
+  db_data:
+  atom_public:
+  atom_storage:
+
+services:
+  db:
+    image: mariadb:11.8
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?}
+      MARIADB_DATABASE: habnut
+      MARIADB_USER: habnut
+      MARIADB_PASSWORD: ${DB_PASSWORD:?}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/habnut.cnf:/etc/mysql/conf.d/habnut.cnf:ro
+    networks: { hotel: { ipv4_address: 172.30.10.10 } }
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    mem_limit: 768m
+    oom_score_adj: -800
+    logging: *logging
+
+  emulator:
+    image: eclipse-temurin:25-jre
+    restart: unless-stopped
+    working_dir: /emulator
+    command: ["java", "-Dfile.encoding=UTF8", "-Xms256m", "-Xmx1g", "-XX:MaxDirectMemorySize=256m",
+              "-XX:+UseG1GC", "-XX:+ExitOnOutOfMemoryError", "-jar", "/emulator/polaris.jar"]
+    volumes:
+      - ${HOTEL_ROOT:?}/emulator:/emulator
+    networks: { hotel: { ipv4_address: 172.30.10.20 } }
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "bash", "-c", ":< /dev/tcp/127.0.0.1/2096"]
+      interval: 15s
+      timeout: 3s
+      retries: 40
+      start_period: 180s
+    mem_limit: 1536m
+    oom_score_adj: -300
+    logging: *logging
+
+  cms:
+    image: habnut-atom:${ATOM_TAG:-dev}
+    restart: unless-stopped
+    env_file: ${HOTEL_ROOT}/atom.env
+    volumes:
+      - atom_public:/srv/public
+      - atom_storage:/var/www/atom/storage
+    networks: { hotel: { ipv4_address: 172.30.10.30 } }
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 120s
+    mem_limit: 384m
+    logging: *logging
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:ro
+      - atom_public:/var/www/atom/public:ro
+      - atom_storage:/var/www/atom/storage:ro
+      - ${HOTEL_ROOT}/octane:/var/www/octane:ro
+      - ${HOTEL_ROOT}/client-config:/var/www/octane-config:ro
+      - /srv/habnut/nitro:/var/www/nitro:ro
+    networks:
+      hotel: { ipv4_address: 172.30.10.40 }
+      edge: { aliases: [hotel-web] }
+    depends_on: [cms, emulator]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    mem_limit: 96m
+    logging: *logging
