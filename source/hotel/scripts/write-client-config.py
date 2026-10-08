@@ -103,8 +103,9 @@ def main():
             print(f"warn: {name}: {e}")
     # Everything the build put here that is not a template: the generated
     # loader scripts and the ready-made data files.
+    written = {"renderer-config.json", "ui-config.json", "client-mode.json", "hotlooks.json", "news.json"}
     for name in os.listdir(src):
-        if "example" not in name and not os.path.exists(os.path.join(out, name)):
+        if "example" not in name and name not in written:
             shutil.copyfile(os.path.join(src, name), os.path.join(out, name))
     print("client configuration written to", out)
 

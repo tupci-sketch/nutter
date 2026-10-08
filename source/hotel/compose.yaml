@@ -56,6 +56,8 @@ services:
       - ${HOTEL_ROOT:?}/emulator:/emulator
       # group badges, camera photos and room thumbnails it draws
       - ${HOTEL_ROOT}/usercontent:/usercontent
+      # furniture names, for the emulator's own messages
+      - /srv/habnut/nitro/gamedata:/nitro/gamedata:ro
     networks: { hotel: { ipv4_address: 172.30.10.20 } }
     depends_on:
       db: { condition: service_healthy }
