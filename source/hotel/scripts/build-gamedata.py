@@ -63,6 +63,10 @@ def main():
     # set comes from fetch-english-texts.py.
     texts = json.load(open(english))
     texts = {k: rebrand(v) for k, v in texts.items()}
+    # Habnut's own texts (badges/make-badges.py and friends) live in an overlay.
+    text_overlay = os.path.join(out, "ExternalTexts.habnut.json")
+    if os.path.exists(text_overlay):
+        texts.update(json.load(open(text_overlay)))
     json.dump(texts, open(os.path.join(out, "ExternalTexts.json"), "w"), ensure_ascii=False, separators=(",", ":"))
 
     root = ET.parse(productdata).getroot()

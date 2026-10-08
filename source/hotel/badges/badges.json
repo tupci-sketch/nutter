@@ -1,0 +1,10 @@
+{
+ "badges": [
+  {"code": "HNGD1", "name": "Green Fingers", "description": "Harvested your first flower in the Community Garden.", "colour": [104, 176, 64], "icon": "jungle_c16_flowera1", "label": "1"},
+  {"code": "HNGD2", "name": "Keen Gardener", "description": "Harvested 10 flowers in the Community Garden.", "colour": [64, 150, 90], "icon": "jungle_c16_flowerb2", "label": "10"},
+  {"code": "HNGD3", "name": "Head Gardener", "description": "Harvested 50 flowers in the Community Garden.", "colour": [40, 120, 150], "icon": "jungle_c16_flowerc3", "label": "50"},
+  {"code": "HNGD4", "name": "Master of Blooms", "description": "Harvested 100 flowers in the Community Garden.", "colour": [150, 70, 160], "icon": "jungle_c16_flowerd2", "label": "100"},
+  {"code": "HNGD5", "name": "Garden Legend", "description": "Harvested 250 flowers in the Community Garden.", "colour": [226, 150, 8], "ring": [120, 70, 0], "icon": "habnut_gold_rare_daffodil_rug", "label": "250"},
+  {"code": "HNGWK", "name": "Garden Hero", "description": "Helped the Community Garden reach its weekly goal.", "colour": [240, 190, 40], "ring": [130, 80, 0], "icon": "garden_birdbath"}
+ ]
+}

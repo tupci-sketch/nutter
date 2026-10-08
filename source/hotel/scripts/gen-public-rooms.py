@@ -92,6 +92,19 @@ HOTEL = [
         ("plant_rose", 21, 7, 0), ("plant_rose", 21, 20, 0),
         ("bench_armas", 18, 22, 4), ("bench_armas", 20, 22, 4),
     ]),
+    ("Community Garden", "Plant a flower (:plant), water it, harvest it (:harvest). Every harvest counts towards the hotel's weekly goal.",
+     "picnic", 100, [
+        # the pond: wade in to fill your watering can
+        ("jungle_c16_watertile", 20, 8, 0), ("jungle_c16_watertile", 22, 8, 0), ("jungle_c16_watertile", 24, 8, 0),
+        ("watering_can", 19, 7, 0), ("watering_can", 26, 7, 0), ("gardening_box", 18, 7, 0), ("garden_c15_toolshed", 28, 6, 0),
+        # the picnic mound
+        ("garden_birdbath", 12, 13, 0), ("garden_c23_strelitzia", 11, 12, 0), ("garden_c23_pelargonium", 14, 12, 0),
+        # around the edges
+        ("tree1", 0, 6, 0), ("tree2", 37, 6, 0), ("tree3", 0, 43, 0), ("tree1", 37, 43, 0), ("tree2", 0, 25, 0), ("tree3", 37, 25, 0),
+        ("bench_armas", 3, 20, 4), ("bench_armas", 7, 20, 4), ("bench_armas", 29, 20, 4), ("bench_armas", 33, 20, 4),
+        ("garden_c23_frog", 19, 22, 0), ("garden_fishgnome", 8, 30, 0), ("garden_bfly", 30, 30, 0),
+        ("garden_c15_shroomchr", 5, 9, 0), ("garden_c15_shroomchr", 32, 9, 0),
+    ]),
 ]
 
 # Nutropolis: name, description, model, max users, (kind, safe from fights), job or None, furniture
