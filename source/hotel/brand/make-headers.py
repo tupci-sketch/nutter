@@ -4,9 +4,9 @@
 
     make-headers.py <pages.json> <fonts dir> <nitro root> <out.sql>
 
-Each header is 284x45 like the originals: a band in the section's colour,
-the page title in Habnut's logo type, and a few of the page's own furniture
-on the right. Written as catalogue/habnut_header_<page>.gif. Needs Pillow.
+Each header is 284x45 like the originals: a band in the section's colour
+with a few of the page's own furniture on the right. No words: the client
+writes the page title over it. Written as catalogue/habnut_header_<page>.gif. Needs Pillow.
 """
 import json
 import os
@@ -67,20 +67,11 @@ def header(page):
     pics = [p for p in (icon(n) for n in page["items"]) if p is not None]
     pics.sort(key=lambda p: -(p.width * p.height))
     x = W - 6
-    for pic in pics[:3]:
+    for pic in pics[:5]:
         pic.thumbnail((40, 38), Image.NEAREST)
         x -= pic.width
         img.alpha_composite(pic, (x, H - 4 - pic.height))
         x -= 4
-    text_room = x - 10
-    caption = page["caption"]
-    fnt = title_font
-    while fnt.size > 11 and ImageDraw.Draw(img).textlength(caption, font=fnt) > text_room:
-        fnt = ImageFont.truetype(os.path.join(fonts, "LilitaOne-Regular.ttf"), fnt.size - 1)
-    d = ImageDraw.Draw(img)
-    d.text((11, H // 2 + 2), caption, font=fnt, fill=(20, 10, 0, 160), anchor="lm")
-    d.text((10, H // 2 + 1), caption, font=fnt, fill=(255, 255, 255, 255), anchor="lm",
-           stroke_width=2, stroke_fill=(60, 30, 0, 255))
     return img
 
 

@@ -1,10 +1,205 @@
 {
  "badges": [
-  {"code": "HNGD1", "name": "Green Fingers", "description": "Harvested your first flower in the Community Garden.", "colour": [104, 176, 64], "icon": "jungle_c16_flowera1", "label": "1"},
-  {"code": "HNGD2", "name": "Keen Gardener", "description": "Harvested 10 flowers in the Community Garden.", "colour": [64, 150, 90], "icon": "jungle_c16_flowerb2", "label": "10"},
-  {"code": "HNGD3", "name": "Head Gardener", "description": "Harvested 50 flowers in the Community Garden.", "colour": [40, 120, 150], "icon": "jungle_c16_flowerc3", "label": "50"},
-  {"code": "HNGD4", "name": "Master of Blooms", "description": "Harvested 100 flowers in the Community Garden.", "colour": [150, 70, 160], "icon": "jungle_c16_flowerd2", "label": "100"},
-  {"code": "HNGD5", "name": "Garden Legend", "description": "Harvested 250 flowers in the Community Garden.", "colour": [226, 150, 8], "ring": [120, 70, 0], "icon": "habnut_gold_rare_daffodil_rug", "label": "250"},
-  {"code": "HNGWK", "name": "Garden Hero", "description": "Helped the Community Garden reach its weekly goal.", "colour": [240, 190, 40], "ring": [130, 80, 0], "icon": "garden_birdbath"}
+  {
+   "code": "HNGD1",
+   "name": "Green Fingers",
+   "description": "Harvested your first flower in the Community Garden.",
+   "colour": [
+    104,
+    176,
+    64
+   ],
+   "icon": "jungle_c16_flowera1",
+   "label": "1"
+  },
+  {
+   "code": "HNGD2",
+   "name": "Keen Gardener",
+   "description": "Harvested 10 flowers in the Community Garden.",
+   "colour": [
+    64,
+    150,
+    90
+   ],
+   "icon": "jungle_c16_flowerb2",
+   "label": "10"
+  },
+  {
+   "code": "HNGD3",
+   "name": "Head Gardener",
+   "description": "Harvested 50 flowers in the Community Garden.",
+   "colour": [
+    40,
+    120,
+    150
+   ],
+   "icon": "jungle_c16_flowerc3",
+   "label": "50"
+  },
+  {
+   "code": "HNGD4",
+   "name": "Master of Blooms",
+   "description": "Harvested 100 flowers in the Community Garden.",
+   "colour": [
+    150,
+    70,
+    160
+   ],
+   "icon": "jungle_c16_flowerd2",
+   "label": "100"
+  },
+  {
+   "code": "HNGD5",
+   "name": "Garden Legend",
+   "description": "Harvested 250 flowers in the Community Garden.",
+   "colour": [
+    226,
+    150,
+    8
+   ],
+   "ring": [
+    120,
+    70,
+    0
+   ],
+   "icon": "habnut_gold_rare_daffodil_rug",
+   "label": "250"
+  },
+  {
+   "code": "HNGWK",
+   "name": "Garden Hero",
+   "description": "Helped the Community Garden reach its weekly goal.",
+   "colour": [
+    240,
+    190,
+    40
+   ],
+   "ring": [
+    130,
+    80,
+    0
+   ],
+   "icon": "garden_birdbath"
+  },
+  {
+   "code": "ACH_VicGar1",
+   "name": "Victory Gardener 1",
+   "description": "Grew a garden to level 1.",
+   "colour": [
+    104,
+    176,
+    64
+   ],
+   "icon": "jungle_c16_flowera2",
+   "label": "1"
+  },
+  {
+   "code": "ACH_VicGar2",
+   "name": "Victory Gardener 2",
+   "description": "Grew a garden to level 2.",
+   "colour": [
+    80,
+    165,
+    70
+   ],
+   "icon": "jungle_c16_flowera3",
+   "label": "2"
+  },
+  {
+   "code": "ACH_VicGar3",
+   "name": "Victory Gardener 3",
+   "description": "Grew a garden to level 3.",
+   "colour": [
+    64,
+    150,
+    90
+   ],
+   "icon": "jungle_c16_flowera1",
+   "label": "3"
+  },
+  {
+   "code": "ACH_VicGar4",
+   "name": "Victory Gardener 4",
+   "description": "Grew a garden to level 4.",
+   "colour": [
+    50,
+    140,
+    120
+   ],
+   "icon": "jungle_c16_flowera2",
+   "label": "4"
+  },
+  {
+   "code": "ACH_VicGar5",
+   "name": "Victory Gardener 5",
+   "description": "Grew a garden to level 5.",
+   "colour": [
+    40,
+    120,
+    150
+   ],
+   "icon": "jungle_c16_flowera3",
+   "label": "5"
+  },
+  {
+   "code": "ACH_VicGar6",
+   "name": "Victory Gardener 6",
+   "description": "Grew a garden to level 6.",
+   "colour": [
+    60,
+    100,
+    170
+   ],
+   "icon": "jungle_c16_flowera1",
+   "label": "6"
+  },
+  {
+   "code": "ACH_VicGar7",
+   "name": "Victory Gardener 7",
+   "description": "Grew a garden to level 7.",
+   "colour": [
+    110,
+    80,
+    170
+   ],
+   "icon": "jungle_c16_flowera2",
+   "label": "7"
+  },
+  {
+   "code": "ACH_VicGar8",
+   "name": "Victory Gardener 8",
+   "description": "Grew a garden to level 8.",
+   "colour": [
+    150,
+    70,
+    160
+   ],
+   "icon": "jungle_c16_flowera3",
+   "label": "8"
+  },
+  {
+   "code": "ACH_VicGar9",
+   "name": "Victory Gardener 9",
+   "description": "Grew a garden to level 9.",
+   "colour": [
+    200,
+    90,
+    60
+   ],
+   "icon": "jungle_c16_flowera1",
+   "label": "9"
+  },
+  {
+   "code": "ACH_VicGar10",
+   "name": "Victory Gardener 10",
+   "description": "Grew a garden to level 10.",
+   "colour": [
+    226,
+    150,
+    8
+   ],
+   "icon": "jungle_c16_flowera2",
+   "label": "10"
+  }
  ]
 }

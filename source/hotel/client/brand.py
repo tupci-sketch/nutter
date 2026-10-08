@@ -101,6 +101,10 @@ edit(ui / "src/components/wired-tools/WiredToolsSettingsTabView.tsx", [("['Octan
 vite = ui / "vite.config.mjs"
 edit(vite, [(re.compile(r"return 'octane-renderer(-[a-z]+)?';"), lambda m: m.group(0).replace("octane-renderer", "habnut-renderer"))])
 
+# Nutty's bundles are *.nutty: the renderer recognises bundles by extension.
+edit(renderer / "packages/assets/src/AssetManager.ts", [
+    ("if(normalizedSourceExtension(url) === 'nitro')", "if(['nitro', 'nutty'].includes(normalizedSourceExtension(url)))"),
+])
 edit(renderer / "packages/utils/src/OctaneLogger.ts", [("return '[Octane]';", f"return '[{NAME}]';")])
 edit(renderer / "packages/utils/src/OctaneVersion.ts", [
     ("`\\n %c  OCTANE  %c  UI ${OctaneVersion.UI_VERSION}  %c  Renderer ${OctaneVersion.RENDERER_VERSION}  %c \\n`",
@@ -175,13 +179,13 @@ sys.path.insert(0, str(HERE.parent / "scripts"))
 from habnut_brand import rebrand  # noqa: E402
 
 LITERAL = re.compile(r"""(['"`])((?:\\.|(?!\1)[^\\\n])*?(?:Habb|Nitro)(?:\\.|(?!\1)[^\\\n])*?)\1""")
-JSX_TEXT = re.compile(r"(?<=[>}])([^<>{}]*(?:Habb|Nitro)[^<>{}]*)(?=[<{])")
+JSX_TEXT = re.compile(r"(?<=[>}])([^<>{}\n;\x27\x22`]*(?:Habb|Nitro)[^<>{}\n;\x27\x22`]*)(?=[<{])")
 def readable(text):
     """A sentence or a plain word someone reads, not a path, file name, key or identifier."""
     plain = re.sub(r"\$\{[^}]*\}", "", text.replace("\\'", "'").replace('\\"', '"'))
     if "/" in plain or "\\" in plain or re.search(r"\.[A-Za-z]{2,5}$", plain):
         return False
-    return " " in plain.strip() or re.fullmatch(r"(?:Habb[a-z]+|Nitro)[!?.]?", plain.strip()) is not None
+    return " " in plain.strip()  # single words may be keys: fixes.py handles the few that are labels
 
 
 def reword(text):
@@ -197,7 +201,9 @@ for p in sources + renderer_sources:
     s = p.read_text(encoding="utf8")
     t = LITERAL.sub(lambda m: m.group(1) + (reword(m.group(2)) if readable(m.group(2)) else m.group(2)) + m.group(1), s)
     if p.suffix == ".tsx":  # in plain .ts, >...< is a generic type, not text
-        t = JSX_TEXT.sub(lambda m: rebrand(m.group(1)) if " " in m.group(1).strip() else m.group(0), t)
+        # only words: anything with code in it (operators, calls, member access) is left alone
+        t = JSX_TEXT.sub(lambda m: rebrand(m.group(1)) if " " in m.group(1).strip()
+                         and not re.search(r"[=()&|]|\w\.\w", m.group(1)) else m.group(0), t)
     if t != s:
         p.write_text(t, encoding="utf8")
         worded += 1

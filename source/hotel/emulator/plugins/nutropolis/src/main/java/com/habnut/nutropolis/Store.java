@@ -79,6 +79,14 @@ final class Store {
               created_at INT NOT NULL,
               KEY user_time (user_id, created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            // Which world each player entered through (written by the website).
+            """
+            CREATE TABLE IF NOT EXISTS habnut_user_world (
+              user_id INT NOT NULL PRIMARY KEY,
+              world VARCHAR(8) NOT NULL DEFAULT 'hotel',
+              hotel_home INT NOT NULL DEFAULT 0,
+              updated_at TIMESTAMP NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
             // The city's own numbers: treasury, tax, mayor.
             """
             CREATE TABLE IF NOT EXISTS habnut_rp_state (

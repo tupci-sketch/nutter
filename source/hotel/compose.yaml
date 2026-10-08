@@ -99,10 +99,9 @@ services:
     restart: unless-stopped
     init: true
     environment:
-      NITRO_GAMEDATA_URL: http://172.30.10.40/nutty/gamedata
-      NITRO_ASSET_URL: http://172.30.10.40/nutty/bundled
-      NITRO_AVATAR_ASSET_URL: http://172.30.10.40/nutty/bundled/figure/%libname%.nutty
-      NITRO_AVATAR_ASSET_EFFECT_URL: http://172.30.10.40/nutty/bundled/effect/%libname%.nutty
+      # inside the hotel's network only: the files as they are on disk
+      NITRO_GAMEDATA_URL: http://172.30.10.40/nitro/gamedata
+      NITRO_ASSET_URL: http://172.30.10.40/nitro/bundled
       AVATAR_IMAGING_HOST: 0.0.0.0
       AVATAR_IMAGING_PORT: "8082"
       AVATAR_IMAGING_TRUST_PROXY: 172.30.10.40

@@ -9,7 +9,9 @@ import com.eu.habbo.plugin.EventHandler;
 import com.eu.habbo.plugin.EventListener;
 import com.eu.habbo.plugin.HabboPlugin;
 import com.eu.habbo.plugin.events.emulator.EmulatorLoadedEvent;
+import com.eu.habbo.plugin.events.navigator.NavigatorSearchResultEvent;
 import com.eu.habbo.plugin.events.users.UserDisconnectEvent;
+import com.eu.habbo.plugin.events.users.UserLoginEvent;
 import com.eu.habbo.plugin.events.users.UserEnterRoomEvent;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -63,6 +65,13 @@ public class Nutropolis extends HabboPlugin implements EventListener {
         Store.migrate();
         CITY.reload();
         CommandHandler.addCommand(new CityCommand());
+        // Each world's navigator shows only its own rooms.
+        var filters = Emulator.getGameEnvironment().getNavigatorManager().filters;
+        for (var entry : new java.util.ArrayList<>(filters.entrySet())) {
+            if (!(entry.getValue() instanceof WorldNavigatorFilter)) {
+                filters.put(entry.getKey(), new WorldNavigatorFilter(entry.getValue(), CITY));
+            }
+        }
         clock = Emulator.getThreading().getService().scheduleAtFixedRate(() -> {
             try {
                 CITY.tick();
@@ -81,6 +90,19 @@ public class Nutropolis extends HabboPlugin implements EventListener {
         } catch (Exception e) {
             LOGGER.error("[Nutropolis] could not welcome {}", event.habbo.getHabboInfo().getUsername(), e);
         }
+    }
+
+    /** Each world's navigator searches show only that world's rooms. */
+    @EventHandler
+    public static void onNavigatorSearch(NavigatorSearchResultEvent event) {
+        if (event.habbo == null || event.rooms == null) return;
+        boolean cityWorld = CITY.inCityWorld(event.habbo);
+        event.rooms.removeIf(room -> room != null && CITY.inCity(room) != cityWorld);
+    }
+
+    @EventHandler
+    public static void onLogin(UserLoginEvent event) {
+        if (event.habbo != null) CITY.forgetWorld(event.habbo.getHabboInfo().getId());
     }
 
     @EventHandler

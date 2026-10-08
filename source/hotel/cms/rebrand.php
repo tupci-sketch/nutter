@@ -156,7 +156,7 @@ foreach (glob("$root/resources/{views,themes/*/views}/{components,components/*}/
 // Discord links appear only once the hotel has a server to link to.
 foreach (glob("$root/resources/themes/*/views/{,*/,*/*/}*.blade.php", GLOB_BRACE) as $view) {
     rewrite($view, function ($s) {
-        $s = str_replace("__('Nitro client')", "__('Enter :hotel', ['hotel' => setting('hotel_name')])", $s);
+        $s = str_replace(["__('Nitro client')", "__('Nutty client')"], "__('Enter :hotel', ['hotel' => setting('hotel_name')])", $s);
         $s = preg_replace(
             '~(<a href="\{\{ setting\(\'discord_invitation_link\'\) \}\}"[^>]*>\s*\{\{ __\(\'Discord\'\) \}\}\s*</a>)~',
             "@if (setting('discord_invitation_link'))\n    $1\n    @endif",
@@ -230,6 +230,41 @@ if (is_dir("$root/public/assets/images/logo-generator/atom")) {
 }
 foreach (['habbo_modern', 'habton', 'habton_capitalized'] as $set) {
     @exec('rm -rf ' . escapeshellarg("$root/public/assets/images/logo-generator/$set"));
+}
+
+// Two worlds, two entrances: the hotel at /game/nutty, the city at /game/nutropolis.
+rewrite("$root/routes/web.php", fn ($s) => str_contains($s, 'nutropolis-client') ? $s : str_replace(
+    "Route::get('/nutty', NitroController::class)->name('nitro-client');",
+    "Route::get('/nutty', NitroController::class)->name('nitro-client');\n"
+    . "            Route::get('/nutropolis', \\App\\Http\\Controllers\\Client\\NutropolisController::class)->name('nutropolis-client');",
+    $s
+));
+$cityButton = <<<'BLADE'
+                <a data-turbolinks="false" href="{{ route('nutropolis-client') }}">
+                    <button
+                        class="relative hidden rounded-full bg-gray-900/90 px-6 py-2 text-lg font-semibold text-yellow-300 transition duration-300 ease-in-out hover:bg-gray-900 md:block">
+                        {{ __('Enter Nutropolis') }}
+                    </button>
+                </a>
+BLADE;
+foreach (glob("$root/resources/themes/*/views/components/site-header.blade.php") as $view) {
+    rewrite($view, fn ($s) => str_contains($s, 'nutropolis-client') ? $s : preg_replace(
+        '~(<a data-turbolinks="false" href="\{\{ route\(\'nitro-client\'\) \}\}">.*?</a>)~s', "$1\n\n" . $cityButton, $s, 1));
+}
+foreach (glob("$root/resources/themes/*/views/components/user/me-backdrop.blade.php") as $view) {
+    rewrite($view, fn ($s) => str_contains($s, 'nutropolis-client') ? $s : preg_replace(
+        '~(\s*<a data-turbolinks="false" href="\{\{ route\(\'nitro-client\'\) \}\}">.*?</a>)~s',
+        "\n    <div class=\"flex flex-col gap-2\">$1\n        <a data-turbolinks=\"false\" href=\"{{ route('nutropolis-client') }}\">\n"
+        . "            <button class=\"relative w-full rounded-full bg-gray-900/90 px-6 py-2 text-lg font-semibold text-yellow-300 transition duration-300 ease-in-out hover:bg-gray-900\">\n"
+        . "                {{ __('Go to Nutropolis') }}\n            </button>\n        </a>\n    </div>",
+        $s, 1));
+}
+foreach (glob("$root/resources/themes/*/views/client/nitro.blade.php") as $view) {
+    rewrite($view, fn ($s) => str_replace(
+        "<title>{{ setting('hotel_name') }}</title>",
+        '<title>{{ ($world ?? \'hotel\') === \'city\' ? \'Nutropolis\' : setting(\'hotel_name\') }}</title>',
+        $s
+    ));
 }
 
 // The admin panel is NutCMS Housekeeping.

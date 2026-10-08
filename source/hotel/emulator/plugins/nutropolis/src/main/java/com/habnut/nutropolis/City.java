@@ -84,6 +84,44 @@ final class City {
         if (roomId > 0 && habbo.getClient() != null) habbo.getClient().sendResponse(new ForwardToRoomComposer(roomId));
     }
 
+    /** A forward while a room is still loading is ignored by the client (or drawn over it): wait a moment. */
+    static void sendSoon(Habbo habbo, int roomId) {
+        Emulator.getThreading().run(() -> send(habbo, roomId), 1500);
+    }
+
+    // ---- worlds -------------------------------------------------------------
+    // The hotel and Nutropolis are entered separately, from the website; the
+    // website records which (habnut_user_world) and the city keeps each player
+    // in their own world.
+
+    static final String CITY_WORLD = "city";
+    private final Map<Integer, Object[]> worlds = new ConcurrentHashMap<>();
+
+    String worldOf(Habbo habbo) {
+        int id = habbo.getHabboInfo().getId();
+        Object[] cached = this.worlds.get(id);
+        long now = System.currentTimeMillis();
+        if (cached != null && (long) cached[1] > now) return (String) cached[0];
+        String[] row = Db.row("SELECT world FROM habnut_user_world WHERE user_id = ?", id);
+        String world = row == null ? "hotel" : row[0];
+        this.worlds.put(id, new Object[] {world, now + 15_000});
+        return world;
+    }
+
+    boolean inCityWorld(Habbo habbo) {
+        return CITY_WORLD.equals(this.worldOf(habbo));
+    }
+
+    void forgetWorld(int userId) {
+        this.worlds.remove(userId);
+    }
+
+    private int hotelHome(Habbo habbo) {
+        int home = habbo.getHabboInfo().getHomeRoom();
+        if (home > 0 && !this.rooms.containsKey(home)) return home;
+        return Emulator.getConfig().getInt("hotel.home.room", 0);
+    }
+
     // ---- citizens ---------------------------------------------------------
 
     Citizen citizen(Habbo habbo) {
@@ -116,13 +154,31 @@ final class City {
 
     // ---- what happens on its own ---------------------------------------------
 
+    /** Sends a player in the other world's room back to their own; true if it did. */
+    boolean keepInWorld(Habbo habbo, Room room) {
+        boolean cityWorld = this.inCityWorld(habbo);
+        if (cityWorld && !this.inCity(room)) {
+            habbo.whisper("You are in Nutropolis. To visit the hotel, use Enter Habnut on the website.", RoomChatMessageBubbles.ALERT);
+            Citizen jailed = this.cached(habbo);
+            sendSoon(habbo, jailed != null && jailed.jailed() ? this.roomOf(JAIL) : this.roomOf(SPAWN));
+            return true;
+        }
+        if (!cityWorld && this.inCity(room)) {
+            habbo.whisper("Nutropolis has its own entrance: use Enter Nutropolis on the website.", RoomChatMessageBubbles.ALERT);
+            sendSoon(habbo, this.hotelHome(habbo));
+            return true;
+        }
+        return false;
+    }
+
     void entered(Habbo habbo, Room room) {
+        if (this.keepInWorld(habbo, room)) return;
         Citizen c = this.inCity(room) ? this.citizen(habbo) : this.cached(habbo);
         if (c == null) return;
 
         if (c.jailed() && !JAIL.equals(this.kindOf(room))) {
             habbo.whisper("You are still serving your sentence.", RoomChatMessageBubbles.ALERT);
-            send(habbo, this.roomOf(JAIL));
+            sendSoon(habbo, this.roomOf(JAIL));
             return;
         }
         if (!this.inCity(room)) {
@@ -149,6 +205,11 @@ final class City {
     /** Every 20 seconds: wages, sentences served, hospital care. */
     void tick() {
         this.civic.tick();
+        // A resumed session can come back in the other world's room without entering it.
+        for (Habbo habbo : Emulator.getGameEnvironment().getHabboManager().getOnlineHabbos().values()) {
+            Room room = habbo.getHabboInfo().getCurrentRoom();
+            if (room != null) this.keepInWorld(habbo, room);
+        }
         long nowMs = System.currentTimeMillis();
         for (Map.Entry<Integer, Long> shift : this.shifts.entrySet()) {
             Habbo habbo = Emulator.getGameEnvironment().getHabboManager().getHabbo(shift.getKey());
@@ -253,22 +314,15 @@ final class City {
         Room room = habbo.getHabboInfo().getCurrentRoom();
 
         switch (verb) {
-            case "city", "nutropolis" -> {
-                Citizen c = this.citizen(habbo);
-                if (c != null && c.jailed()) send(habbo, this.roomOf(JAIL));
-                else send(habbo, this.roomOf(SPAWN));
-                return true;
-            }
-            case "hotel", "classic" -> {
-                Citizen c = this.cached(habbo);
-                if (c != null && c.jailed()) return this.no(habbo, "Not until you have served your sentence.");
-                int home = habbo.getHabboInfo().getHomeRoom();
-                send(habbo, home > 0 ? home : Emulator.getConfig().getInt("hotel.home.room", 0));
+            case "city", "nutropolis", "hotel", "classic" -> {
+                habbo.whisper(this.inCityWorld(habbo)
+                        ? "You are in Nutropolis. The hotel has its own entrance: Enter Habnut on the website."
+                        : "Nutropolis has its own entrance: Enter Nutropolis on the website.", RoomChatMessageBubbles.BLUE);
                 return true;
             }
             case "rphelp" -> {
                 habbo.alert(String.join("\r",
-                        "<b>Nutropolis</b>  :city to go there, :hotel to come back",
+                        "<b>Nutropolis</b>  enter it from the website: Enter Nutropolis",
                         ":stats  :balance  :items  :me <action>  :911 <message>",
                         "",
                         "<b>Work</b>  :jobs  :apply <job>  :work  :stopwork  :quitjob",
@@ -288,8 +342,9 @@ final class City {
             default -> {}
         }
 
-        if (!this.inCity(room) && !verb.equals("setjob") && !verb.equals("rpreload") && !verb.equals("rpmoney") && !verb.equals("goto")) {
-            return this.no(habbo, "That only works in Nutropolis. Type :city to go there.");
+        boolean staffTool = verb.equals("setjob") || verb.equals("rpreload") || verb.equals("rpmoney") || verb.equals("goto");
+        if (!staffTool && (!this.inCityWorld(habbo) || !this.inCity(room))) {
+            return this.no(habbo, "That only works in Nutropolis: use Enter Nutropolis on the website.");
         }
         Citizen me = this.citizen(habbo);
         if (me == null) return this.no(habbo, "The city could not find your papers. Try again in a moment.");
