@@ -154,6 +154,28 @@ def main():
     for rel in ("networking/gameserver/wired/WiredApiOpenApi.java", "networking/gameserver/wired/WiredApiRouter.java"):
         literals(rel, lambda t: t.replace("Polaris", "Habnut"))
 
+    # Every sentence the server can say, under Habnut's text rule: a string
+    # literal with a space and a capital Habb- word, or the word Nitro (but not
+    # the X-Nitro-* protocol headers the client depends on).
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "scripts"))
+    from habnut_brand import rebrand
+
+    literal = re.compile(r'"((?:\\.|[^"\\\n])*)"')
+
+    def reword(m):
+        text = m.group(1)
+        sentence = " " in text and ("Habb" in text or ("Nitro" in text and "Nitro-" not in text and "-Nitro" not in text))
+        return '"' + rebrand(text) + '"' if sentence else m.group(0)
+
+    reworded = 0
+    for path in root.rglob("*.java"):
+        s = path.read_text(encoding="utf8")
+        t = literal.sub(reword, s)
+        if t != s:
+            path.write_text(t, encoding="utf8")
+            reworded += 1
+    print(f"reworded sentences in {reworded} files")
+
     print(f"branded as {NAME} v{VERSION}")
 
 

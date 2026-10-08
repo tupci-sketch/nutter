@@ -29,6 +29,14 @@ function habnut(string $s): string
         if (str_starts_with($p, 'http')) {
             continue;
         }
+        $parts[$i] = preg_replace_callback('/\\bnitro\\b/i', function ($m) {
+            $t = $m[0];
+            if (strtoupper($t) === $t) {
+                return 'NUTTY';
+            }
+
+            return ctype_upper($t[0]) ? 'Nutty' : 'nutty';
+        }, $parts[$i]);
         $parts[$i] = preg_replace_callback('/habb[oóòôö]/iu', function ($m) {
             $t = $m[0];
             if (mb_strtoupper($t) === $t) {
@@ -36,7 +44,16 @@ function habnut(string $s): string
             }
 
             return ctype_upper($t[0]) ? 'Habnut' : 'habnut';
-        }, $p);
+        }, $parts[$i]);
+        // whatever is left once Habbo is done: Habbicons -> Nuticons
+        $parts[$i] = preg_replace_callback('/habb/i', function ($m) {
+            $t = $m[0];
+            if (strtoupper($t) === $t) {
+                return 'NUT';
+            }
+
+            return ctype_upper($t[0]) ? 'Nut' : 'nut';
+        }, $parts[$i]);
     }
 
     return implode('', $parts);
@@ -148,6 +165,71 @@ foreach (glob("$root/resources/themes/*/views/{,*/,*/*/}*.blade.php", GLOB_BRACE
 
         return preg_replace('~(<x-user\.discord-widget\s*/>)~', "@if (setting('discord_widget_id'))\n            $1\n            @endif", $s);
     });
+}
+
+// The game client is Nutty: its page lives at /game/nutty, and says so.
+rewrite("$root/routes/web.php", fn ($s) => str_replace("Route::get('/nitro', NitroController::class)", "Route::get('/nutty', NitroController::class)", $s));
+foreach (glob("$root/resources/themes/*/views/client/nitro.blade.php") as $view) {
+    rewrite($view, fn ($s) => str_replace(
+        [" - Nitro</title>", 'id="nitro-client"', 'iframe id="nitro"'],
+        ["</title>", 'id="nutty-client"', 'iframe id="nutty"'],
+        $s
+    ));
+}
+foreach (glob("$root/resources/themes/*/views/public/assets/js/*.js") as $js) {
+    rewrite($js, fn ($s) => str_replace('getElementById("nitro")', 'getElementById("nutty")', $s));
+}
+
+// Habnut's type, served from the site itself: Nunito for text, Lilita One
+// for headings. No third-party font requests.
+$fontFaces = <<<'CSS'
+@font-face { font-family: "Nunito"; font-weight: 400; font-style: normal; font-display: swap; src: url("/assets/fonts/nunito-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Nunito"; font-weight: 400; font-style: italic; font-display: swap; src: url("/assets/fonts/nunito-latin-400-italic.woff2") format("woff2"); }
+@font-face { font-family: "Nunito"; font-weight: 500 700; font-style: normal; font-display: swap; src: url("/assets/fonts/nunito-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Nunito"; font-weight: 800 900; font-style: normal; font-display: swap; src: url("/assets/fonts/nunito-latin-800-normal.woff2") format("woff2"); }
+@font-face { font-family: "Lilita One"; font-weight: 400; font-style: normal; font-display: swap; src: url("/assets/fonts/lilita-one-latin-400-normal.woff2") format("woff2"); }
+h1, h2, .font-heading { font-family: "Lilita One", "Nunito", sans-serif; font-weight: 400; letter-spacing: 0.01em; }
+CSS;
+foreach (glob("$root/resources/themes/*/css/app.css") as $css) {
+    rewrite($css, function ($s) use ($fontFaces) {
+        $s = preg_replace('~@import\s+"https://fonts\.googleapis\.com/[^"]*";\s*~', '', $s);
+        $s = preg_replace('~font-family:\s*poppins,\s*sans-serif;~i', 'font-family: "Nunito", sans-serif;', $s);
+
+        if (str_contains($s, 'Lilita One')) {
+            return $s;
+        }
+        // after the @imports, which CSS insists come first
+        return preg_match_all('~^@import[^\n]*\n~m', $s, $m, PREG_OFFSET_CAPTURE)
+            ? substr_replace($s, $fontFaces . "\n", end($m[0])[1] + strlen(end($m[0])[0]), 0)
+            : $fontFaces . "\n" . $s;
+    });
+}
+foreach (glob("$root/resources/themes/*/views/layouts/*.blade.php") as $layout) {
+    rewrite($layout, fn ($s) => preg_replace(
+        ['~\s*<link rel="stylesheet" href="https://fonts\.googleapis\.com/[^"]*">~',
+         '~<link rel="icon" type="image/gif" sizes="18x17" href="\{\{ asset\(\'assets/images/home_icon\.gif\'\) \}\}">~'],
+        ['', '<link rel="icon" type="image/png" sizes="32x32" href="{{ asset(\'assets/images/habnut/icon-32.png\') }}">'
+            . "\n    " . '<link rel="apple-touch-icon" href="{{ asset(\'assets/images/habnut/icon-192.png\') }}">'],
+        $s
+    ));
+}
+
+// The logo generator offered the original hotel's lettering: not any more.
+foreach (glob("$root/resources/themes/*/views/logo-generator.blade.php") as $view) {
+    rewrite($view, fn ($s) => preg_replace(
+        '~\s*<div x-bind:class="\{[^"]*fontType === \'(habbo_modern|habton|habton_capitalized)\'\}"[\s\S]*?</div>~', '', $s));
+}
+// Atom's own letter set keeps its letters under a plain name.
+foreach (glob("$root/resources/themes/*/views/logo-generator.blade.php") as $view) {
+    rewrite($view, fn ($s) => str_replace(
+        ["logo-generator/atom/", "fontType === 'atom'", "selectFont('atom')", "fontType: 'atom'"],
+        ["logo-generator/blue/", "fontType === 'blue'", "selectFont('blue')", "fontType: 'blue'"], $s));
+}
+if (is_dir("$root/public/assets/images/logo-generator/atom")) {
+    rename("$root/public/assets/images/logo-generator/atom", "$root/public/assets/images/logo-generator/blue");
+}
+foreach (['habbo_modern', 'habton', 'habton_capitalized'] as $set) {
+    @exec('rm -rf ' . escapeshellarg("$root/public/assets/images/logo-generator/$set"));
 }
 
 // The admin panel is NutCMS Housekeeping.

@@ -44,7 +44,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     game = f"{site}/emu"
     wss = "wss://" + site.split("://", 1)[1] + "/emu/"
-    nitro = f"{site}/nitro"
+    nitro = f"{site}/nutty"  # artwork and game data, as Nutty (the client) knows them
 
     r = load_jsonc(os.path.join(src, "renderer-config.json.example.json"))
     r.update({
@@ -66,6 +66,8 @@ def main():
         "timezone.settings": "Europe/London",
         "loading.logo.url": f"{site}/client/habnut-logo.png",
     })
+    # bundles are served as *.nutty
+    r = json.loads(json.dumps(r).replace(".nitro\"", ".nutty\""))
     json.dump(r, open(os.path.join(out, "renderer-config.json"), "w"), indent=1)
 
     u = load_jsonc(os.path.join(src, "ui-config.example"))
@@ -81,6 +83,11 @@ def main():
         "thumbnails.url": f"{site}/usercontent/camera/thumbnail/%thumbnail%.png",
         "show.google.ads": False,
     })
+    # The hotel view and login backdrop: Habnut's sky and sun, nothing else.
+    view = {"background": "${images.url}/habnut/sky.png", "background.colour": "#8fd0f2", "sun": "${images.url}/habnut/sun.png",
+            "drape": "", "left": "", "right": "", "right.repeat": ""}
+    u.setdefault("loginview", {})["images"] = dict(view)
+    u.setdefault("hotelview", {})["images"] = dict(view)
     text = json.dumps(u, indent=1)
     for prefix in ("${asset.url}/images/", "${asset.url}/c_images/reception/"):
         text = text.replace(prefix, "${images.url}/" + ("reception/" if "reception" in prefix else ""))

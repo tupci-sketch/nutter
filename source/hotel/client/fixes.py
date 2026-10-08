@@ -33,4 +33,7 @@ edit("src/components/catalog/CatalogView.tsx",
      "{GetCatalogLayout(currentPage, () => setNavigationHidden(true))}",
      "{GetCatalogLayout(currentPage, hideNavigation)}")
 
+# The group members window said its count in Italian.
+edit("src/components/groups/views/GroupMembersView.tsx", " Membri. Pagina", " members. Page")
+
 print("fixes applied")

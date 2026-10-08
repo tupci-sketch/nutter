@@ -19,20 +19,8 @@ import shutil
 import sys
 import xml.etree.ElementTree as ET
 
-BRAND = re.compile(r"(?i)habb[oóòôö]")
-
-
-def rebrand(s):
-    if not isinstance(s, str):
-        return s
-    def repl(m):
-        t = m.group(0)
-        if t.isupper():
-            return "HABNUT"
-        return "Habnut" if t[0].isupper() else "habnut"
-    # Leave links alone: a rewritten URL points nowhere.
-    parts = re.split(r"(https?://\S+)", s)
-    return "".join(p if p.startswith("http") else BRAND.sub(repl, p) for p in parts)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from habnut_brand import rebrand  # noqa: E402  the one rule for visible text
 
 
 def main():
