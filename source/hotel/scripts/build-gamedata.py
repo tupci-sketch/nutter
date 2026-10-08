@@ -38,6 +38,14 @@ def main():
             name, desc = names.get(t["classname"], (t.get("name"), t.get("description")))
             t["name"] = rebrand(name)
             t["description"] = rebrand(desc)
+    # Readable names for furniture that came with placeholders (catalogue/name-furniture.py).
+    names_overlay = os.path.join(out, "FurnitureNames.habnut.json")
+    if os.path.exists(names_overlay):
+        fixed = json.load(open(names_overlay))
+        for section in ("roomitemtypes", "wallitemtypes"):
+            for t in furni[section]["furnitype"]:
+                if t["classname"] in fixed:
+                    t["name"], t["description"] = fixed[t["classname"]]["name"], fixed[t["classname"]]["description"]
     # Habnut's own furniture (exclusives/make-exclusives.py) lives in an overlay.
     overlay = os.path.join(out, "FurnitureData.habnut.json")
     if os.path.exists(overlay):
