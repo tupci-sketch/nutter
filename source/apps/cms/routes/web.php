@@ -53,10 +53,15 @@ Route::middleware('guest')->group(function () {
     Route::post('/register', [RegisterController::class, 'store']);
     Route::get('/login', [LoginController::class, 'show'])->name('login');
     Route::post('/login', [LoginController::class, 'store']);
-    Route::get('/password/reset', [PasswordResetController::class, 'show'])->name('password.request');
-    Route::post('/password/email', [PasswordResetController::class, 'email'])->name('password.email');
-    Route::get('/password/reset/{token}', [PasswordResetController::class, 'form'])->name('password.reset');
-    Route::post('/password/reset', [PasswordResetController::class, 'update'])->name('password.update');
+
+    // Off until outgoing mail is set up: a reset link nobody receives is a
+    // dead end for the player and a queue of failed sends for the server.
+    if (config('habnut.password_resets')) {
+        Route::get('/password/reset', [PasswordResetController::class, 'show'])->name('password.request');
+        Route::post('/password/email', [PasswordResetController::class, 'email'])->name('password.email');
+        Route::get('/password/reset/{token}', [PasswordResetController::class, 'form'])->name('password.reset');
+        Route::post('/password/reset', [PasswordResetController::class, 'update'])->name('password.update');
+    }
 });
 
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout')->middleware('auth');

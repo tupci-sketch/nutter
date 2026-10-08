@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Habnut Control</title>
+<style>
+  :root {
+    --bg: #f6f4ef; --panel: #ffffff; --ink: #2a2620; --muted: #776f62; --line: #e4dfd4;
+    --accent: #8a5a2b; --accent-ink: #ffffff; --ok: #2f7d4a; --warn: #a86b00; --bad: #b3362b;
+    --console: #1d1a16; --console-ink: #e9e3d6;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Ubuntu, Cantarell, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17150f; --panel: #211e17; --ink: #ece6da; --muted: #a49b8b; --line: #353026;
+      --accent: #d39a5e; --accent-ink: #1b150d; --ok: #6cc28a; --warn: #e0a640; --bad: #ef7b6f;
+      --console: #0f0d09; --console-ink: #e9e3d6;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding: 18px 24px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: .01em; }
+  header .host { color: var(--muted); font-family: var(--mono); font-size: 13px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+  .stat { border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .stat b { font-weight: 600; }
+  main { display: grid; gap: 16px; padding: 16px 24px 24px; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); max-width: 1400px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px 16px; min-width: 0; }
+  section h2 { margin: 0 0 4px; font-size: 15px; }
+  section p.note { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+  .wide { grid-column: 1 / -1; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; border: 1px solid currentColor; }
+  .pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
+  button, select, input[type=file] { font: inherit; }
+  button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .55; cursor: progress; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  select { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+  progress { width: 100%; height: 10px; margin-top: 10px; accent-color: var(--accent); }
+  .console { background: var(--console); color: var(--console-ink); font: 12.5px/1.45 var(--mono); border-radius: 6px; padding: 12px; height: 340px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+  .console-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+  .console-head .state { font-size: 13px; color: var(--muted); }
+  .list { max-height: 210px; overflow: auto; }
+  a.dl { color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Habnut Control</h1>
+  <span class="host" id="host">connecting…</span>
+  <div class="stats" id="stats"></div>
+</header>
+
+<main>
+  <section>
+    <h2>Services</h2>
+    <p class="note">What is running on the server. Restarting one briefly interrupts it.</p>
+    <table><thead><tr><th>Service</th><th>State</th><th></th></tr></thead><tbody id="services"><tr><td colspan="3">Loading…</td></tr></tbody></table>
+    <div class="row" style="margin-top:12px">
+      <button data-run="verify">Check the player path</button>
+      <button id="refresh">Refresh</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Asset pack</h2>
+    <p class="note">Upload a pack (.zip) from this computer. The server unpacks it, extracts the sprites, switches on avatars, and clears Cloudflare's copy.</p>
+    <div class="row">
+      <input type="file" id="pack" accept=".zip">
+      <select id="era" aria-label="Era"><option value="modern">Modern</option><option value="classic">Classic</option></select>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" id="upload">Upload and install</button>
+      <button data-run="assets">What is installed</button>
+    </div>
+    <progress id="progress" max="100" value="0" hidden></progress>
+  </section>
+
+  <section>
+    <h2>Backups</h2>
+    <p class="note">One is made every night and the last seven are kept. Download a copy to keep somewhere safe.</p>
+    <div class="row" style="margin-bottom:10px">
+      <button data-run="backup">Back up now</button>
+      <button id="listBackups">Refresh list</button>
+    </div>
+    <div class="list"><table><tbody id="backups"><tr><td>Loading…</td></tr></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>Updates</h2>
+    <p class="note">Update installs the latest version from GitHub; it checks itself and goes back on its own if anything fails. Rollback returns to the version before.</p>
+    <div class="row">
+      <button class="primary" data-run="update" data-confirm="Update the hotel to the latest version? Players are disconnected for about a minute.">Update to latest</button>
+      <button class="danger" data-run="rollback" data-confirm="Go back to the previous version?">Roll back</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Logs</h2>
+    <p class="note">The last 300 lines from a service.</p>
+    <div class="row">
+      <select id="logService" aria-label="Service">
+        <option value="emulator">Hotel</option><option value="cms">Website</option><option value="nginx">Web server</option>
+        <option value="db">Database</option><option value="redis">Cache</option><option value="imager">Imager</option><option value="cloudflared">Cloudflare tunnel</option>
+      </select>
+      <button id="showLogs">Show</button>
+    </div>
+  </section>
+
+  <section class="wide">
+    <div class="console-head"><h2 id="consoleTitle">Output</h2><span class="state" id="consoleState"></span></div>
+    <pre class="console" id="console" aria-live="polite">Pick something above. What the server says appears here.</pre>
+  </section>
+</main>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = (id) => document.getElementById(id);
+const out = $("console");
+let busy = false;
+
+function api(path) { return fetch(path, { headers: { "X-Habnut-Token": TOKEN } }); }
+
+function setBusy(b) {
+  busy = b;
+  document.querySelectorAll("button").forEach((x) => (x.disabled = b));
+}
+
+function finish(text) {
+  const m = text.match(/\n?\u0000exit:(-?\d+)\n?$/);
+  return { body: m ? text.slice(0, m.index) : text, code: m ? Number(m[1]) : null };
+}
+
+function showResult(title, code) {
+  $("consoleState").textContent = code === 0 ? "done" : code === null ? "" : `failed (exit ${code})`;
+  $("consoleState").style.color = code === 0 ? "var(--ok)" : "var(--bad)";
+}
+
+async function run(action, arg, title) {
+  if (busy) return;
+  setBusy(true);
+  $("consoleTitle").textContent = title || action;
+  $("consoleState").textContent = "running…"; $("consoleState").style.color = "var(--muted)";
+  out.textContent = "";
+  let text = "";
+  try {
+    const res = await api(`/api/run?action=${encodeURIComponent(action)}&arg=${encodeURIComponent(arg || "")}`);
+    const reader = res.body.getReader(); const dec = new TextDecoder();
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += dec.decode(value, { stream: true });
+      out.textContent = finish(text).body; out.scrollTop = out.scrollHeight;
+    }
+    const r = finish(text); showResult(title, r.code);
+    return r;
+  } catch (e) {
+    out.textContent += "\n" + e; showResult(title, -1);
+  } finally { setBusy(false); }
+}
+
+async function quiet(action) {
+  const res = await api(`/api/run?action=${action}`);
+  return finish(await res.text());
+}
+
+async function loadSummary() {
+  try {
+    const r = await quiet("summary");
+    const s = JSON.parse(r.body.trim().split("\n").pop());
+    $("stats").innerHTML = "";
+    const add = (label, value) => { const d = document.createElement("span"); d.className = "stat"; d.innerHTML = `${label} <b></b>`; d.querySelector("b").textContent = value; $("stats").append(d); };
+    add("Release", s.release); add("Players online", s.online);
+    add("Memory", `${s.memory.used} / ${s.memory.total} MB`); add("Disk", `${s.disk.used} of ${s.disk.size}`);
+    const tb = $("services"); tb.innerHTML = "";
+    for (const svc of s.services) {
+      const tr = document.createElement("tr");
+      const health = svc.health || svc.state;
+      const cls = health === "healthy" || (svc.state === "running" && !svc.health) ? "ok" : health === "starting" ? "warn" : "bad";
+      tr.innerHTML = `<td></td><td><span class="pill ${cls}"></span></td><td style="text-align:right"><button>Restart</button></td>`;
+      tr.children[0].textContent = svc.name; tr.querySelector(".pill").textContent = health;
+      tr.querySelector("button").onclick = () => confirm(`Restart ${svc.name}?`) && run("restart", svc.name, `Restart ${svc.name}`).then(loadSummary);
+      tb.append(tr);
+    }
+  } catch (e) {
+    $("services").innerHTML = `<tr><td colspan="3">Could not read the server's status. Check that "ssh ${$("host").textContent}" works in a terminal.</td></tr>`;
+  }
+}
+
+async function loadBackups() {
+  const tb = $("backups");
+  try {
+    const r = await quiet("backups");
+    const list = JSON.parse(r.body.trim().split("\n").pop() || "[]");
+    tb.innerHTML = list.length ? "" : "<tr><td>No backups yet.</td></tr>";
+    for (const b of list) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td></td><td style="font-variant-numeric:tabular-nums"></td><td style="text-align:right"><a class="dl">Download</a></td>`;
+      tr.children[0].textContent = b.taken; tr.children[1].textContent = b.size;
+      tr.querySelector("a").href = `/api/backup?name=${encodeURIComponent(b.name)}&token=${TOKEN}`;
+      tb.append(tr);
+    }
+  } catch (e) { tb.innerHTML = "<tr><td>Could not list backups.</td></tr>"; }
+}
+
+document.querySelectorAll("[data-run]").forEach((b) => {
+  b.onclick = async () => {
+    if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
+    await run(b.dataset.run, "", b.textContent);
+    if (["backup"].includes(b.dataset.run)) loadBackups();
+    loadSummary();
+  };
+});
+$("refresh").onclick = loadSummary;
+$("listBackups").onclick = loadBackups;
+$("showLogs").onclick = () => run("logs", $("logService").value, `Logs: ${$("logService").selectedOptions[0].text}`);
+
+$("upload").onclick = () => {
+  const f = $("pack").files[0];
+  if (!f) { alert("Choose a .zip file first."); return; }
+  if (busy) return;
+  setBusy(true);
+  $("consoleTitle").textContent = `Installing ${f.name}`;
+  $("consoleState").textContent = "uploading…"; $("consoleState").style.color = "var(--muted)";
+  out.textContent = "";
+  const bar = $("progress"); bar.hidden = false; bar.value = 0;
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", `/api/assets?era=${$("era").value}`);
+  xhr.setRequestHeader("X-Habnut-Token", TOKEN);
+  xhr.upload.onprogress = (e) => { if (e.lengthComputable) { bar.value = (e.loaded / e.total) * 100; $("consoleState").textContent = `uploading… ${Math.round(bar.value)}%`; } };
+  xhr.upload.onload = () => { $("consoleState").textContent = "installing on the server…"; };
+  xhr.onprogress = () => { out.textContent = finish(xhr.responseText).body; out.scrollTop = out.scrollHeight; };
+  xhr.onloadend = () => {
+    const r = finish(xhr.responseText || ""); out.textContent = r.body || out.textContent;
+    showResult("", xhr.status === 200 ? r.code : -1); bar.hidden = true; setBusy(false); loadSummary();
+  };
+  xhr.send(f);
+};
+
+api("/api/info").then((r) => r.json()).then((i) => { $("host").textContent = i.host; });
+loadSummary(); loadBackups();
+</script>
+</body>
+</html>

@@ -43,8 +43,12 @@ public final class SessionRegistry {
         bySessionId.remove(session.sessionId);
         Long uid = session.getUserId();
         if (uid != null) {
-            byUserId.remove(uid, session);
-            userRanks.remove(uid);
+            // Only when this was the player's current session: an older one closing
+            // after they signed in again elsewhere must not take the new one's
+            // rank with it, or a staff member drops off the staff list.
+            if (byUserId.remove(uid, session)) {
+                userRanks.remove(uid);
+            }
         }
         log.debug("Session removed: id={}", session.sessionId);
     }
