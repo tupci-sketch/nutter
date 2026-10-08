@@ -1,0 +1,303 @@
+{
+ "page": {
+  "id": 5020,
+  "parent": 2,
+  "caption": "Habnut Exclusives",
+  "icon": 145,
+  "text": "Furniture you will only ever find in Habnut. The Gold Editions: classic pieces cast in Habnut gold. Limited ones never come back."
+ },
+ "palettes": {
+  "gold": [
+   [
+    0,
+    [
+     46,
+     24,
+     0
+    ]
+   ],
+   [
+    0.3,
+    [
+     138,
+     74,
+     0
+    ]
+   ],
+   [
+    0.55,
+    [
+     226,
+     150,
+     8
+    ]
+   ],
+   [
+    0.78,
+    [
+     255,
+     206,
+     64
+    ]
+   ],
+   [
+    0.92,
+    [
+     255,
+     238,
+     150
+    ]
+   ],
+   [
+    1,
+    [
+     255,
+     252,
+     225
+    ]
+   ]
+  ]
+ },
+ "items": [
+  {
+   "base": "throne",
+   "classname": "habnut_gold_throne",
+   "id": 990001,
+   "name": "Habnut Gold Throne",
+   "description": "For the one in charge. Only in Habnut.",
+   "diamonds": 50,
+   "limited": 25,
+   "palette": "gold"
+  },
+  {
+   "base": "rare_trex",
+   "classname": "habnut_gold_rare_trex",
+   "id": 990002,
+   "name": "Habnut Gold T-Rex",
+   "description": "The original beast, cast in Habnut gold.",
+   "diamonds": 75,
+   "limited": 15,
+   "palette": "gold"
+  },
+  {
+   "base": "edice",
+   "classname": "habnut_gold_edice",
+   "id": 990003,
+   "name": "Habnut Gold Holodice",
+   "description": "Roll for glory. Only in Habnut.",
+   "diamonds": 15,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "rare_beehive_bulb",
+   "classname": "habnut_gold_rare_beehive_bulb",
+   "id": 990004,
+   "name": "Habnut Gold Pharaoh Lamp",
+   "description": "A gift from the Pharaohs of Habnut.",
+   "diamonds": 20,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "rare_fountain",
+   "classname": "habnut_gold_rare_fountain",
+   "id": 990005,
+   "name": "Habnut Gold Fountain",
+   "description": "Throw a nut in and make a wish.",
+   "diamonds": 20,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "rare_globe",
+   "classname": "habnut_gold_rare_globe",
+   "id": 990006,
+   "name": "Habnut Gold Globe",
+   "description": "The whole hotel in your hands.",
+   "diamonds": 15,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "rare_parasol",
+   "classname": "habnut_gold_rare_parasol",
+   "id": 990007,
+   "name": "Habnut Gold Parasol",
+   "description": "Shade, in style.",
+   "diamonds": 15,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "hc_chr",
+   "classname": "habnut_gold_hc_chr",
+   "id": 990008,
+   "name": "Habnut Gold Majestic Chair",
+   "description": "Royal comfort, Habnut style.",
+   "diamonds": 15,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "hc_tbl",
+   "classname": "habnut_gold_hc_tbl",
+   "id": 990009,
+   "name": "Habnut Gold Banquet Table",
+   "description": "A feast for the whole hotel.",
+   "diamonds": 20,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "hc_lmp",
+   "classname": "habnut_gold_hc_lmp",
+   "id": 990010,
+   "name": "Habnut Gold Oil Lamp",
+   "description": "Be enlightened, in gold.",
+   "diamonds": 12,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "hc_crtn",
+   "classname": "habnut_gold_hc_crtn",
+   "id": 990011,
+   "name": "Habnut Gold Drapery",
+   "description": "Privacy, the Habnut way.",
+   "diamonds": 15,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "rare_daffodil_rug",
+   "classname": "habnut_gold_rare_daffodil_rug",
+   "id": 990012,
+   "name": "Habnut Gold Petal Patch",
+   "description": "A little gold underfoot.",
+   "diamonds": 12,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "rare_snowrug",
+   "classname": "habnut_gold_rare_snowrug",
+   "id": 990013,
+   "name": "Habnut Gold Snow Patch",
+   "description": "Snow that never melts, gilded.",
+   "diamonds": 12,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "rare_moonrug",
+   "classname": "habnut_gold_rare_moonrug",
+   "id": 990014,
+   "name": "Habnut Gold Moon Rug",
+   "description": "One small step for a Habnut.",
+   "diamonds": 12,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "sofa_silo",
+   "classname": "habnut_gold_sofa_silo",
+   "id": 990015,
+   "name": "Habnut Gold Sofa",
+   "description": "Cushioned in gold.",
+   "diamonds": 10,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "chair_norja",
+   "classname": "habnut_gold_chair_norja",
+   "id": 990016,
+   "name": "Habnut Gold Chair",
+   "description": "Sleek, chic, gold.",
+   "diamonds": 8,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "sofa_polyfon",
+   "classname": "habnut_gold_sofa_polyfon",
+   "id": 990017,
+   "name": "Habnut Gold Couple's Sofa",
+   "description": "Comfort for golden couples.",
+   "diamonds": 10,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "bed_armas_two",
+   "classname": "habnut_gold_bed_armas_two",
+   "id": 990018,
+   "name": "Habnut Gold Double Bed",
+   "description": "Sleep like a hotel owner.",
+   "diamonds": 15,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "lamp_basic",
+   "classname": "habnut_gold_lamp_basic",
+   "id": 990019,
+   "name": "Habnut Gold Lamp",
+   "description": "Switch on the shine.",
+   "diamonds": 8,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "plant_big_cactus",
+   "classname": "habnut_gold_plant_big_cactus",
+   "id": 990020,
+   "name": "Habnut Gold Cactus",
+   "description": "Prickly and priceless.",
+   "diamonds": 8,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "tree5",
+   "classname": "habnut_gold_tree5",
+   "id": 990021,
+   "name": "Habnut Gold Tree",
+   "description": "Gilded for the season.",
+   "diamonds": 12,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "doormat_love",
+   "classname": "habnut_gold_doormat_love",
+   "id": 990022,
+   "name": "Habnut Gold Doormat",
+   "description": "Welcome Habnuts in style.",
+   "diamonds": 6,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "chair_plasto",
+   "classname": "habnut_gold_chair_plasto",
+   "id": 990023,
+   "name": "Habnut Gold Plastic Chair",
+   "description": "Hip plastic, golden finish.",
+   "diamonds": 6,
+   "limited": 0,
+   "palette": "gold"
+  },
+  {
+   "base": "table_plasto_square",
+   "classname": "habnut_gold_table_plasto_square",
+   "id": 990024,
+   "name": "Habnut Gold Side Table",
+   "description": "Hip plastic, golden finish.",
+   "diamonds": 6,
+   "limited": 0,
+   "palette": "gold"
+  }
+ ]
+}

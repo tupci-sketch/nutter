@@ -50,6 +50,13 @@ def main():
             name, desc = names.get(t["classname"], (t.get("name"), t.get("description")))
             t["name"] = rebrand(name)
             t["description"] = rebrand(desc)
+    # Habnut's own furniture (exclusives/make-exclusives.py) lives in an overlay.
+    overlay = os.path.join(out, "FurnitureData.habnut.json")
+    if os.path.exists(overlay):
+        extra = json.load(open(overlay))
+        for section in ("roomitemtypes", "wallitemtypes"):
+            ours = {t["classname"] for t in extra.get(section, [])}
+            furni[section]["furnitype"] = [t for t in furni[section]["furnitype"] if t["classname"] not in ours] + extra.get(section, [])
     json.dump(furni, open(os.path.join(out, "FurnitureData.json"), "w"), ensure_ascii=False, separators=(",", ":"))
 
     # The converter's texts come from whichever hotel it reached; the English
