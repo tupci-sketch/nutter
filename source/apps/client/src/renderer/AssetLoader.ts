@@ -2,6 +2,15 @@ import * as PIXI from 'pixi.js';
 import { FigureData } from './figure/FigureData';
 import { AvatarComposer } from './figure/AvatarComposer';
 
+/**
+ * The artwork a piece of furniture is drawn from. Colour variants are named
+ * "{item}*{colour}" ("chair_norja*2") and share their base item's drawings.
+ */
+export function artworkOf(item: string): string {
+  const star = item.indexOf('*');
+  return star > 0 ? item.slice(0, star) : item;
+}
+
 // ─── types ───────────────────────────────────────────────────────────────────
 
 /**
@@ -264,7 +273,7 @@ class AssetLoaderImpl {
    * Convention: {item}_{size}_{layer}_{direction}_{frame}
    */
   furniSpriteName(item: string, direction: number, layer: string, frame: number, size = 64): string {
-    return `${item}_${size}_${layer}_${direction}_${frame}`;
+    return `${artworkOf(item)}_${size}_${layer}_${direction}_${frame}`;
   }
 
   async getFurniSprite(
@@ -297,7 +306,7 @@ class AssetLoaderImpl {
 
   async getFurniIcon(item: string): Promise<ResolvedSprite | null> {
     for (const suffix of ['_icon', '_icon_a', '_icon_a_0_0']) {
-      const resolved = await this.resolve(item + suffix);
+      const resolved = await this.resolve(artworkOf(item) + suffix);
       if (resolved) return resolved;
     }
     return null;

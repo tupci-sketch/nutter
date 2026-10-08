@@ -7,12 +7,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/habnut/launcher/internal/dev"
 	"github.com/habnut/launcher/internal/doctor"
+	"github.com/habnut/launcher/internal/furni"
 	"github.com/habnut/launcher/internal/imager"
 	"github.com/habnut/launcher/internal/installer"
 	"github.com/habnut/launcher/internal/manage"
@@ -51,6 +53,7 @@ func main() {
 		cmdMigrate(),
 		cmdDev(),
 		cmdManage(),
+		cmdFurni(),
 		cmdVersion(),
 	)
 
@@ -348,6 +351,7 @@ func cmdSwf() *cobra.Command {
 		&cobra.Command{Use: "rebrand <name>", Short: "Apply branding strings to the asset pack", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			return swf.Rebrand(args[0])
 		}},
+		cmdSwfFurni(),
 		&cobra.Command{Use: "validate", Short: "Validate that every installed era is complete", RunE: func(_ *cobra.Command, _ []string) error {
 			if err := swf.Validate(); err != nil {
 				return err
@@ -436,5 +440,68 @@ func cmdManage() *cobra.Command {
 	cmd.Flags().StringVar(&cfg.Host, "host", "habnut", "the server, as you would give it to ssh")
 	cmd.Flags().StringVar(&cfg.Listen, "listen", cfg.Listen, "where to serve the panel on this computer")
 	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "print the address instead of opening a browser")
+	return cmd
+}
+
+// cmdFurni turns an installed build's furnidata into the hotel's furniture
+// and catalogue, as SQL for the server to apply.
+func cmdFurni() *cobra.Command {
+	cmd := &cobra.Command{Use: "furni", Short: "Bring the hotel's furniture in line with an asset build"}
+	var opt furni.Options
+	sqlCmd := &cobra.Command{
+		Use:   "sql <furnidata.xml>",
+		Short: "Print the SQL that adds and refreshes furniture and catalogue pages",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			f, err := os.Open(args[0])
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			items, err := furni.Parse(f)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "%d furniture definitions\n", len(items))
+			_, err = fmt.Print(furni.SQL(items, opt))
+			return err
+		},
+	}
+	sqlCmd.Flags().IntVar(&opt.Price, "price", 3, "credits for each newly listed offer")
+	sqlCmd.Flags().StringVar(&opt.ParentPage, "parent", "Furni Lines", "catalogue page the furniture lines go under")
+	cmd.AddCommand(sqlCmd)
+	return cmd
+}
+
+// cmdSwfFurni fetches the furniture artwork full builds leave out.
+func cmdSwfFurni() *cobra.Command {
+	var era, namesFile string
+	opt := swf.FurniOptions{}
+	cmd := &cobra.Command{
+		Use:   "furni",
+		Short: "Fetch furniture artwork for the installed furnidata",
+		Long: "Full client builds carry clothing, effects and pets but no furniture; each\n" +
+			"piece is its own SWF. This fetches them for the era's installed furnidata:\n" +
+			"everything on sale, anything named in --names, or with --all everything.\n" +
+			"Items already fetched at their current revision are skipped.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if namesFile != "" {
+				data, err := os.ReadFile(namesFile)
+				if err != nil {
+					return err
+				}
+				opt.Names = map[string]bool{}
+				for _, n := range strings.Fields(string(data)) {
+					opt.Names[n] = true
+				}
+			}
+			return swf.FetchFurni(era, opt)
+		},
+	}
+	cmd.Flags().StringVar(&era, "era", swf.EraModern, "visual era")
+	cmd.Flags().BoolVar(&opt.All, "all", false, "every item, not only what is on sale")
+	cmd.Flags().StringVar(&namesFile, "names", "", "file of extra classnames to fetch")
+	cmd.Flags().StringVar(&opt.CDN, "cdn", swf.DefaultFurniCDN, "where furniture SWFs are fetched from")
+	cmd.Flags().IntVar(&opt.Jobs, "jobs", 8, "downloads at once")
 	return cmd
 }

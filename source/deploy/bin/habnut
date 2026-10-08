@@ -16,7 +16,11 @@
 #   habnut restore <file.sql.gz> --yes   put a backup back
 #   habnut artisan <command...>          run a website command as www-data
 #   habnut update                        install the latest version from GitHub
-#   habnut assets status|receive <era>   show, or install a pack read from stdin
+#   habnut assets status|builds          what is installed / what the archive offers
+#   habnut assets fetch <build>          download a client build here and install it
+#   habnut assets receive <era>          install a pack read from stdin
+#   habnut assets furni [all]            fetch furniture artwork builds leave out
+#   habnut furni sync                    put the installed furniture in the database
 #   habnut summary | backups             JSON for the control panel
 #
 # Settings live in /opt/habnut/shared/habnut.env, readable by root only.
@@ -30,6 +34,7 @@ SHARED=$HABNUT_ROOT/shared
 CURRENT=$HABNUT_ROOT/current
 HISTORY=$HABNUT_ROOT/history
 ASSETS=${HABNUT_ASSETS:-/var/lib/habnut/assets}
+SWF_ROOT=/var/lib/habnut/swf
 ENV_FILE=$SHARED/habnut.env
 KEEP_RELEASES=3
 KEEP_BACKUPS=7
@@ -70,7 +75,7 @@ random() { openssl rand -hex "$(( (${1:-32} + 1) / 2 ))"; }
 
 compose_in() {
   local rel=$1; shift
-  HABNUT_SHARED=$SHARED HABNUT_ASSETS=$ASSETS HABNUT_VERSION=$(cat "$rel/VERSION") \
+  HABNUT_SHARED=$SHARED HABNUT_ASSETS=$ASSETS HABNUT_VERSION=$(basename "$rel") \
   COMPOSE_PROFILES=$(env_get HABNUT_PROFILES) \
     docker compose --project-name habnut --env-file "$ENV_FILE" \
       -f "$rel/deploy/compose.yaml" "$@"
@@ -320,9 +325,14 @@ cmd_deploy() {
   top=$(unzip -Z1 "$zip" | awk -F/ 'NR == 1 { print $1 }')
   version=$(unzip -p "$zip" "$top/VERSION" | tr -d '[:space:]')
   [[ $version =~ ^[A-Za-z0-9._-]+$ ]] || die "$zip has no usable VERSION"
-  rel=$RELEASES/$version
+  # Its own directory every time, never one in use. Two builds can carry the
+  # same version, and unpacking over the live release's directory pulled it out
+  # from under the running containers: the site answered 403 until they were
+  # recreated. The website's image is tagged with this name too, so a rebuild
+  # under an unchanged version still gets an image of its own.
+  rel=$RELEASES/$version-$(date -u +%Y%m%d%H%M%S)
 
-  say "Unpacking $version"
+  say "Unpacking $version into $(basename "$rel")"
   mkdir -p "$RELEASES"
   rm -rf "$rel.unpack"
   unzip -q "$zip" -d "$rel.unpack"
@@ -342,9 +352,7 @@ cmd_deploy() {
   render_alertmanager
 
   say "Building the website's image"
-  if ! docker image inspect "habnut-cms:$version" >/dev/null 2>&1; then
-    compose_in "$rel" build --quiet cms
-  fi
+  compose_in "$rel" build --quiet cms
 
   say "Fetching images"
   compose_in "$rel" pull --quiet db redis emulator imager nginx
@@ -396,7 +404,7 @@ cmd_deploy() {
     die "$version failed its checks"
   fi
 
-  echo "$version" >> "$HISTORY"
+  basename "$rel" >> "$HISTORY"
   install_cli
   install_timers
   prune_releases
@@ -636,59 +644,158 @@ cloudflare_purge() {
   fi
 }
 
-# Set while a pack is being received, so the exit trap can clear it up. A
+# Set while a pack is being worked on, so the exit trap can clear it up. A
 # global: a trap runs after the function's locals are gone.
 ASSET_WORK=''
+ASSET_ARCHIVE=https://www.habboassets.com/api/v2
+
+asset_workdir() {
+  mkdir -p "$SHARED/uploads"; chmod 700 "$SHARED/uploads"
+  ASSET_WORK=$(mktemp -d "$SHARED/uploads/pack-XXXXXX")
+  trap 'rm -rf "${ASSET_WORK:-}"' EXIT
+}
+
+# install_pack <zip> <era>: unpack into a staging area, check it is complete,
+# then move it into place. Nothing the hotel serves changes until the check
+# has passed, and the pack it replaces is kept so it can be put back.
+install_pack() {
+  local file=$1 era=$2 hctl="$CURRENT/bin/habnutctl" stage
+  stage=$ASSET_WORK/stage
+  unzip -tq "$file" >/dev/null 2>&1 || die "that is not a complete .zip file"
+
+  say "Unpacking and extracting sprites (several minutes for a full build)"
+  nice -n 10 "$hctl" swf install "$file" --era "$era" --dir "$stage" \
+    || die "the pack could not be unpacked; nothing on the server was changed"
+  say "Checking it is a complete pack"
+  "$hctl" swf validate --dir "$stage" \
+    || die "that is not a complete asset pack; nothing on the server was changed"
+
+  mkdir -p "$ASSETS" "$SWF_ROOT"
+  rm -rf "$ASSETS/.previous-$era" "$SWF_ROOT/.previous-$era"
+  if [ -d "$ASSETS/$era" ]; then
+    say "Keeping the current $era pack, so it can be put back"
+    mv "$ASSETS/$era" "$ASSETS/.previous-$era"
+    [ -d "$SWF_ROOT/$era" ] && mv "$SWF_ROOT/$era" "$SWF_ROOT/.previous-$era"
+  fi
+  # Furniture fetched item by item is not part of a build; it comes across.
+  if [ -d "$ASSETS/.previous-$era/hof" ] && [ ! -d "$stage/assets/$era/hof" ]; then
+    say "Keeping the furniture already fetched"
+    cp -a "$ASSETS/.previous-$era/hof" "$stage/assets/$era/hof"
+    "$hctl" swf furni --dir "$stage" --era "$era" >/dev/null 2>&1 || true
+  fi
+  say "Putting it in place"
+  mv "$stage/assets/$era" "$ASSETS/$era"
+  [ -d "$stage/swf/$era" ] && mv "$stage/swf/$era" "$SWF_ROOT/$era"
+  # The staged manifest describes only this era; keep any other era recorded.
+  python3 - "$stage/swf/PACK_MANIFEST.json" "$SWF_ROOT/PACK_MANIFEST.json" "$era" <<'EOF'
+import json, os, sys
+staged, live, era = sys.argv[1:]
+new = json.load(open(staged))
+if os.path.exists(live):
+    old = json.load(open(live))
+    eras = old.get("eras") or {}
+    eras[era] = (new.get("eras") or {})[era]
+    new["eras"] = eras
+tmp = live + ".tmp"
+json.dump(new, open(tmp, "w"), indent=2)
+os.replace(tmp, live)
+EOF
+  chmod -R a+rX "$ASSETS/$era"
+  "$hctl" swf validate || die "the installed pack did not validate"
+
+  say "Switching the website's pictures on"
+  render_cms_env
+  compose restart cms >/dev/null
+  compose up -d --wait --wait-timeout 420 cms >/dev/null
+  cloudflare_purge
+  say "Pack installed."
+}
 
 cmd_assets() {
   need_root assets
-  local sub=${1:-status} era=${2:-modern} up file stage previous
-  local hctl="$CURRENT/bin/habnutctl"
+  local sub=${1:-status} file name url
   case $sub in
     status)
-      "$hctl" swf status ;;
-    receive)
-      [[ $era =~ ^(classic|modern)$ ]] || die "era must be classic or modern"
-      up=$SHARED/uploads
-      mkdir -p "$up"; chmod 700 "$up"
-      ASSET_WORK=$(mktemp -d "$up/pack-XXXXXX")
-      trap 'rm -rf "${ASSET_WORK:-}"' EXIT
-      file=$ASSET_WORK/pack.zip
-      stage=$ASSET_WORK/stage
+      "$CURRENT/bin/habnutctl" swf status ;;
 
+    receive)
+      local era=${2:-modern}
+      [[ $era =~ ^(classic|modern)$ ]] || die "era must be classic or modern"
+      asset_workdir
+      file=$ASSET_WORK/pack.zip
       say "Receiving the pack"
       # 4 GB at most, so a runaway upload cannot fill the disk.
       head -c 4294967296 > "$file"
       say "Received $(du -h "$file" | cut -f1)"
-      unzip -tq "$file" >/dev/null 2>&1 || die "that is not a complete .zip file"
+      install_pack "$file" "$era" ;;
 
-      # Tried somewhere harmless first. The installer takes any zip, so a pack
-      # with no artwork in it would otherwise be "installed" and switch the
-      # website's pictures on with nothing behind them.
-      say "Checking it is a complete pack"
-      "$hctl" swf install "$file" --era "$era" --dir "$stage" >"$ASSET_WORK/check.log" 2>&1 \
-        || { tail -n 15 "$ASSET_WORK/check.log" >&2; die "the pack could not be unpacked"; }
-      "$hctl" swf validate --dir "$stage" \
-        || die "that is not a complete asset pack; nothing on the server was changed"
+    # The client builds the public asset archive keeps, newest first, as JSON.
+    builds)
+      curl -fsS -m 30 -H "Accept: application/json" "$ASSET_ARCHIVE/swfs/builds" | python3 -c '
+import json, sys
+print(json.dumps([{"name": b["name"], "size_mb": b.get("size_mb"), "found": b.get("found"),
+                   "hotels": b.get("hotels") or []} for b in json.load(sys.stdin).get("data", [])]))' ;;
 
-      previous=$ASSETS/.previous-$era
-      if [ -d "$ASSETS/$era" ]; then
-        say "Keeping the current $era pack, so it can be put back"
-        rm -rf "$previous"
-        cp -a "$ASSETS/$era" "$previous"
+    # Fetches a whole client build (every SWF and the gamedata) straight from
+    # the archive to this server, then installs it as the modern era.
+    fetch)
+      name=${2:-}
+      [[ $name =~ ^[A-Za-z0-9._-]{1,120}$ ]] || die "usage: habnut assets fetch <build name>"
+      asset_workdir
+      file=$ASSET_WORK/pack.zip
+      url="$ASSET_ARCHIVE/swfs/builds/$name/download"
+      say "Downloading $name"
+      curl -fSL --progress-bar -m 1800 --max-filesize 4294967296 -o "$file" "$url" 2>&1 \
+        | tr '\r' '\n' | awk 'NR % 20 == 0' || die "the download failed"
+      [ -s "$file" ] || die "the download failed"
+      say "Downloaded $(du -h "$file" | cut -f1)"
+      install_pack "$file" modern ;;
+
+    # Furniture artwork, which builds leave out: everything on sale, and
+    # anything the hotel already holds, or with 'all' every item there is.
+    furni)
+      local names
+      names=$(mktemp)
+      { echo "SELECT DISTINCT b.sprite_id FROM habnut_items_base b
+               WHERE b.id IN (SELECT base_id FROM habnut_floor_items
+                              UNION SELECT base_id FROM habnut_wall_items
+                              UNION SELECT base_id FROM habnut_items_inventory
+                              UNION SELECT base_id FROM habnut_catalogue_offers);" \
+          | db_sql "$(readlink -f "$CURRENT")" || true; } > "$names"
+      if [ "${2:-}" = all ]; then
+        nice -n 10 "$CURRENT/bin/habnutctl" swf furni --all --names "$names"
+      else
+        nice -n 10 "$CURRENT/bin/habnutctl" swf furni --names "$names"
       fi
-      say "Installing it into the $era era"
-      "$hctl" swf install "$file" --era "$era"
-      "$hctl" swf validate || die "the installed pack did not validate"
+      rm -f "$names"
+      cloudflare_purge ;;
 
-      say "Switching the website's pictures on"
-      render_cms_env
-      compose restart cms >/dev/null
-      compose up -d --wait --wait-timeout 420 cms >/dev/null
-      cloudflare_purge
-      say "Pack installed." ;;
-    *) die "usage: habnut assets status | receive <classic|modern> < pack.zip" ;;
+    *) die "usage: habnut assets status | builds | fetch <build> | furni [all] | receive <classic|modern> < pack.zip" ;;
   esac
+}
+
+# Brings the hotel's furniture and catalogue in line with the installed
+# furnidata: new items get rows and go on sale under their furniture line;
+# existing ones are refreshed. Then the hotel restarts to load them, which
+# disconnects players for under a minute.
+cmd_furni() {
+  need_root furni
+  local era=${2:-modern} data rel sql
+  [ "${1:-}" = sync ] || die "usage: habnut furni sync [era]"
+  data=$ASSETS/$era/furnidata.xml
+  [ -f "$data" ] || die "no furnidata for $era: install a build first"
+  rel=$(readlink -f "$CURRENT")
+  sql=$(mktemp)
+  "$rel/bin/habnutctl" furni sql "$data" > "$sql"
+  say "Applying furniture to the database"
+  db_sql "$rel" < "$sql" >/dev/null
+  rm -f "$sql"
+  echo "SELECT CONCAT((SELECT COUNT(*) FROM habnut_items_base), ' furniture definitions, ',
+                      (SELECT COUNT(*) FROM habnut_catalogue_offers), ' catalogue offers');" | db_sql "$rel"
+  say "Restarting the hotel so it loads them"
+  compose restart emulator >/dev/null
+  compose up -d --wait --wait-timeout 420 emulator >/dev/null
+  say "Furniture synced."
 }
 
 # Installs whatever is on GitHub's main branch, from a checkout of its own.
@@ -733,6 +840,7 @@ main() {
     backup-fetch) cmd_backup_fetch "$@" ;;
     assets)       cmd_assets "$@" ;;
     update)       cmd_update "$@" ;;
+    furni)        cmd_furni "$@" ;;
     restart)      need_root restart; compose restart "$@" ;;
     reconfigure)  cmd_reconfigure "$@" ;;
     secret)       cmd_secret "$@" ;;
@@ -740,7 +848,7 @@ main() {
     backup)       cmd_backup "$@" ;;
     restore)      cmd_restore "$@" ;;
     artisan)      compose exec -T -u www-data cms php artisan "$@" ;;
-    help|-h|--help) sed -n '3,23p' "$0" | sed 's/^# \{0,1\}//' ;;
+    help|-h|--help) sed -n '3,27p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command '$cmd' (try: habnut help)" ;;
   esac
 }
