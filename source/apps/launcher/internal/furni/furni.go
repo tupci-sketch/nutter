@@ -28,6 +28,7 @@ import (
 // Item is one furnitype from a furnidata file.
 type Item struct {
 	Classname   string
+	Revision    int
 	Wall        bool
 	Name        string
 	Description string
@@ -48,6 +49,7 @@ type Item struct {
 
 type xmlType struct {
 	Classname   string `xml:"classname,attr"`
+	Revision    string `xml:"revision"`
 	Name        string `xml:"name"`
 	Description string `xml:"description"`
 	Category    string `xml:"category"`
@@ -86,6 +88,7 @@ func Parse(r io.Reader) ([]Item, error) {
 			}
 			items = append(items, Item{
 				Classname:   name,
+				Revision:    bounded(t.Revision, 0, 0, 1<<30),
 				Wall:        wall,
 				Name:        clip(Rebrand(strings.TrimSpace(t.Name)), 128),
 				Description: clip(Rebrand(strings.TrimSpace(t.Description)), 512),
@@ -161,6 +164,15 @@ func interactionType(it Item) string {
 		return "gate"
 	}
 	return "default"
+}
+
+// Artwork is the file a piece of furniture is drawn from: colour variants
+// ("chair_norja*2") share their base item's file.
+func (it Item) Artwork() string {
+	if i := strings.IndexByte(it.Classname, '*'); i > 0 {
+		return it.Classname[:i]
+	}
+	return it.Classname
 }
 
 // Options shape the catalogue part.

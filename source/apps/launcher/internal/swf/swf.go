@@ -280,6 +280,7 @@ func mergeManifests(era string) error {
 		{figureAssetsDir(era), "figure/"},
 		{roomAssetsDir(era), "room/"},
 		{effectAssetsDir(era), "effect/"},
+		{hofAssetsDir(era), "hof/"},
 	} {
 		mPath := filepath.Join(sub.dir, "manifest.json")
 		data, err := os.ReadFile(mPath)
@@ -296,11 +297,7 @@ func mergeManifests(era string) error {
 		}
 	}
 
-	data, err := json.MarshalIndent(combined, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(eraRoot(era), "manifest.json"), data, 0644)
+	return writeJSONAtomic(filepath.Join(eraRoot(era), "manifest.json"), combined)
 }
 
 // copyAssetXMLs finds and copies furnidata.xml, figuremap.xml, figuredata.xml

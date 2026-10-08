@@ -19,6 +19,8 @@
 #   habnut assets status|builds          what is installed / what the archive offers
 #   habnut assets fetch <build>          download a client build here and install it
 #   habnut assets receive <era>          install a pack read from stdin
+#   habnut assets furni [all]            fetch furniture artwork builds leave out
+#   habnut furni sync                    put the installed furniture in the database
 #   habnut summary | backups             JSON for the control panel
 #
 # Settings live in /opt/habnut/shared/habnut.env, readable by root only.
@@ -675,6 +677,12 @@ install_pack() {
     mv "$ASSETS/$era" "$ASSETS/.previous-$era"
     [ -d "$SWF_ROOT/$era" ] && mv "$SWF_ROOT/$era" "$SWF_ROOT/.previous-$era"
   fi
+  # Furniture fetched item by item is not part of a build; it comes across.
+  if [ -d "$ASSETS/.previous-$era/hof" ] && [ ! -d "$stage/assets/$era/hof" ]; then
+    say "Keeping the furniture already fetched"
+    cp -a "$ASSETS/.previous-$era/hof" "$stage/assets/$era/hof"
+    "$hctl" swf furni --dir "$stage" --era "$era" >/dev/null 2>&1 || true
+  fi
   say "Putting it in place"
   mv "$stage/assets/$era" "$ASSETS/$era"
   [ -d "$stage/swf/$era" ] && mv "$stage/swf/$era" "$SWF_ROOT/$era"
@@ -743,8 +751,51 @@ print(json.dumps([{"name": b["name"], "size_mb": b.get("size_mb"), "found": b.ge
       say "Downloaded $(du -h "$file" | cut -f1)"
       install_pack "$file" modern ;;
 
-    *) die "usage: habnut assets status | builds | fetch <build> | receive <classic|modern> < pack.zip" ;;
+    # Furniture artwork, which builds leave out: everything on sale, and
+    # anything the hotel already holds, or with 'all' every item there is.
+    furni)
+      local names
+      names=$(mktemp)
+      { echo "SELECT DISTINCT b.sprite_id FROM habnut_items_base b
+               WHERE b.id IN (SELECT base_id FROM habnut_floor_items
+                              UNION SELECT base_id FROM habnut_wall_items
+                              UNION SELECT base_id FROM habnut_items_inventory
+                              UNION SELECT base_id FROM habnut_catalogue_offers);" \
+          | db_sql "$(readlink -f "$CURRENT")" || true; } > "$names"
+      if [ "${2:-}" = all ]; then
+        nice -n 10 "$CURRENT/bin/habnutctl" swf furni --all --names "$names"
+      else
+        nice -n 10 "$CURRENT/bin/habnutctl" swf furni --names "$names"
+      fi
+      rm -f "$names"
+      cloudflare_purge ;;
+
+    *) die "usage: habnut assets status | builds | fetch <build> | furni [all] | receive <classic|modern> < pack.zip" ;;
   esac
+}
+
+# Brings the hotel's furniture and catalogue in line with the installed
+# furnidata: new items get rows and go on sale under their furniture line;
+# existing ones are refreshed. Then the hotel restarts to load them, which
+# disconnects players for under a minute.
+cmd_furni() {
+  need_root furni
+  local era=${2:-modern} data rel sql
+  [ "${1:-}" = sync ] || die "usage: habnut furni sync [era]"
+  data=$ASSETS/$era/furnidata.xml
+  [ -f "$data" ] || die "no furnidata for $era: install a build first"
+  rel=$(readlink -f "$CURRENT")
+  sql=$(mktemp)
+  "$rel/bin/habnutctl" furni sql "$data" > "$sql"
+  say "Applying furniture to the database"
+  db_sql "$rel" < "$sql" >/dev/null
+  rm -f "$sql"
+  echo "SELECT CONCAT((SELECT COUNT(*) FROM habnut_items_base), ' furniture definitions, ',
+                      (SELECT COUNT(*) FROM habnut_catalogue_offers), ' catalogue offers');" | db_sql "$rel"
+  say "Restarting the hotel so it loads them"
+  compose restart emulator >/dev/null
+  compose up -d --wait --wait-timeout 420 emulator >/dev/null
+  say "Furniture synced."
 }
 
 # Installs whatever is on GitHub's main branch, from a checkout of its own.
@@ -789,6 +840,7 @@ main() {
     backup-fetch) cmd_backup_fetch "$@" ;;
     assets)       cmd_assets "$@" ;;
     update)       cmd_update "$@" ;;
+    furni)        cmd_furni "$@" ;;
     restart)      need_root restart; compose restart "$@" ;;
     reconfigure)  cmd_reconfigure "$@" ;;
     secret)       cmd_secret "$@" ;;
@@ -796,7 +848,7 @@ main() {
     backup)       cmd_backup "$@" ;;
     restore)      cmd_restore "$@" ;;
     artisan)      compose exec -T -u www-data cms php artisan "$@" ;;
-    help|-h|--help) sed -n '3,25p' "$0" | sed 's/^# \{0,1\}//' ;;
+    help|-h|--help) sed -n '3,27p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command '$cmd' (try: habnut help)" ;;
   esac
 }

@@ -81,6 +81,9 @@ var actions = map[string]action{
 	"rollback": {fixed("rollback"), 15 * time.Minute},
 	"assets":   {fixed("assets", "status"), time.Minute},
 	"builds":   {fixed("assets", "builds"), time.Minute},
+	"furni":    {fixed("assets", "furni"), 60 * time.Minute},
+	"furniall": {fixed("assets", "furni", "all"), 180 * time.Minute},
+	"sync":     {fixed("furni", "sync"), 15 * time.Minute},
 	"fetch": {func(arg string) ([]string, error) {
 		if !buildName.MatchString(arg) {
 			return nil, fmt.Errorf("not a build name")

@@ -86,6 +86,18 @@
   </section>
 
   <section>
+    <h2>Furniture</h2>
+    <p class="note">Builds carry avatars, clothing, effects and pets; furniture artwork comes item by item. Fetch what is on sale (about a minute), or every item there is. Then sync, which adds new items to the database and the catalogue, one page per furniture line, and restarts the hotel (players are disconnected for under a minute). Run both after installing a newer build to pick up new releases.</p>
+    <div class="row">
+      <button class="primary" data-run="furni">Fetch furniture on sale</button>
+      <button data-run="furniall" data-confirm="Fetch every piece of furniture there is? About 13,000 items; it takes a while and around 1 GB of disk.">Fetch all</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" data-run="sync" data-confirm="Add new furniture to the database and catalogue? The hotel restarts; players are disconnected for under a minute.">Sync furniture &amp; catalogue</button>
+    </div>
+  </section>
+
+  <section>
     <h2>Asset pack</h2>
     <p class="note">Or upload a pack (.zip) from this computer. The server checks it is complete before anything changes, extracts the sprites, switches on avatars, and clears Cloudflare's copy.</p>
     <div class="row">

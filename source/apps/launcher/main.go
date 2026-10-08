@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -350,6 +351,7 @@ func cmdSwf() *cobra.Command {
 		&cobra.Command{Use: "rebrand <name>", Short: "Apply branding strings to the asset pack", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			return swf.Rebrand(args[0])
 		}},
+		cmdSwfFurni(),
 		&cobra.Command{Use: "validate", Short: "Validate that every installed era is complete", RunE: func(_ *cobra.Command, _ []string) error {
 			if err := swf.Validate(); err != nil {
 				return err
@@ -468,5 +470,38 @@ func cmdFurni() *cobra.Command {
 	sqlCmd.Flags().IntVar(&opt.Price, "price", 3, "credits for each newly listed offer")
 	sqlCmd.Flags().StringVar(&opt.ParentPage, "parent", "Furni Lines", "catalogue page the furniture lines go under")
 	cmd.AddCommand(sqlCmd)
+	return cmd
+}
+
+// cmdSwfFurni fetches the furniture artwork full builds leave out.
+func cmdSwfFurni() *cobra.Command {
+	var era, namesFile string
+	opt := swf.FurniOptions{}
+	cmd := &cobra.Command{
+		Use:   "furni",
+		Short: "Fetch furniture artwork for the installed furnidata",
+		Long: "Full client builds carry clothing, effects and pets but no furniture; each\n" +
+			"piece is its own SWF. This fetches them for the era's installed furnidata:\n" +
+			"everything on sale, anything named in --names, or with --all everything.\n" +
+			"Items already fetched at their current revision are skipped.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if namesFile != "" {
+				data, err := os.ReadFile(namesFile)
+				if err != nil {
+					return err
+				}
+				opt.Names = map[string]bool{}
+				for _, n := range strings.Fields(string(data)) {
+					opt.Names[n] = true
+				}
+			}
+			return swf.FetchFurni(era, opt)
+		},
+	}
+	cmd.Flags().StringVar(&era, "era", swf.EraModern, "visual era")
+	cmd.Flags().BoolVar(&opt.All, "all", false, "every item, not only what is on sale")
+	cmd.Flags().StringVar(&namesFile, "names", "", "file of extra classnames to fetch")
+	cmd.Flags().StringVar(&opt.CDN, "cdn", swf.DefaultFurniCDN, "where furniture SWFs are fetched from")
+	cmd.Flags().IntVar(&opt.Jobs, "jobs", 8, "downloads at once")
 	return cmd
 }
