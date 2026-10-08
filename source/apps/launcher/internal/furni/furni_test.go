@@ -34,7 +34,7 @@ func TestParseReadsRoomAndWallItems(t *testing.T) {
 
 func TestPlayersNeverReadTheOriginalName(t *testing.T) {
 	for in, want := range map[string]string{
-		"Habbo Club Sofa": "Habnut Club Sofa", "HABBO": "HABNUT", "habboween": "habnutween",
+		"Habbo Club Sofa": "Habnut Club Sofa", "HABBO": "HABNUT", "habboween": "habnutween", "Habbóbora": "Habnutbora",
 	} {
 		if got := Rebrand(in); got != want {
 			t.Errorf("Rebrand(%q) = %q, want %q", in, got, want)
@@ -53,6 +53,8 @@ func TestSQLQuotesAndKeepsHandTunedValues(t *testing.T) {
 		"'bed_x'", "'bed',1",
 		"WHERE b.sprite_id IN ('shelves_norja')",
 		"'Habnutween 2018'",
+		// What an offer contains: the catalogue's items_json has no default.
+		`CONCAT('[{"baseId":', b.id, ',"count":1}]')`,
 	} {
 		if !strings.Contains(sql, want) {
 			t.Errorf("SQL lacks %s", want)

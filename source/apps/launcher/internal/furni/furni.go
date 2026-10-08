@@ -117,14 +117,15 @@ func Parse(r io.Reader) ([]Item, error) {
 	return items, nil
 }
 
-var habbo = regexp.MustCompile(`(?i)habbo`)
+// Accented forms too: "Habbóbora" is a pumpkin in the Brazilian hotel.
+var habbo = regexp.MustCompile(`(?i)habb[oóòôö]`)
 
 // Rebrand puts the hotel's own name where the original's appears. Item names
 // and descriptions are read by players, and this is Habnut.
 func Rebrand(s string) string {
 	return habbo.ReplaceAllStringFunc(s, func(m string) string {
 		switch {
-		case m == strings.ToUpper(m):
+		case strings.ToUpper(m) == m && strings.ToLower(m) != m:
 			return "HABNUT"
 		case m[0] >= 'A' && m[0] <= 'Z':
 			return "Habnut"
@@ -251,8 +252,8 @@ func SQL(items []Item, opt Options) string {
 		sort.Slice(group, func(i, j int) bool { return group[i].Classname < group[j].Classname })
 		for start := 0; start < len(group); start += 200 {
 			end := min(start+200, len(group))
-			b.WriteString("INSERT INTO habnut_catalogue_offers (page_id, base_id, name, description, credits_price, order_index, is_visible) " +
-				"SELECT @page, b.id, b.name, b.description, " + strconv.Itoa(opt.Price) + ", 0, 1 " +
+			b.WriteString("INSERT INTO habnut_catalogue_offers (page_id, base_id, name, description, items_json, credits_price, order_index, is_visible) " +
+				"SELECT @page, b.id, b.name, b.description, CONCAT('[{\"baseId\":', b.id, ',\"count\":1}]'), " + strconv.Itoa(opt.Price) + ", 0, 1 " +
 				"FROM habnut_items_base b WHERE b.sprite_id IN (")
 			for k, it := range group[start:end] {
 				if k > 0 {
