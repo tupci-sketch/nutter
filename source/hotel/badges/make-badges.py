@@ -15,13 +15,6 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
-spec_path, root = sys.argv[1:3]
-spec = json.load(open(spec_path))
-album = os.path.join(root, "c_images", "album1584")
-icons = os.path.join(root, "c_images", "dcr", "hof_furni", "icons")
-texts_path = os.path.join(root, "gamedata", "ExternalTexts.json")
-overlay_path = os.path.join(root, "gamedata", "ExternalTexts.habnut.json")
-
 SIZE = 40
 
 
@@ -66,6 +59,12 @@ def to_gif(img, path):
 
 
 def main():
+    spec_path, root = sys.argv[1:3]
+    spec = json.load(open(spec_path))
+    album = os.path.join(root, "c_images", "album1584")
+    icons = os.path.join(root, "c_images", "dcr", "hof_furni", "icons")
+    texts_path = os.path.join(root, "gamedata", "ExternalTexts.json")
+    overlay_path = os.path.join(root, "gamedata", "ExternalTexts.habnut.json")
     texts = {}
     for b in spec["badges"]:
         icon = os.path.join(icons, b["icon"] + "_icon.png") if b.get("icon") else None

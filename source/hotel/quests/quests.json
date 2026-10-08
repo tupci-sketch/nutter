@@ -1,0 +1,560 @@
+{
+ "campaigns": [
+  {
+   "code": "habnut",
+   "name": "Welcome to Habnut",
+   "icon": "habnut_gold_throne",
+   "colour": [
+    226,
+    150,
+    8
+   ],
+   "quests": [
+    {
+     "code": "habnut_look",
+     "goal": "CHANGE_FIGURE",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 20,
+     "name": "A New Look",
+     "desc": "Head to your wardrobe and change your outfit.",
+     "hint": "Click your avatar, then Change Looks.",
+     "completed": "Looking good!",
+     "icon": "clothing_gatsby",
+     "badge": "",
+     "daily": 0,
+     "easy": 1
+    },
+    {
+     "code": "habnut_motto",
+     "goal": "CHANGE_MOTTO",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 20,
+     "name": "Say Something",
+     "desc": "Set a motto that tells people who you are.",
+     "hint": "Click your avatar and type into the motto box.",
+     "completed": "Nice motto.",
+     "icon": "noticeboard",
+     "badge": "",
+     "daily": 0,
+     "easy": 1
+    },
+    {
+     "code": "habnut_room",
+     "goal": "CREATE_ROOM",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 50,
+     "name": "A Room of Your Own",
+     "desc": "Create your very own room.",
+     "hint": "Open the Navigator and press Create Room.",
+     "completed": "Welcome home!",
+     "icon": "doormat_love",
+     "badge": "",
+     "daily": 0,
+     "easy": 1
+    },
+    {
+     "code": "habnut_friend",
+     "goal": "REQUEST_FRIEND",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 30,
+     "name": "Make a Friend",
+     "desc": "Send someone a friend request.",
+     "hint": "Click another Habnut and choose Add Friend.",
+     "completed": "The more the merrier.",
+     "icon": "sofa_polyfon",
+     "badge": "",
+     "daily": 0,
+     "easy": 1
+    },
+    {
+     "code": "habnut_wave",
+     "goal": "WAVE",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 10,
+     "name": "Wave Hello",
+     "desc": "Wave at the room.",
+     "hint": "Type o/ or use the wave button.",
+     "completed": "Hello to you too!",
+     "icon": "rare_fountain",
+     "badge": "",
+     "daily": 0,
+     "easy": 1
+    },
+    {
+     "code": "habnut_dance",
+     "goal": "DANCE",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 10,
+     "name": "Bust a Move",
+     "desc": "Show off your dance moves.",
+     "hint": "Click your avatar and choose Dance.",
+     "completed": "Nice moves!",
+     "icon": "disco_ball",
+     "badge": "",
+     "daily": 0,
+     "easy": 1
+    },
+    {
+     "code": "habnut_badge",
+     "goal": "WEAR_BADGE",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 20,
+     "name": "Show Your Badge",
+     "desc": "Wear one of your badges.",
+     "hint": "Open your inventory, Badges tab, and wear one.",
+     "completed": "Now everyone can see it.",
+     "icon": "trophy_gold",
+     "badge": "",
+     "daily": 0,
+     "easy": 1
+    },
+    {
+     "code": "habnut_shop",
+     "goal": "BUY_CATALOG_FURNI",
+     "count": 1,
+     "reward_type": -1,
+     "reward": 100,
+     "name": "Your First Furni",
+     "desc": "Buy something from the Shop.",
+     "hint": "Open the Shop and buy any furniture.",
+     "completed": "Welcome to Habnut, properly!",
+     "icon": "habnut_gold_chair_plasto",
+     "badge": "HNQW1",
+     "daily": 0,
+     "easy": 1
+    }
+   ]
+  },
+  {
+   "code": "builder",
+   "name": "Room Builder",
+   "icon": "habnut_gold_hc_tbl",
+   "colour": [
+    64,
+    120,
+    200
+   ],
+   "quests": [
+    {
+     "code": "build_move",
+     "goal": "MOVE_FURNI",
+     "count": 5,
+     "reward_type": 0,
+     "reward": 20,
+     "name": "Rearrange",
+     "desc": "Move furniture around in your room 5 times.",
+     "hint": "Click furniture and drag it.",
+     "completed": "Much better.",
+     "icon": "chair_norja",
+     "badge": "",
+     "daily": 0,
+     "easy": 0
+    },
+    {
+     "code": "build_rotate",
+     "goal": "ROTATE_FURNI",
+     "count": 5,
+     "reward_type": 0,
+     "reward": 20,
+     "name": "Turn It Around",
+     "desc": "Rotate furniture 5 times.",
+     "hint": "Click furniture and press Rotate.",
+     "completed": "Every angle covered.",
+     "icon": "sofa_silo",
+     "badge": "",
+     "daily": 0,
+     "easy": 0
+    },
+    {
+     "code": "build_use",
+     "goal": "USE_FURNI",
+     "count": 10,
+     "reward_type": 0,
+     "reward": 30,
+     "name": "Switch It Up",
+     "desc": "Switch furniture on and off 10 times.",
+     "hint": "Double-click lamps, gates and dice.",
+     "completed": "Lights, camera, action.",
+     "icon": "lamp_basic",
+     "badge": "",
+     "daily": 0,
+     "easy": 0
+    },
+    {
+     "code": "build_teleport",
+     "goal": "USE_TELEPORT",
+     "count": 3,
+     "reward_type": -1,
+     "reward": 50,
+     "name": "Beam Me Up",
+     "desc": "Travel by teleport 3 times.",
+     "hint": "Buy a pair of teleports and step in.",
+     "completed": "Room Builder complete!",
+     "icon": "teleport_door",
+     "badge": "HNQB1",
+     "daily": 0,
+     "easy": 0
+    }
+   ]
+  },
+  {
+   "code": "pets",
+   "name": "Pet Lover",
+   "icon": "nest",
+   "colour": [
+    190,
+    110,
+    60
+   ],
+   "quests": [
+    {
+     "code": "pet_feed",
+     "goal": "FEED_PET",
+     "count": 3,
+     "reward_type": 0,
+     "reward": 20,
+     "name": "Dinner Time",
+     "desc": "Feed a pet 3 times.",
+     "hint": "Place pet food near your pet.",
+     "completed": "Yum!",
+     "icon": "petfood1",
+     "badge": "",
+     "daily": 0,
+     "easy": 0
+    },
+    {
+     "code": "pet_respect",
+     "goal": "RESPECT_PET",
+     "count": 5,
+     "reward_type": 0,
+     "reward": 30,
+     "name": "Good Boy",
+     "desc": "Give pets respect 5 times.",
+     "hint": "Click a pet and choose Respect.",
+     "completed": "Wag wag.",
+     "icon": "nest",
+     "badge": "",
+     "daily": 0,
+     "easy": 0
+    },
+    {
+     "code": "pet_level",
+     "goal": "LEVEL_PET",
+     "count": 1,
+     "reward_type": -1,
+     "reward": 50,
+     "name": "All Grown Up",
+     "desc": "Help a pet reach a new level.",
+     "hint": "Feed, train and respect your pet.",
+     "completed": "Pet Lover complete!",
+     "icon": "pet_cage",
+     "badge": "HNQP1",
+     "daily": 0,
+     "easy": 0
+    }
+   ]
+  },
+  {
+   "code": "socialite",
+   "name": "Socialite",
+   "icon": "habnut_gold_sofa_polyfon",
+   "colour": [
+    190,
+    60,
+    140
+   ],
+   "quests": [
+    {
+     "code": "soc_message",
+     "goal": "SEND_MESSENGER_MESSAGE",
+     "count": 5,
+     "reward_type": 0,
+     "reward": 20,
+     "name": "Keep in Touch",
+     "desc": "Send 5 messages to friends.",
+     "hint": "Open the friends list and chat.",
+     "completed": "Chatty!",
+     "icon": "phone_cheap",
+     "badge": "",
+     "daily": 0,
+     "easy": 0
+    },
+    {
+     "code": "soc_follow",
+     "goal": "FOLLOW_FRIEND",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 20,
+     "name": "Tag Along",
+     "desc": "Follow a friend to their room.",
+     "hint": "Open the friends list and follow someone.",
+     "completed": "Fancy seeing you here.",
+     "icon": "doormat_love",
+     "badge": "",
+     "daily": 0,
+     "easy": 0
+    },
+    {
+     "code": "soc_relationship",
+     "goal": "SET_RELATIONSHIP_STATUS",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 20,
+     "name": "It's Official",
+     "desc": "Set a relationship status with a friend.",
+     "hint": "Open a friend's profile and pick a heart, smile or skull.",
+     "completed": "Aww.",
+     "icon": "heart",
+     "badge": "",
+     "daily": 0,
+     "easy": 0
+    },
+    {
+     "code": "soc_photo",
+     "goal": "PUBLISH_PICTURE",
+     "count": 1,
+     "reward_type": -1,
+     "reward": 50,
+     "name": "Say Cheese",
+     "desc": "Take a photo and publish it.",
+     "hint": "Use the camera in the toolbar.",
+     "completed": "Socialite complete!",
+     "icon": "camera",
+     "badge": "HNQS1",
+     "daily": 0,
+     "easy": 0
+    }
+   ]
+  },
+  {
+   "code": "chat",
+   "name": "Chatterbox",
+   "icon": "phone_cheap",
+   "colour": [
+    80,
+    160,
+    200
+   ],
+   "existing": true,
+   "quests": [
+    {
+     "code": "chat_1",
+     "name": "Say Hello",
+     "desc": "Talk in rooms 5 times.",
+     "hint": "Type into the chat bar in any room.",
+     "completed": "Hello to you!",
+     "icon": "phone_cheap"
+    },
+    {
+     "code": "chat_2",
+     "name": "Chatting Away",
+     "desc": "Talk in rooms 25 times.",
+     "hint": "Find a busy room and join in.",
+     "completed": "You have the gift of the gab.",
+     "icon": "phone_cheap"
+    },
+    {
+     "code": "chat_3",
+     "name": "Chatterbox",
+     "desc": "Talk in rooms 100 times.",
+     "hint": "The Habnut Lobby is always busy.",
+     "completed": "Chatterbox!",
+     "icon": "phone_cheap"
+    }
+   ]
+  },
+  {
+   "code": "explore",
+   "name": "Explorer",
+   "icon": "rare_globe",
+   "colour": [
+    70,
+    150,
+    90
+   ],
+   "existing": true,
+   "quests": [
+    {
+     "code": "explore_1",
+     "name": "Room Hopper",
+     "desc": "Visit 3 different rooms.",
+     "hint": "Open the Navigator and pick a room.",
+     "completed": "Off you go!",
+     "icon": "rare_globe"
+    },
+    {
+     "code": "explore_2",
+     "name": "Wanderer",
+     "desc": "Visit 10 different rooms.",
+     "hint": "Try the Public tab: the Lobby, the Pub, the Garden.",
+     "completed": "Seen a bit of the hotel now.",
+     "icon": "rare_globe"
+    },
+    {
+     "code": "explore_3",
+     "name": "Explorer",
+     "desc": "Visit 30 different rooms.",
+     "hint": "Nutropolis has a whole city to see.",
+     "completed": "Explorer!",
+     "icon": "rare_globe"
+    }
+   ]
+  },
+  {
+   "code": "decorate",
+   "name": "Decorator",
+   "icon": "rare_daffodil_rug",
+   "colour": [
+    150,
+    100,
+    180
+   ],
+   "existing": true,
+   "quests": [
+    {
+     "code": "decorate_1",
+     "name": "First Touches",
+     "desc": "Place 3 pieces of furniture.",
+     "hint": "Open your inventory and place something.",
+     "completed": "Homely.",
+     "icon": "plant_yukka"
+    },
+    {
+     "code": "decorate_2",
+     "name": "Interior Designer",
+     "desc": "Place 10 pieces of furniture.",
+     "hint": "Every room needs a sofa.",
+     "completed": "Stylish!",
+     "icon": "sofa_polyfon"
+    },
+    {
+     "code": "decorate_3",
+     "name": "Decorator",
+     "desc": "Place 25 pieces of furniture.",
+     "hint": "Fill a room top to bottom.",
+     "completed": "Decorator!",
+     "icon": "rare_daffodil_rug"
+    }
+   ]
+  },
+  {
+   "code": "social",
+   "name": "Good Vibes",
+   "icon": "heart",
+   "colour": [
+    220,
+    80,
+    90
+   ],
+   "existing": true,
+   "quests": [
+    {
+     "code": "social_1",
+     "name": "Give Respect",
+     "desc": "Respect someone.",
+     "hint": "Click another Habnut and choose Respect.",
+     "completed": "Respect!",
+     "icon": "heart"
+    },
+    {
+     "code": "social_2",
+     "name": "Spread the Love",
+     "desc": "Give respect 5 times.",
+     "hint": "You get fresh respects every day.",
+     "completed": "Good vibes all round.",
+     "icon": "heart"
+    },
+    {
+     "code": "social_3",
+     "name": "Good Vibes",
+     "desc": "Give respect 15 times.",
+     "hint": "Respect your friends daily.",
+     "completed": "Good Vibes!",
+     "icon": "heart"
+    }
+   ]
+  },
+  {
+   "code": "daily",
+   "name": "Daily Tasks",
+   "icon": "calendar",
+   "colour": [
+    240,
+    190,
+    40
+   ],
+   "existing": true,
+   "quests": [
+    {
+     "code": "daily_chat",
+     "name": "Daily Chat",
+     "desc": "Talk in rooms 10 times today.",
+     "hint": "Say hi in the Lobby.",
+     "completed": "See you tomorrow!",
+     "icon": "phone_cheap"
+    },
+    {
+     "code": "daily_visit",
+     "name": "Daily Wander",
+     "desc": "Visit 3 rooms today.",
+     "hint": "Pop into the Garden and water your flowers.",
+     "completed": "See you tomorrow!",
+     "icon": "rare_globe"
+    },
+    {
+     "code": "daily_furni",
+     "name": "Daily Decorator",
+     "desc": "Place 5 pieces of furniture today.",
+     "hint": "Try a new layout.",
+     "completed": "See you tomorrow!",
+     "icon": "sofa_polyfon"
+    },
+    {
+     "code": "daily_respect",
+     "name": "Daily Respect",
+     "desc": "Give respect 3 times today.",
+     "hint": "Respect your friends.",
+     "completed": "See you tomorrow!",
+     "icon": "heart"
+    },
+    {
+     "code": "daily_wave",
+     "goal": "WAVE",
+     "count": 3,
+     "reward_type": 0,
+     "reward": 10,
+     "name": "Daily Wave",
+     "desc": "Wave 3 times today.",
+     "hint": "Type o/ in chat.",
+     "completed": "See you tomorrow!",
+     "icon": "rare_fountain",
+     "badge": "",
+     "daily": 1,
+     "easy": 1
+    },
+    {
+     "code": "daily_dance",
+     "goal": "DANCE",
+     "count": 1,
+     "reward_type": 0,
+     "reward": 10,
+     "name": "Daily Dance",
+     "desc": "Dance once today.",
+     "hint": "Click your avatar and choose Dance.",
+     "completed": "See you tomorrow!",
+     "icon": "disco_ball",
+     "badge": "",
+     "daily": 1,
+     "easy": 1
+    }
+   ]
+  }
+ ]
+}
