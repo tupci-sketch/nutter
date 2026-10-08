@@ -159,10 +159,23 @@ CITY = [
         ("plant_pineapple", 15, 1, 0), ("plant_pineapple", 15, 13, 0),
     ]),
     ("Town Hall", "The seat of the city council.", "model_3", 40, ("townhall", 1),
-     ("clerk", "Town Hall", "gov", 35, 10, "Clerk;Councillor;Deputy Mayor;Mayor", 0), [
+     [("clerk", "Town Hall", "gov", 35, 10, "Clerk;Councillor;Deputy Mayor;Mayor", 0),
+      ("judge", "Nutropolis Court", "gov", 45, 10, "Clerk of Court;Judge;Chief Justice", 0)], [
         ("exe_table", 7, 2, 0), ("throne", 8, 1, 4), ("exe_globe", 3, 1, 0), ("exe_plant", 15, 1, 0), ("exe_plant", 15, 13, 0),
         ("exe_rug", 7, 5, 0), ("bench_armas", 5, 8, 0), ("bench_armas", 9, 8, 0), ("bench_armas", 5, 12, 0), ("bench_armas", 9, 12, 0),
     ]),
+]
+
+
+# City property for sale (paid from a citizen's Nutropolis bank): name, description, model, price.
+# Empty: the buyer furnishes it. Shopfronts suit a business.
+PROPERTIES = [
+    ("Nutropolis Flat 1", "A cosy flat. For sale: type :buyproperty here.", "model_a", 600),
+    ("Nutropolis Flat 2", "A bright flat. For sale: type :buyproperty here.", "model_b", 650),
+    ("Nutropolis Flat 3", "A corner flat. For sale: type :buyproperty here.", "model_d", 650),
+    ("Shopfront on Main Street", "Room for a business. For sale: type :buyproperty here.", "model_e", 1200),
+    ("Shopfront on Market Row", "Room for a business. For sale: type :buyproperty here.", "model_f", 1200),
+    ("The Nutropolis Penthouse", "The best address in the city. For sale: type :buyproperty here.", "model_k", 5000),
 ]
 
 
@@ -237,12 +250,23 @@ def main():
         room_sql(out, name, desc, model, users_max, 101, place(name, model, items, base))
         out.append(f"INSERT INTO habnut_rp_rooms (room_id, kind, safe) VALUES (@room, '{kind}', {safe})"
                    " ON DUPLICATE KEY UPDATE kind=VALUES(kind), safe=VALUES(safe);")
-        if job:
+        for job in ([job] if isinstance(job, tuple) else (job or [])):
             code, title, jkind, wage, minutes, ranks, vehicle = job
             out.append(f"INSERT INTO habnut_rp_jobs (code, name, kind, room_id, wage, shift_minutes, ranks, vehicle_effect)"
                        f" VALUES ('{code}', {sql_text(title)}, '{jkind}', @room, {wage}, {minutes}, {sql_text(ranks)}, {vehicle})"
                        " ON DUPLICATE KEY UPDATE name=VALUES(name), kind=VALUES(kind), room_id=VALUES(room_id), wage=VALUES(wage),"
                        " shift_minutes=VALUES(shift_minutes), ranks=VALUES(ranks), vehicle_effect=VALUES(vehicle_effect);")
+    for name, desc, model, price in PROPERTIES:
+        q = sql_text(name)
+        # A sold property belongs to its buyer: find it by name whoever owns it.
+        out.append(f"INSERT INTO rooms (owner_id, owner_name, name, description, model, users_max, category, is_public, state, date_created)"
+                   f" SELECT 1, 'Habnut', {q}, {sql_text(desc)}, '{model}', 25, 1, '1', 'open', UNIX_TIMESTAMP()"
+                   f" FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM rooms WHERE name={q});")
+        out.append(f"SET @room = (SELECT id FROM rooms WHERE name={q} ORDER BY id LIMIT 1);")
+        out.append("INSERT INTO navigator_publics (public_cat_id, room_id, visible)"
+                   " SELECT 101, @room, '1' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM navigator_publics WHERE room_id=@room);")
+        out.append("INSERT INTO habnut_rp_rooms (room_id, kind, safe) VALUES (@room, 'home', 1) ON DUPLICATE KEY UPDATE kind='home';")
+        out.append(f"INSERT INTO habnut_rp_properties (room_id, price) VALUES (@room, {price}) ON DUPLICATE KEY UPDATE price=VALUES(price);")
     print("\n".join(out))
     print(f"-- {sum(len(i) for i in every)} items in {len(every)} rooms, every placement checked", file=sys.stderr)
 

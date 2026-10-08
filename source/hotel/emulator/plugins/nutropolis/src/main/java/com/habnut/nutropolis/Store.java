@@ -79,6 +79,74 @@ final class Store {
               created_at INT NOT NULL,
               KEY user_time (user_id, created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            // The city's own numbers: treasury, tax, mayor.
+            """
+            CREATE TABLE IF NOT EXISTS habnut_rp_state (
+              name VARCHAR(32) NOT NULL PRIMARY KEY,
+              value VARCHAR(255) NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            """
+            CREATE TABLE IF NOT EXISTS habnut_rp_elections (
+              id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+              opened_at INT NOT NULL,
+              closes_at INT NOT NULL,
+              closed TINYINT(1) NOT NULL DEFAULT 0,
+              winner_id INT NOT NULL DEFAULT 0
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            """
+            CREATE TABLE IF NOT EXISTS habnut_rp_candidates (
+              election_id INT NOT NULL,
+              user_id INT NOT NULL,
+              PRIMARY KEY (election_id, user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            """
+            CREATE TABLE IF NOT EXISTS habnut_rp_votes (
+              election_id INT NOT NULL,
+              voter_id INT NOT NULL,
+              candidate_id INT NOT NULL,
+              PRIMARY KEY (election_id, voter_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            """
+            CREATE TABLE IF NOT EXISTS habnut_rp_properties (
+              room_id INT NOT NULL PRIMARY KEY,
+              price INT NOT NULL,
+              owner_id INT NOT NULL DEFAULT 0,
+              bought_at INT NOT NULL DEFAULT 0
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            """
+            CREATE TABLE IF NOT EXISTS habnut_rp_businesses (
+              id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+              owner_id INT NOT NULL,
+              name VARCHAR(48) NOT NULL,
+              room_id INT NOT NULL UNIQUE,
+              bank BIGINT NOT NULL DEFAULT 0,
+              wage INT NOT NULL DEFAULT 20,
+              created_at INT NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            """
+            CREATE TABLE IF NOT EXISTS habnut_rp_licences (
+              user_id INT NOT NULL,
+              licence VARCHAR(16) NOT NULL,
+              granted_at INT NOT NULL,
+              PRIMARY KEY (user_id, licence)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            """
+            CREATE TABLE IF NOT EXISTS habnut_rp_inventory (
+              user_id INT NOT NULL,
+              item VARCHAR(16) NOT NULL,
+              qty INT NOT NULL DEFAULT 0,
+              PRIMARY KEY (user_id, item)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+            """
+            CREATE TABLE IF NOT EXISTS habnut_rp_cases (
+              id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+              user_id INT NOT NULL,
+              record_id INT NOT NULL,
+              status VARCHAR(10) NOT NULL DEFAULT 'open',
+              judge_id INT NOT NULL DEFAULT 0,
+              created_at INT NOT NULL,
+              KEY status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
         };
         try (Connection c = connection(); Statement s = c.createStatement()) {
             for (String sql : tables) s.execute(sql);

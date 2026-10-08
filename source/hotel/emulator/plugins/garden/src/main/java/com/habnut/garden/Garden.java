@@ -233,10 +233,11 @@ public class Garden extends HabboPlugin implements EventListener {
         }
         remove(room, plant);
         habbo.givePoints(0, HARVEST_DUCKETS, "garden harvest");
+        GardenStore.herbsForNutropolis(userId);
         int total = GardenStore.harvested(userId);
         int[] goal = GardenStore.contribute(week(), userId);
         habbo.talk("*harvests a beautiful flower*", RoomChatMessageBubbles.GREEN);
-        habbo.whisper("+" + HARVEST_DUCKETS + " duckets. That is " + total + " harvests. This week the garden has " + goal[0] + " of " + goal[1] + ".",
+        habbo.whisper("+" + HARVEST_DUCKETS + " duckets and some herbs for Nutropolis. That is " + total + " harvests. This week the garden has " + goal[0] + " of " + goal[1] + ".",
                 RoomChatMessageBubbles.GREEN);
         for (int[] milestone : MILESTONES) {
             if (total == milestone[0]) award(habbo, "HNGD" + milestone[1]);

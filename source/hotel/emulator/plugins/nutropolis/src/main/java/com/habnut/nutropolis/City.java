@@ -38,6 +38,7 @@ final class City {
     private final Map<Integer, Long> shifts = new ConcurrentHashMap<>();
     private final Map<Integer, Long> cooldowns = new ConcurrentHashMap<>();
     private final Set<Integer> knockedOut = ConcurrentHashMap.newKeySet();
+    final Civic civic = new Civic(this);
 
     private volatile Map<Integer, Job> jobs = Map.of();
     private volatile Map<String, Job> jobsByCode = Map.of();
@@ -71,7 +72,7 @@ final class City {
         return r == null || "1".equals(r[1]);
     }
 
-    private int roomOf(String kind) {
+    int roomOf(String kind) {
         return this.rooms.entrySet().stream()
                 .filter(e -> kind.equals(e.getValue()[0]))
                 .mapToInt(Map.Entry::getKey)
@@ -79,7 +80,7 @@ final class City {
                 .orElse(0);
     }
 
-    private static void send(Habbo habbo, int roomId) {
+    static void send(Habbo habbo, int roomId) {
         if (roomId > 0 && habbo.getClient() != null) habbo.getClient().sendResponse(new ForwardToRoomComposer(roomId));
     }
 
@@ -101,7 +102,7 @@ final class City {
     }
 
     Job jobOf(Citizen c) {
-        return this.jobs.get(c.jobId);
+        return c.jobId < 0 ? this.civic.businessJob(-c.jobId) : this.jobs.get(c.jobId);
     }
 
     boolean onShift(Citizen c) {
@@ -147,6 +148,7 @@ final class City {
 
     /** Every 20 seconds: wages, sentences served, hospital care. */
     void tick() {
+        this.civic.tick();
         long nowMs = System.currentTimeMillis();
         for (Map.Entry<Integer, Long> shift : this.shifts.entrySet()) {
             Habbo habbo = Emulator.getGameEnvironment().getHabboManager().getHabbo(shift.getKey());
@@ -162,7 +164,13 @@ final class City {
                 continue;
             }
             if (nowMs - shift.getValue() >= job.shiftMinutes() * 60_000L) {
-                int pay = job.wageAt(c.jobRank);
+                int gross = job.wageAt(c.jobRank);
+                if ("business".equals(job.kind()) && !Civic.payFromBusiness(-job.id(), gross)) {
+                    this.shifts.put(c.userId, nowMs);
+                    habbo.whisper(job.name() + " could not afford your wage this time.", RoomChatMessageBubbles.ALERT);
+                    continue;
+                }
+                int pay = this.civic.afterTax(gross);
                 long balance;
                 synchronized (c) {
                     c.bank += pay;
@@ -172,7 +180,7 @@ final class City {
                 }
                 Store.ledger(c.userId, "bank", pay, balance, "wage", 0);
                 this.shifts.put(c.userId, nowMs);
-                habbo.whisper("Payday! $" + pay + " went into your bank account.", RoomChatMessageBubbles.GREEN);
+                habbo.whisper("Payday! $" + pay + " went into your bank account" + (gross > pay ? " ($" + (gross - pay) + " city tax)" : "") + ".", RoomChatMessageBubbles.GREEN);
             }
         }
 
@@ -198,7 +206,7 @@ final class City {
         }
     }
 
-    private void endShift(Habbo habbo, Citizen c, String why) {
+    void endShift(Habbo habbo, Citizen c, String why) {
         if (this.shifts.remove(c.userId) != null) {
             habbo.whisper(why, RoomChatMessageBubbles.ALERT);
             Room room = habbo.getHabboInfo().getCurrentRoom();
@@ -234,7 +242,10 @@ final class City {
     static final String[] KEYS = {
         "city", "nutropolis", "hotel", "classic", "rphelp", "stats", "jobs", "apply", "quitjob", "work", "startwork",
         "stopwork", "balance", "deposit", "withdraw", "give", "hit", "heal", "arrest", "release", "wanted", "dispatch",
-        "911", "me", "drive", "setjob", "rpreload"
+        "911", "me", "drive", "setjob", "rpreload",
+        "mayor", "runformayor", "vote", "settax", "announce", "bonus", "properties", "buyproperty", "sellproperty",
+        "openbusiness", "business", "hire", "fire", "setwage", "pay", "withdrawbusiness", "licence", "license", "buycar",
+        "appeal", "cases", "verdict", "gather", "craft", "use", "items", "rpmoney", "goto"
     };
 
     boolean handle(Habbo habbo, String[] params) {
@@ -257,29 +268,27 @@ final class City {
             }
             case "rphelp" -> {
                 habbo.alert(String.join("\r",
-                        "<b>Nutropolis</b>",
-                        ":city - go to Nutropolis    :hotel - back to the hotel",
-                        ":stats - your life in the city    :balance - your money",
+                        "<b>Nutropolis</b>  :city to go there, :hotel to come back",
+                        ":stats  :balance  :items  :me <action>  :911 <message>",
                         "",
-                        "<b>Work</b>",
-                        ":jobs - who is hiring    :apply <job> - at its workplace",
-                        ":work / :stopwork - start or end a shift    :quitjob",
+                        "<b>Work</b>  :jobs  :apply <job>  :work  :stopwork  :quitjob",
+                        "<b>Money</b>  :deposit / :withdraw <amount> (bank)  :give <name> <amount>",
+                        "<b>Fights</b>  :hit <name>, outside safe places",
+                        "<b>Police & medics</b>  :arrest <name> [offence]  :release  :wanted  :heal <name>  :drive",
                         "",
-                        "<b>Money</b> (at the bank)",
-                        ":deposit <amount>    :withdraw <amount>    :give <name> <amount>",
-                        "",
-                        "<b>Life</b>",
-                        ":hit <name>    :me <action>    :911 <message> - call the police and medics",
-                        "",
-                        "<b>Police & medics on duty</b>",
-                        ":arrest <name> [offence]    :release <name>    :wanted",
-                        ":heal <name>    :drive"));
+                        "<b>Government</b>  :mayor  :runformayor  :vote <name> (Town Hall)",
+                        "Mayor only: :settax <0-20>  :announce <message>  :bonus <name> <amount>",
+                        "<b>Property</b>  :properties  :buyproperty  :sellproperty",
+                        "<b>Business</b>  :openbusiness <name>  :business  :hire / :fire <name>  :setwage  :pay <amount>  :withdrawbusiness",
+                        "<b>Licences</b>  :licence driving|business (Town Hall)  :buycar  :drive",
+                        "<b>Court</b>  :appeal  ·  judges: :cases  :verdict <name> innocent|guilty",
+                        "<b>Crafting</b>  :gather (streets)  :craft bandage|medkit|lockpick  :use <item>"));
                 return true;
             }
             default -> {}
         }
 
-        if (!this.inCity(room) && !verb.equals("setjob") && !verb.equals("rpreload")) {
+        if (!this.inCity(room) && !verb.equals("setjob") && !verb.equals("rpreload") && !verb.equals("rpmoney") && !verb.equals("goto")) {
             return this.no(habbo, "That only works in Nutropolis. Type :city to go there.");
         }
         Citizen me = this.citizen(habbo);
@@ -318,6 +327,23 @@ final class City {
             }
             case "drive" -> this.drive(habbo, me, room);
             case "setjob" -> this.setJob(habbo, params);
+            case "goto" -> {
+                if (!habbo.hasPermission(Permission.ACC_SUPPORTTOOL)) yield this.no(habbo, "Staff only.");
+                long target = amount(params, 1);
+                if (target <= 0) yield this.no(habbo, "Usage: :goto <room id>");
+                send(habbo, (int) target);
+                yield true;
+            }
+            case "rpmoney" -> {
+                if (!habbo.hasPermission(Permission.ACC_SUPPORTTOOL)) yield this.no(habbo, "Staff only.");
+                Habbo target = params.length > 2 ? Emulator.getGameEnvironment().getHabboManager().getHabbo(params[1]) : null;
+                long amount = amount(params, 2);
+                Citizen them = target == null ? null : this.citizen(target);
+                if (them == null || amount <= 0 || amount > 1_000_000) yield this.no(habbo, "Usage: :rpmoney <online name> <amount>, paid into their bank.");
+                Civic.giveBank(them, amount, "staff");
+                target.whisper("$" + amount + " was paid into your bank by the hotel.", RoomChatMessageBubbles.GREEN);
+                yield this.no(habbo, "Paid $" + amount + " to " + target.getHabboInfo().getUsername() + ".");
+            }
             case "rpreload" -> {
                 if (!habbo.hasPermission(Permission.ACC_SUPPORTTOOL)) yield this.no(habbo, "Staff only.");
                 this.reload();
@@ -325,7 +351,7 @@ final class City {
                         RoomChatMessageBubbles.GREEN);
                 yield true;
             }
-            default -> false;
+            default -> Civic.KEYS.contains(verb) && this.civic.handle(habbo, me, room, verb, params);
         };
     }
 
@@ -579,11 +605,11 @@ final class City {
 
     private boolean drive(Habbo habbo, Citizen me, Room room) {
         Job job = this.jobOf(me);
-        if (job == null || job.vehicleEffect() <= 0 || !this.onShift(me)) {
-            return this.no(habbo, "You have no vehicle. Police and medics on shift do.");
-        }
-        boolean driving = habbo.getRoomUnit().getEffectId() == job.vehicleEffect();
-        room.giveEffect(habbo, driving ? 0 : job.vehicleEffect(), -1);
+        int vehicle = job != null && job.vehicleEffect() > 0 && this.onShift(me) ? job.vehicleEffect()
+                : this.civic.hasLicence(me, "car") ? Civic.CIVILIAN_CAR_EFFECT : 0;
+        if (vehicle == 0) return this.no(habbo, "You have no vehicle. Get a driving licence at the Town Hall, then :buycar.");
+        boolean driving = habbo.getRoomUnit().getEffectId() == vehicle;
+        room.giveEffect(habbo, driving ? 0 : vehicle, -1);
         return true;
     }
 
@@ -613,7 +639,7 @@ final class City {
     // ---- helpers -----------------------------------------------------------------
 
     /** Someone named in params[1], in the same room and within reach. Whispers why not otherwise. */
-    private Habbo near(Habbo habbo, String[] params, int reach) {
+    Habbo near(Habbo habbo, String[] params, int reach) {
         if (params.length < 2) {
             this.no(habbo, "Who? Usage: :" + params[0] + " <name>");
             return null;
@@ -633,7 +659,7 @@ final class City {
         return target;
     }
 
-    private boolean cool(int userId, String what, int ms) {
+    boolean cool(int userId, String what, int ms) {
         long now = System.currentTimeMillis();
         int key = userId * 31 + what.hashCode();
         Long last = this.cooldowns.get(key);
@@ -642,12 +668,12 @@ final class City {
         return true;
     }
 
-    private boolean no(Habbo habbo, String why) {
+    boolean no(Habbo habbo, String why) {
         habbo.whisper(why, RoomChatMessageBubbles.ALERT);
         return true;
     }
 
-    private static long amount(String[] params, int index) {
+    static long amount(String[] params, int index) {
         if (params.length <= index) return -1;
         try {
             return Long.parseLong(params[index].replace("$", "").replace(",", ""));
@@ -656,7 +682,7 @@ final class City {
         }
     }
 
-    private static String rest(String[] params, int from) {
+    static String rest(String[] params, int from) {
         return String.join(" ", Arrays.copyOfRange(params, from, params.length)).trim();
     }
 }

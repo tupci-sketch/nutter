@@ -157,6 +157,11 @@ final class GardenStore {
                 + " WHERE NOT EXISTS (SELECT 1 FROM users_badges WHERE user_id = ? AND badge_code = ?)", userId, badge, userId, badge);
     }
 
+    /** Harvests give herbs to the gardener's Nutropolis pockets, for crafting there. */
+    static void herbsForNutropolis(int userId) {
+        update("INSERT INTO habnut_rp_inventory (user_id, item, qty) VALUES (?, 'herbs', 1) ON DUPLICATE KEY UPDATE qty = qty + 1", userId);
+    }
+
     private static int target() {
         return Emulator.getConfig().getInt("habnut.garden.weekly.target", DEFAULT_TARGET);
     }
