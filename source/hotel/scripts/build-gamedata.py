@@ -67,6 +67,11 @@ def main():
     ui = open(os.path.join(octane_cfg, "UITexts_en.jsonc.example"), encoding="utf8").read()
     open(os.path.join(out, "UITexts.jsonc"), "w", encoding="utf8").write(rebrand(ui))
 
+    # The soundboard's pad list; empty until the hotel has sounds of its own.
+    sound = os.path.join(out, "SoundData.json")
+    if not os.path.exists(sound):
+        json.dump({"categories": [], "sounds": []}, open(sound, "w"))
+
     print(f"gamedata: {sum(len(furni[s]['furnitype']) for s in ('roomitemtypes', 'wallitemtypes'))} furniture, "
           f"{len(texts)} texts, {len(products)} products -> {out}")
 

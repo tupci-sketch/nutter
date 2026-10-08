@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""Writes SQL for Habnut's furnished public rooms on the Polaris database.
+
+    gen-public-rooms.py <db-root-password> > public-rooms.sql
+
+Reads each room shape (heightmap, door) and each item's footprint and height
+from the live database, and refuses any placement that is off the floor,
+across two heights, on the door, or on top of something that is not a rug.
+The rooms belong to the hotel's system account and are listed under a
+"Habnut" public category at the top of the navigator. Safe to run again: a
+room that already exists is left alone.
+"""
+import subprocess
+import sys
+
+PW = sys.argv[1]
+
+
+def query(sql):
+    out = subprocess.run(["sudo", "docker", "exec", "-i", "-e", f"MYSQL_PWD={PW}", "hotel-db-1",
+                          "mariadb", "-uroot", "-N", "-B", "--raw", "habnut"],
+                         input=sql, capture_output=True, text=True, check=True).stdout
+    return [line.split("\t") for line in out.splitlines() if line]
+
+
+def heightmap(model):
+    door_x, door_y, door_dir = query(f"SELECT door_x, door_y, door_dir FROM room_models WHERE name='{model}';")[0]
+    raw = subprocess.run(["sudo", "docker", "exec", "-i", "-e", f"MYSQL_PWD={PW}", "hotel-db-1",
+                          "mariadb", "-uroot", "-N", "-B", "--raw", "habnut"],
+                         input=f"SELECT heightmap FROM room_models WHERE name='{model}';",
+                         capture_output=True, text=True, check=True).stdout
+    rows = [r.strip() for r in raw.replace("\r", "\n").split("\n") if r.strip()]
+    return rows, (int(door_x), int(door_y))
+
+
+def height_of(c):
+    if c.lower() == "x":
+        return None
+    if c.isdigit():
+        return int(c)
+    if "a" <= c.lower() <= "z":
+        return 10 + ord(c.lower()) - ord("a")
+    return None
+
+
+# name, description, model, max users, [(classname, x, y, rotation)]
+ROOMS = [
+    ("Habnut Lobby", "Welcome to Habnut! Sit down, say hello, make friends.", "newbie_lobby", 75, [
+        # sofas on a rug by the windows
+        ("plant_yukka", 5, 2, 0), ("plant_yukka", 12, 2, 0),
+        ("sofa_polyfon", 7, 3, 4), ("carpet_standard", 6, 4, 0), ("table_polyfon_med", 7, 5, 0),
+        ("sofachair_polyfon", 6, 5, 2), ("sofachair_polyfon", 6, 6, 2),
+        ("sofachair_polyfon", 9, 5, 6), ("sofachair_polyfon", 9, 6, 6), ("sofa_polyfon", 7, 7, 0),
+        # a table for six in the corner
+        ("table_norja_med", 18, 2, 0), ("chair_norja", 18, 1, 4), ("chair_norja", 19, 1, 4),
+        ("chair_norja", 18, 4, 0), ("chair_norja", 19, 4, 0), ("chair_norja", 17, 2, 2), ("chair_norja", 20, 3, 6),
+        ("lamp_basic", 21, 0, 0), ("plant_big_cactus", 16, 0, 0), ("plant_big_cactus", 21, 8, 0),
+        # a nook by the door
+        ("couch_norja", 0, 5, 2), ("table_polyfon_small", 1, 5, 0), ("couch_norja", 3, 5, 6), ("lamp_basic", 0, 8, 0),
+        # benches down the hall
+        ("bench_armas", 8, 15, 2), ("bench_armas", 8, 17, 2), ("bench_armas", 8, 19, 2),
+        ("bench_armas", 16, 15, 6), ("bench_armas", 16, 17, 6), ("bench_armas", 16, 19, 6),
+        ("lamp_armas", 6, 21, 0), ("lamp_armas", 16, 21, 0),
+        # and a table at the far end
+        ("table_armas", 10, 23, 0), ("small_chair_armas", 10, 22, 4), ("small_chair_armas", 11, 22, 4),
+        ("small_chair_armas", 9, 23, 2), ("small_chair_armas", 9, 24, 2),
+        ("small_chair_armas", 12, 23, 6), ("small_chair_armas", 12, 24, 6),
+        ("small_chair_armas", 10, 25, 0), ("small_chair_armas", 11, 25, 0),
+        ("plant_pineapple", 5, 26, 0), ("plant_pineapple", 16, 26, 0),
+    ]),
+    ("The Habnut Pub", "Pull up a stool. The drinks are on the house.", "pub_a", 50, [
+        # the bar
+        ("bardesk_polyfon", 10, 2, 4), ("bardesk_polyfon", 12, 2, 4), ("bardesk_polyfon", 14, 2, 4),
+        ("bar_chair_armas", 10, 3, 0), ("bar_chair_armas", 11, 3, 0), ("bar_chair_armas", 12, 3, 0),
+        ("bar_chair_armas", 13, 3, 0), ("bar_chair_armas", 14, 3, 0), ("bar_chair_armas", 15, 3, 0),
+        # tables on the floor
+        ("table_armas", 11, 7, 0), ("small_chair_armas", 10, 7, 2), ("small_chair_armas", 10, 8, 2),
+        ("small_chair_armas", 13, 7, 6), ("small_chair_armas", 13, 8, 6),
+        ("table_armas", 15, 7, 0), ("small_chair_armas", 14, 7, 2), ("small_chair_armas", 14, 8, 2),
+        ("small_chair_armas", 17, 7, 6), ("small_chair_armas", 17, 8, 6),
+        ("table_armas", 13, 13, 0), ("small_chair_armas", 12, 13, 2), ("small_chair_armas", 12, 14, 2),
+        ("small_chair_armas", 15, 13, 6), ("small_chair_armas", 15, 14, 6),
+        # the lounge up the steps
+        ("couch_norja", 2, 11, 4), ("couch_norja", 5, 11, 4),
+        ("table_norja_med", 2, 12, 0), ("table_norja_med", 5, 12, 0),
+        ("couch_norja", 2, 14, 0), ("couch_norja", 5, 14, 0),
+        ("lamp_armas", 1, 11, 0), ("lamp_armas", 8, 11, 0), ("plant_rose", 1, 19, 0),
+        # by the door
+        ("plant_rose", 21, 7, 0), ("plant_rose", 21, 20, 0),
+        ("bench_armas", 18, 22, 4), ("bench_armas", 20, 22, 4),
+    ]),
+]
+
+
+def main():
+    names = sorted({cls for _, _, _, _, items in ROOMS for cls, *_ in items})
+    rows = query("SELECT item_name, id, width, length, stack_height FROM items_base WHERE item_name IN ("
+                 + ",".join(f"'{n}'" for n in names) + ");")
+    base = {r[0]: (int(r[1]), int(r[2]), int(r[3]), float(r[4])) for r in rows}
+    missing = [n for n in names if n not in base]
+    if missing:
+        sys.exit(f"not in items_base: {missing}")
+
+    out = ["-- Habnut public rooms. Generated by gen-public-rooms.py; safe to run again.",
+           "UPDATE users SET username='Habnut', motto='Welcome to Habnut!' WHERE id=1;",
+           "UPDATE rooms SET owner_name='Habnut' WHERE owner_id=1;",
+           "INSERT INTO navigator_publiccats (id, name, image, visible, order_num) VALUES (100, 'Habnut', '0', '1', -1)"
+           " ON DUPLICATE KEY UPDATE name=VALUES(name), visible='1', order_num=-1;"]
+    for name, desc, model, users_max, items in ROOMS:
+        grid, door = heightmap(model)
+        used, placed = {}, []
+        for cls, x, y, rot in items:
+            bid, w, l, h = base[cls]
+            if rot in (2, 6):
+                w, l = l, w
+            heights = set()
+            for dx in range(w):
+                for dy in range(l):
+                    tx, ty = x + dx, y + dy
+                    c = grid[ty][tx] if 0 <= ty < len(grid) and 0 <= tx < len(grid[ty]) else "x"
+                    z = height_of(c)
+                    if z is None:
+                        sys.exit(f"{name}: {cls} at {x},{y} is off the floor at {tx},{ty}")
+                    if (tx, ty) == door:
+                        sys.exit(f"{name}: {cls} at {x},{y} blocks the door")
+                    prev = used.get((tx, ty))
+                    if prev is not None and prev != "rug" and h != 0:
+                        sys.exit(f"{name}: {cls} at {x},{y} overlaps {prev} at {tx},{ty}")
+                    used[(tx, ty)] = "rug" if h == 0 else cls
+                    heights.add(z)
+            if len(heights) != 1:
+                sys.exit(f"{name}: {cls} at {x},{y} straddles heights {sorted(heights)}")
+            placed.append((bid, x, y, heights.pop(), rot, h))
+        q = name.replace("'", "''")
+        out.append(f"INSERT INTO rooms (owner_id, owner_name, name, description, model, users_max, category, is_public, state, date_created)"
+                   f" SELECT 1, 'Habnut', '{q}', '{desc.replace(chr(39), chr(39)*2)}', '{model}', {users_max}, 1, '1', 'open', UNIX_TIMESTAMP()"
+                   f" FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM rooms WHERE name='{q}' AND owner_id=1);")
+        out.append(f"SET @room = (SELECT id FROM rooms WHERE name='{q}' AND owner_id=1 ORDER BY id LIMIT 1);")
+        out.append("SET @fresh = (SELECT COUNT(*) = 0 FROM items WHERE room_id = @room);")
+        # rugs first, so what stands on them is drawn on top
+        for bid, x, y, z, rot, h in sorted(placed, key=lambda p: p[5] != 0):
+            out.append(f"INSERT INTO items (user_id, room_id, item_id, wall_pos, x, y, z, rot, extra_data, wired_data)"
+                       f" SELECT 1, @room, {bid}, '', {x}, {y}, {z}, {rot}, '0', '' FROM DUAL WHERE @fresh;")
+        out.append("INSERT INTO navigator_publics (public_cat_id, room_id, visible)"
+                   " SELECT 100, @room, '1' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM navigator_publics WHERE room_id=@room);")
+    print("\n".join(out))
+    print(f"-- {sum(len(r[4]) for r in ROOMS)} items in {len(ROOMS)} rooms, every placement checked", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
