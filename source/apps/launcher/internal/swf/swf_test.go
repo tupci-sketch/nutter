@@ -337,3 +337,33 @@ func TestOnlyTheFirstOfEachDataFileIsTaken(t *testing.T) {
 		t.Errorf("figuredata.xml = %q; a later duplicate overwrote the first", got)
 	}
 }
+
+// A build taken from the live client names its furniture data
+// furnidata_xml.xml; it has to reach the client as furnidata.xml.
+func TestLiveClientFurnidataNameIsRecognised(t *testing.T) {
+	pack := t.TempDir()
+	for name, body := range map[string]string{
+		"gamedata/furnidata_xml.xml": "<furnidata/>",
+		"gamedata/figuredata.xml":    "<figuredata/>",
+		"figuremap.xml":              "<map/>",
+	} {
+		p := filepath.Join(pack, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	oldPack, oldAssets := Roots()
+	defer SetRoots(oldPack, oldAssets)
+	SetRoots(t.TempDir(), t.TempDir())
+
+	if err := copyAssetXMLs(pack, EraModern); err != nil {
+		t.Fatalf("pack was refused: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(eraRoot(EraModern), "furnidata.xml"))
+	if err != nil || string(got) != "<furnidata/>" {
+		t.Fatalf("furnidata.xml not written from furnidata_xml.xml: %q %v", got, err)
+	}
+}

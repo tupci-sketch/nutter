@@ -74,8 +74,20 @@
   </section>
 
   <section>
+    <h2>Artwork from the archive</h2>
+    <p class="note">The server downloads a complete client build (every SWF and the gamedata) straight from the public asset archive and installs it. Nothing passes through this computer. Takes 10–20 minutes.</p>
+    <div class="row">
+      <select id="build" aria-label="Build" style="max-width:100%"><option>Loading builds…</option></select>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" id="fetchBuild">Install this build</button>
+      <button id="listBuilds">Refresh list</button>
+    </div>
+  </section>
+
+  <section>
     <h2>Asset pack</h2>
-    <p class="note">Upload a pack (.zip) from this computer. The server unpacks it, extracts the sprites, switches on avatars, and clears Cloudflare's copy.</p>
+    <p class="note">Or upload a pack (.zip) from this computer. The server checks it is complete before anything changes, extracts the sprites, switches on avatars, and clears Cloudflare's copy.</p>
     <div class="row">
       <input type="file" id="pack" accept=".zip">
       <select id="era" aria-label="Era"><option value="modern">Modern</option><option value="classic">Classic</option></select>
@@ -247,6 +259,30 @@ $("upload").onclick = () => {
   };
   xhr.send(f);
 };
+
+async function loadBuilds() {
+  const sel = $("build");
+  try {
+    const r = await quiet("builds");
+    const list = JSON.parse(r.body.trim().split("\n").pop() || "[]");
+    sel.innerHTML = "";
+    for (const b of list) {
+      const o = document.createElement("option");
+      o.value = b.name;
+      const hotels = b.hotels.length > 3 ? "all hotels" : b.hotels.join(", ");
+      o.textContent = `${(b.found || "").slice(0, 10)} · ${b.size_mb ? b.size_mb + " MB" : "size unknown"} · ${hotels}`;
+      sel.append(o);
+    }
+    if (!list.length) sel.innerHTML = "<option>No builds offered</option>";
+  } catch (e) { sel.innerHTML = "<option>Could not reach the archive</option>"; }
+}
+$("listBuilds").onclick = loadBuilds;
+$("fetchBuild").onclick = () => {
+  const name = $("build").value;
+  if (!name || !confirm("Download and install this build on the server? It takes 10–20 minutes; the hotel keeps running meanwhile.")) return;
+  run("fetch", name, "Installing build from the archive").then(loadSummary);
+};
+loadBuilds();
 
 api("/api/info").then((r) => r.json()).then((i) => { $("host").textContent = i.host; });
 loadSummary(); loadBackups();

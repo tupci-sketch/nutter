@@ -43,6 +43,7 @@ var (
 	serviceName = regexp.MustCompile(`^(db|redis|emulator|cms|imager|nginx|cloudflared|prometheus|alertmanager|node-exporter)$`)
 	backupName  = regexp.MustCompile(`^habnut-[0-9TZ]+\.sql\.gz$`)
 	era         = regexp.MustCompile(`^(classic|modern)$`)
+	buildName   = regexp.MustCompile(`^[A-Za-z0-9._-]{1,120}$`)
 	hostShape   = regexp.MustCompile(`^[A-Za-z0-9._@:-]+$`)
 )
 
@@ -79,6 +80,13 @@ var actions = map[string]action{
 	"update":   {fixed("update"), 45 * time.Minute},
 	"rollback": {fixed("rollback"), 15 * time.Minute},
 	"assets":   {fixed("assets", "status"), time.Minute},
+	"builds":   {fixed("assets", "builds"), time.Minute},
+	"fetch": {func(arg string) ([]string, error) {
+		if !buildName.MatchString(arg) {
+			return nil, fmt.Errorf("not a build name")
+		}
+		return []string{"assets", "fetch", arg}, nil
+	}, 90 * time.Minute},
 }
 
 // Run serves the panel until the process is stopped.

@@ -13,6 +13,7 @@ import (
 
 	"github.com/habnut/launcher/internal/dev"
 	"github.com/habnut/launcher/internal/doctor"
+	"github.com/habnut/launcher/internal/furni"
 	"github.com/habnut/launcher/internal/imager"
 	"github.com/habnut/launcher/internal/installer"
 	"github.com/habnut/launcher/internal/manage"
@@ -51,6 +52,7 @@ func main() {
 		cmdMigrate(),
 		cmdDev(),
 		cmdManage(),
+		cmdFurni(),
 		cmdVersion(),
 	)
 
@@ -436,5 +438,35 @@ func cmdManage() *cobra.Command {
 	cmd.Flags().StringVar(&cfg.Host, "host", "habnut", "the server, as you would give it to ssh")
 	cmd.Flags().StringVar(&cfg.Listen, "listen", cfg.Listen, "where to serve the panel on this computer")
 	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "print the address instead of opening a browser")
+	return cmd
+}
+
+// cmdFurni turns an installed build's furnidata into the hotel's furniture
+// and catalogue, as SQL for the server to apply.
+func cmdFurni() *cobra.Command {
+	cmd := &cobra.Command{Use: "furni", Short: "Bring the hotel's furniture in line with an asset build"}
+	var opt furni.Options
+	sqlCmd := &cobra.Command{
+		Use:   "sql <furnidata.xml>",
+		Short: "Print the SQL that adds and refreshes furniture and catalogue pages",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			f, err := os.Open(args[0])
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			items, err := furni.Parse(f)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "%d furniture definitions\n", len(items))
+			_, err = fmt.Print(furni.SQL(items, opt))
+			return err
+		},
+	}
+	sqlCmd.Flags().IntVar(&opt.Price, "price", 3, "credits for each newly listed offer")
+	sqlCmd.Flags().StringVar(&opt.ParentPage, "parent", "Furni Lines", "catalogue page the furniture lines go under")
+	cmd.AddCommand(sqlCmd)
 	return cmd
 }

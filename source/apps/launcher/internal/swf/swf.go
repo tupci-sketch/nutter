@@ -199,8 +199,15 @@ func Install(packPath, era string) error {
 
 // extractByCategory walks swfDir, extracts each SWF into the appropriate
 // assets subdirectory based on naming conventions, and returns total sprite count.
+//
+// Extracting a SWF writes its images and returns what it found, but writes no
+// manifest; the merge below reads one from each directory, so none was ever
+// there to read. A full build extracted every sprite and listed none, and the
+// client could draw nothing. The sprites are collected here and each
+// directory's manifest written once, at the end, with all of them.
 func extractByCategory(swfDir, era string) (int, error) {
 	total := 0
+	collected := map[string]*swfextract.Manifest{}
 	err := filepath.WalkDir(swfDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -218,10 +225,28 @@ func extractByCategory(swfDir, era string) (int, error) {
 			return nil
 		}
 		total += len(m.Sprites)
+		dirManifest := collected[outDir]
+		if dirManifest == nil {
+			dirManifest = &swfextract.Manifest{Sprites: make(map[string]swfextract.SpriteEntry)}
+			collected[outDir] = dirManifest
+		}
+		for name, entry := range m.Sprites {
+			dirManifest.Sprites[name] = entry
+		}
 		return nil
 	})
 	if err != nil {
 		return total, err
+	}
+
+	for dir, m := range collected {
+		data, err := json.Marshal(m)
+		if err != nil {
+			return total, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "manifest.json"), data, 0o644); err != nil {
+			return total, err
+		}
 	}
 
 	// Build a unified manifest.json for this era combining all categories.
@@ -294,6 +319,13 @@ var assetDataFiles = []string{
 	"productdata.xml",
 }
 
+// dataFileAliases are other names packs give the same data files. A build
+// taken from the live client calls furnidata "furnidata_xml.xml"; a pack like
+// that was turned away as having no furniture data at all.
+var dataFileAliases = map[string]string{
+	"furnidata_xml.xml": "furnidata.xml",
+}
+
 // copyAssetXMLs lifts the data files out of a pack to where the client looks.
 //
 // A pack puts them wherever it likes — some under gamedata/, some at the root
@@ -318,6 +350,9 @@ func copyAssetXMLs(swfDir, era string) error {
 		}
 
 		name := strings.ToLower(filepath.Base(path))
+		if canonical, ok := dataFileAliases[name]; ok {
+			name = canonical
+		}
 		if !wanted[name] || found[name] {
 			return nil
 		}
